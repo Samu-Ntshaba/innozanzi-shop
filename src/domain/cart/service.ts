@@ -1,8 +1,6 @@
 import { randomBytes } from "node:crypto";
-import Decimal from "decimal.js";
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
-import { calculateVatInclusive, money } from "@/lib/money";
 import { getAuthContext } from "@/domain/auth/session";
 
 const CART_COOKIE = "innozanzi-cart";
@@ -44,16 +42,4 @@ export async function getOrCreateCart() {
     cookieStore.set(CART_COOKIE, newToken, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", path: "/", maxAge: CART_DURATION_MS / 1_000 });
   }
   return cart;
-}
-
-export function activeUnitPrice(product: { regularPrice: { toString(): string }; salePrice: { toString(): string } | null; saleStartsAt: Date | null; saleEndsAt: Date | null }, variant?: { regularPrice: { toString(): string } | null; salePrice: { toString(): string } | null } | null) {
-  const now = new Date();
-  const productSaleActive = product.salePrice && (!product.saleStartsAt || product.saleStartsAt <= now) && (!product.saleEndsAt || product.saleEndsAt >= now);
-  return money(variant?.salePrice?.toString() ?? variant?.regularPrice?.toString() ?? (productSaleActive ? product.salePrice!.toString() : product.regularPrice.toString()));
-}
-
-export function calculateCart(items: Array<{ quantity: number; product: Parameters<typeof activeUnitPrice>[0]; variant?: Parameters<typeof activeUnitPrice>[1] }>) {
-  const subtotal = items.reduce((sum, item) => sum.plus(activeUnitPrice(item.product, item.variant).mul(item.quantity)), new Decimal(0));
-  const totals = calculateVatInclusive(subtotal);
-  return { ...totals, itemCount: items.reduce((sum, item) => sum + item.quantity, 0) };
 }
