@@ -10,6 +10,11 @@
 - Payment webhook signature/idempotency boundaries and server-authoritative commerce totals.
 - HSTS, clickjacking, MIME sniffing, referrer, permissions, and cross-origin opener headers.
 - Non-indexed admin/auth areas, canonical metadata, and no-store operational/report responses.
+- Soft-deleted, suspended, disabled and expired-session users are rejected during every authentication lookup.
+- Catalogue uploads are permission-protected, image-only and isolated from private business documents.
+- Paid cancellation requires finance authority and confirmed refund, and releases reservations transactionally.
+- Registration, authentication, recovery, quotation, help-desk and newsletter entry points have server-side abuse limits.
+- Compatible Sharp/PostCSS overrides resolve the 23 July 2026 production dependency audit findings.
 
 ## Pre-launch review
 

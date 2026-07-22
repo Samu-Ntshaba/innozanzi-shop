@@ -21,4 +21,8 @@ Redeploy the last known-good Railway deployment. Schema changes must remain back
 
 Review failed payments/webhooks, email outbox failures, audit activity, low stock, quotation backlog, backup status, response latency, and expiring provider credentials.
 
+All email types—not only campaigns—appear under Admin → Email marketing → System email delivery. A retry reuses the same idempotency key. Investigate Mailtrap sending-domain, suppression and bounce status before repeated retries.
+
+Order cancellation is permitted only before dispatch. The operator must confirm the refund; the transaction then marks paid records refunded, releases each inventory reservation, writes movements/history/audit and cancels the converted quotation. If inventory consistency blocks cancellation, reconcile the ledger instead of bypassing the guard.
+
 Run `POST /api/cron/expire-quotations` daily with `Authorization: Bearer <CRON_SECRET>`. Finance must compare proof amount/reference with the final quotation and bank records before verification. A stock exception blocks verification and order creation; resolve availability or regenerate the quotation rather than bypassing the transaction.

@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/domain/auth/session";
 import { enqueueEmail } from "@/integrations/email/outbox";
 import { emailTemplates } from "@/integrations/email/templates";
+import { assertOrderTransition, reservationAfterRelease } from "@/domain/orders/lifecycle";
 
 const slugify = (value: string) => value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 const text = z.string().trim().min(1).max(200);
@@ -64,14 +65,35 @@ export async function adjustInventory(formData: FormData) {
 export async function setOrderStatus(formData: FormData) {
   const context = await requirePermission("orders.update");
   const { id, status, note, internalNote } = z.object({ id: z.string().uuid(), status: z.enum(["PAYMENT_VERIFIED", "PROCESSING", "SOURCING_ITEMS", "ITEMS_RECEIVED", "PACKING", "READY_FOR_DELIVERY", "DISPATCHED", "IN_TRANSIT", "DELIVERED", "COMPLETED", "CANCELLED"]), note: z.string().trim().min(3).max(500), internalNote: z.string().trim().max(500).optional() }).parse(Object.fromEntries(formData));
+  const refundConfirmed = formData.get("refundConfirmed") === "on";
+  if (status === "CANCELLED") {
+    await requirePermission("payments.approve");
+    if (!refundConfirmed) throw new Error("Confirm the customer refund before cancelling a paid order.");
+  }
   const order = await prisma.$transaction(async (tx) => {
-    const before = await tx.order.findUniqueOrThrow({ where: { id }, select: { status: true } });
-    await tx.order.update({ where: { id }, data: { status, completedAt: status === "COMPLETED" ? new Date() : undefined, cancelledAt: status === "CANCELLED" ? new Date() : undefined } });
+    const before = await tx.order.findUniqueOrThrow({ where: { id }, include: { items: true, payments: true, convertedQuotation: true } });
+    assertOrderTransition(before.status, status);
+    if (status === "CANCELLED") {
+      for (const item of before.items) {
+        if (!item.productId) continue;
+        const inventory = await tx.inventory.findFirst({ where: { productId: item.productId, variantId: item.variantId ?? null } });
+        if (!inventory) throw new Error(`Reserved stock is inconsistent for ${item.productName}. Cancellation was stopped.`);
+        const reserved = reservationAfterRelease(inventory.reserved, item.quantity);
+        const updated = await tx.inventory.update({ where: { id: inventory.id }, data: { reserved } });
+        await tx.inventoryMovement.create({ data: { inventoryId: inventory.id, actorId: context.user.id, type: "RESERVATION_RELEASE", quantity: -item.quantity, balanceAfter: updated.onHand - updated.reserved, reason: "Paid order cancelled after confirmed refund", referenceType: "Order", referenceId: before.id } });
+      }
+      await tx.payment.updateMany({ where: { orderId: before.id, status: "PAID" }, data: { status: "REFUNDED" } });
+      if (before.convertedQuotation) {
+        await tx.quotation.update({ where: { id: before.convertedQuotation.id }, data: { status: "CANCELLED" } });
+        await tx.quotationStatusHistory.create({ data: { quotationId: before.convertedQuotation.id, fromStatus: before.convertedQuotation.status, toStatus: "CANCELLED", actorId: context.user.id, note } });
+      }
+    }
+    await tx.order.update({ where: { id }, data: { status, paymentStatus: status === "CANCELLED" ? "REFUNDED" : undefined, completedAt: status === "COMPLETED" ? new Date() : undefined, cancelledAt: status === "CANCELLED" ? new Date() : undefined } });
     await tx.orderStatusHistory.create({ data: { orderId: id, fromStatus: before.status, toStatus: status, actorId: context.user.id, note } });
     await tx.deliveryTrackingEvent.create({ data: { orderId: id, status, actorId: context.user.id, publicNote: note, internalNote: internalNote || null } });
-    await tx.auditLog.create({ data: { actorId: context.user.id, action: "order.status", entityType: "Order", entityId: id, before, after: { status, note } } });
+    await tx.auditLog.create({ data: { actorId: context.user.id, action: status === "CANCELLED" ? "order.cancel-and-release" : "order.status", entityType: "Order", entityId: id, before: { status: before.status, paymentStatus: before.paymentStatus }, after: { status, note, refundConfirmed: status === "CANCELLED" ? true : undefined } } });
     return tx.order.findUniqueOrThrow({ where: { id }, select: { orderNumber: true, email: true, userId: true } });
-  });
+  }, { isolationLevel: "Serializable" });
   await enqueueEmail(emailTemplates.orderStatus(order.email, order.orderNumber, status), order.userId ?? undefined);
   revalidatePath("/admin/orders");
 }

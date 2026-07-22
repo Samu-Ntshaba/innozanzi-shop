@@ -3,6 +3,7 @@ import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { hasPermission, type PermissionKey } from "./permissions";
+import { isSessionUserEligible } from "./rules";
 
 const SESSION_DURATION_MS = 30 * 24 * 60 * 60 * 1_000;
 const cookieName =
@@ -62,6 +63,7 @@ export async function getAuthContext() {
           email: true,
           name: true,
           status: true,
+          deletedAt: true,
           roles: {
             select: {
               role: {
@@ -82,7 +84,7 @@ export async function getAuthContext() {
     },
   });
 
-  if (!session || session.expires <= new Date() || session.user.status !== "ACTIVE") {
+  if (!session || session.expires <= new Date() || !isSessionUserEligible(session.user)) {
     return null;
   }
 

@@ -108,7 +108,7 @@ Domain modules may import `lib`, `schemas`, and integration contracts. App route
 
 ## Authentication and authorization
 
-Auth.js with Prisma-backed sessions is the preferred implementation. Credentials authentication uses Argon2id password hashes, verified email, secure `HttpOnly` cookies, session rotation, and generic recovery responses to prevent account discovery.
+Authentication uses custom database-backed opaque sessions. The browser receives a 256-bit random `HttpOnly`, `SameSite=Lax`, production-secure cookie; PostgreSQL stores only its SHA-256 hash. Credentials use Argon2id, verified email and generic recovery responses. Every session lookup rejects expired sessions and non-active, suspended, disabled or soft-deleted users.
 
 Authorization is enforced in domain services and protected route layouts. Permission evaluation is:
 
@@ -131,7 +131,7 @@ Admin pages provide navigation convenience only; every read and mutation repeats
 
 ### Email
 
-`EmailProvider` accepts a normalized message and template result. Templates render both HTML and plain text. Sending should move to an outbox/worker once infrastructure is available; order transactions never depend on a synchronous email provider response.
+`EmailProvider` accepts a normalized message and template result. Templates render both HTML and plain text. Required delivery is currently synchronous and fail-closed where business records must not be saved after provider rejection. Successes and failures are durably recorded and retryable. A background worker remains an optional future change that requires an explicit business decision about transaction semantics.
 
 ## Operational boundaries
 

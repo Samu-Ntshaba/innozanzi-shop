@@ -1,3 +1,16 @@
-import Link from"next/link";import{AdminPage,Panel,inputClass,StatusBadge,tableClass}from"@/components/admin/admin-ui";import{setOrderStatus}from"@/domain/admin/actions";import{getAdminOrders}from"@/domain/admin/queries";import{requirePermission}from"@/domain/auth/session";
-const statuses=["PAYMENT_VERIFIED","PROCESSING","SOURCING_ITEMS","ITEMS_RECEIVED","PACKING","READY_FOR_DELIVERY","DISPATCHED","IN_TRANSIT","DELIVERED","COMPLETED","CANCELLED"];
-export default async function Page(){await requirePermission("orders.view");const rows=await getAdminOrders();return <AdminPage title="Order fulfilment" description="Orders appear only after payment verification. Customer-visible progress is emailed and added to tracking."><Panel className="p-0"><table className={tableClass}><thead><tr><th>Order</th><th>Customer</th><th>Total</th><th>Payment</th><th>Items</th><th>Fulfilment update</th></tr></thead><tbody>{rows.map(x=><tr key={x.id}><td><strong>{x.orderNumber}</strong><br/><span className="text-xs text-slate-500">{x.createdAt.toLocaleDateString("en-ZA")}</span></td><td>{x.email}</td><td>R {x.grandTotal.toString()}</td><td><StatusBadge value={x.paymentStatus}/></td><td>{x._count.items}</td><td><form action={setOrderStatus} className="grid min-w-72 gap-2"><input type="hidden" name="id" value={x.id}/><select className={inputClass} name="status" defaultValue={x.status}>{statuses.map(s=><option key={s}>{s.replaceAll("_"," ")}</option>)}</select><input className={inputClass} name="note" placeholder="Customer-facing tracking update" required/><input className={inputClass} name="internalNote" placeholder="Private operations note (optional)"/><div className="flex items-center justify-between"><Link className="text-xs text-sky-700 underline" href={`/account/orders/${x.orderNumber}`} target="_blank">Preview tracking</Link><button className="bg-sky-700 px-3 py-2 text-xs font-bold text-white">Publish update</button></div></form></td></tr>)}</tbody></table></Panel></AdminPage>}
+import Link from "next/link";
+import { AdminPage, Panel, StatusBadge, tableClass } from "@/components/admin/admin-ui";
+import { getAdminOrders } from "@/domain/admin/queries";
+import { requirePermission } from "@/domain/auth/session";
+
+export default async function Page() {
+  await requirePermission("orders.view");
+  const rows = await getAdminOrders();
+  return <AdminPage title="Order fulfilment" description="Orders appear only after payment verification. Open an order to publish controlled fulfilment updates.">
+    <Panel className="p-0"><table className={tableClass}><thead><tr><th>Order</th><th>Customer</th><th>Total</th><th>Payment</th><th>Fulfilment</th><th>Action</th></tr></thead><tbody>{rows.map((order) => <tr key={order.id}>
+      <td><strong>{order.orderNumber}</strong><br/><span className="text-xs text-slate-500">{order.createdAt.toLocaleDateString("en-ZA")}</span></td>
+      <td>{order.email}</td><td>R {order.grandTotal.toString()}</td><td><StatusBadge value={order.paymentStatus}/></td><td><StatusBadge value={order.status}/></td>
+      <td><Link className="font-semibold text-sky-700" href={`/admin/orders/${order.id}`}>Open fulfilment record →</Link></td>
+    </tr>)}</tbody></table></Panel>
+  </AdminPage>;
+}

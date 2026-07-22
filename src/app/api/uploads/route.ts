@@ -11,14 +11,7 @@ const ALLOWED_TYPES = new Set([
   "image/jpeg",
   "image/png",
   "image/webp",
-  "image/gif",
   "image/avif",
-  "application/pdf",
-  "text/plain",
-  "text/csv",
-  "application/zip",
-  "application/msword",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 ]);
 
 function safeFilename(filename: string) {
@@ -82,7 +75,7 @@ export async function POST(request: Request) {
     }
 
     const { supabase, bucket } = await ensureBucket();
-    const objectPath = `${new Date().toISOString().slice(0, 10)}/${randomUUID()}-${safeFilename(file.name)}`;
+    const objectPath = `catalogue/${new Date().toISOString().slice(0, 10)}/${randomUUID()}-${safeFilename(file.name)}`;
     const { error } = await supabase.storage.from(bucket).upload(objectPath, file, {
       contentType: file.type,
       upsert: false,
@@ -102,7 +95,7 @@ export async function POST(request: Request) {
       url: data.publicUrl,
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Upload failed.";
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error("Catalogue image upload failed", error);
+    return NextResponse.json({ error: "The image could not be uploaded." }, { status: 500 });
   }
 }

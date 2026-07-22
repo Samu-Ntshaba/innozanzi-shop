@@ -1,90 +1,58 @@
-# Route map
+# Current route and authorization map
 
-## Public storefront
+## Public and authentication
+
+| Route | Purpose/access |
+| --- | --- |
+| `/`, `/shop`, `/categories/[slug]`, `/products/[slug]` | Public catalogue and discovery |
+| `/cart` | Anonymous or authenticated quotation list |
+| `/quotations/request` | Authenticated multi-product quotation submission |
+| `/partners`, `/partners/apply` | Public programme and authentication continuation |
+| `/contact`, `/how-to`, `/policies/[slug]` | Support and managed content |
+| `/newsletter/thank-you`, `/unsubscribe` | Subscription lifecycle |
+| `/register`, `/sign-in`, `/verify-email`, `/forgot-password`, `/reset-password` | Customer identity lifecycle |
+
+## Customer account
+
+Every account page calls `requireUser`; record queries additionally scope by the authenticated user.
 
 | Route | Purpose |
 | --- | --- |
-| `/` | Homepage, featured catalogue, procurement CTA and newsletter |
-| `/shop` | Searchable, filterable and sortable product catalogue |
-| `/categories/[slug]` | SEO category landing and filtered catalogue |
-| `/products/[slug]` | Product gallery, variants, stock, documents and reviews |
-| `/cart` | Persistent quotation list with requested quantities and indicative values |
-| `/quotations/request` | Multi-product quotation request |
-| `/search` | Full catalogue search results |
-| `/contact`, `/faq` | Support content |
-| `/policies/[slug]` | Delivery, returns, privacy and legal pages |
-
-## Authentication and customer account
-
-| Route | Protection/purpose |
-| --- | --- |
-| `/sign-in`, `/register` | Public identity entry points |
-| `/verify-email`, `/forgot-password`, `/reset-password` | Token-based identity workflows |
-| `/account` | Authenticated customer dashboard |
-| `/account/profile`, `/account/company`, `/account/addresses` | Customer records |
-| `/account/orders`, `/account/orders/[orderNumber]` | Ownership-checked order history/details |
-| `/account/quotations`, `/account/quotations/[quotationNumber]` | Ownership-checked requests and quotations |
-| `/account/orders/[orderNumber]` | Ownership-checked fulfilment and delivery timeline |
-| `/account/wishlist`, `/account/recently-viewed` | Customer product lists |
-| `/account/security` | Password and active-session management |
+| `/account` | Customer operational overview |
+| `/account/quotations` | Quotation status, PDFs and private proof upload |
+| `/account/orders` | Customer-owned order history |
+| `/account/orders/[orderNumber]` | Customer-owned fulfilment timeline |
+| `/account/partnership`, `/account/partnership/apply` | Application/status and private evidence |
+| `/account/partner` | Approval-gated partner workspace |
+| `/account/partner/requests`, `/new`, `/[id]` | Owner-scoped partner sourcing requests/offers |
 
 ## Administration
 
-All `/admin` routes require an active authenticated user and the relevant server-side permission.
+All reads and mutations repeat server-side permissions; navigation visibility is not an authorization boundary.
 
-| Route | Permission |
+| Route group | Required permission |
 | --- | --- |
-| `/admin` | `reports.view` |
-| `/admin/products` | `products.view` |
-| `/admin/products/new` | `products.create` |
-| `/admin/products/[id]` | `products.update` |
-| `/admin/categories`, `/admin/brands` | `products.update` |
-| `/admin/suppliers` | `products.update` |
-| `/admin/inventory`, `/admin/inventory/movements` | `inventory.manage` |
-| `/admin/orders`, `/admin/orders/[id]` | `orders.view`; mutation requires `orders.update` |
-| `/admin/payments` | `payments.approve` for manual decisions |
-| `/admin/customers`, `/admin/customers/[id]` | `customers.manage` |
-| `/admin/quotations`, `/admin/quotations/[id]` | `quotations.manage` |
-| `/admin/promotions` | dedicated promotion permission added during RBAC implementation |
-| `/admin/reviews` | dedicated review permission added during RBAC implementation |
-| `/admin/content` | dedicated content permission added during RBAC implementation |
-| `/admin/reports` | `reports.view` |
-| `/admin/users`, `/admin/roles` | `users.manage` |
-| `/admin/settings` | `settings.manage` |
-| `/admin/audit-log` | `users.manage` or a dedicated audit permission |
+| `/admin` and reports/CSV | `reports.view` |
+| products, categories, brands, suppliers, Syntech | `products.view` or `products.update` as appropriate |
+| inventory | `inventory.manage` |
+| quotations and invoices | `quotations.manage` |
+| payments | `payments.approve` |
+| orders and `/admin/orders/[id]` | `orders.view`; mutation `orders.update`; cancellation also `payments.approve` |
+| customers, help desk, email marketing/delivery | `customers.manage` |
+| promotions/content | `settings.manage` |
+| reviews | `products.update` |
+| access control/audit | `users.manage` |
+| partnership dashboard/applications/partners/requests | dedicated `partnership.*` permissions |
 
-## Route Handlers
+## Route handlers
 
-| Route | Contract/security |
+| Route | Security/contract |
 | --- | --- |
-| `POST /api/auth/[...nextauth]` | Auth.js handlers and CSRF/session protections |
-| `POST /api/uploads` | Replaced by typed purpose-specific uploads; authenticated and authorized |
-| `POST /api/uploads/product-image` | Image validation; product permission; public storage |
-| `POST /api/uploads/payment-proof` | Ownership check; private storage |
-| `GET /api/documents/[id]` | Ownership/permission check followed by short-lived signed URL |
-| `POST /api/cron/expire-quotations` | `CRON_SECRET` authenticated expiry of unpaid final quotations |
-| `POST /api/payments/[provider]/initialize` | Checkout-bound initialization and idempotency |
-| `POST /api/webhooks/paystack` | Signature verification and idempotent payment transition |
-| `POST /api/webhooks/yoco` | Signature verification and idempotent payment transition |
-| `GET /api/invoices/[orderNumber]` | Ownership/permission check and generated PDF |
-| `GET /api/quotations/[quotationNumber]/pdf` | Ownership/permission check and generated PDF |
-| `GET /api/admin/reports/[report].csv` | Permission check and streamed CSV |
-| `POST /api/openai` | Existing protected, server-to-server optional integration |
-
-Server Actions are preferred for first-party forms such as cart updates, profile changes, catalogue editing, inventory adjustments, quotation editing, and order transitions. Actions use Zod, authentication, permission checks, domain services, and consistent typed results.
-# Partnership routes
-
-| Surface | Route | Access |
-| --- | --- | --- |
-| Public | `/partners` | Everyone |
-| Auth continuation | `/partners/apply` | Preserves return URL, then sign-in/registration |
-| Application status | `/account/partnership` | Verified customer |
-| Application wizard | `/account/partnership/apply` | Eligible customer/application owner |
-| Partner workspace | `/account/partner` | Approved or conditionally approved partner |
-| Partner requests | `/account/partner/requests` | Approved partner, owner-scoped |
-| Admin overview | `/admin/partnerships` | Partnership dashboard permission |
-| Admin applications | `/admin/partnerships/applications` | Application review permission |
-| Admin partners | `/admin/partnerships/partners` | Partner management permission |
-| Admin requests | `/admin/partnerships/requests` | Request management permission |
-
-Private partnership evidence is downloaded through `/api/documents/[id]`, which checks ownership or the relevant admin document permission before issuing a short-lived signed URL.
+| `GET /api/health` | Public dependency readiness; no-store |
+| `POST /api/uploads` | `products.update`; image-only public catalogue assets |
+| `GET /api/documents/[id]` | Owner or finance/partnership permission; five-minute private signed URL |
+| `GET /api/quotations/[quotationNumber]/pdf` | Quotation owner or `quotations.manage` |
+| `POST /api/cron/expire-quotations` | Timing-safe `CRON_SECRET` bearer validation |
+| `POST /api/webhooks/[provider]` | Paystack/Yoco signature validation and idempotent processing |
+| `POST /api/openai` | Timing-safe server secret; bounded input/output; no stored prompts |
+| `GET /api/admin/reports/[report]/csv` | `reports.view` |

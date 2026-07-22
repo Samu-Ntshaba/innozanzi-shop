@@ -12,7 +12,7 @@ import {
   registrationSchema,
 } from "@/schemas/auth";
 import { hashPassword, verifyPassword } from "@/domain/auth/password";
-import { clearAuthAttempts, consumeAuthAttempt } from "@/domain/auth/rate-limit";
+import { clearAuthAttempts, consumeAuthAttempt, consumeRateLimit } from "@/domain/auth/rate-limit";
 import { createSession, deleteCurrentSession } from "@/domain/auth/session";
 import { enqueueEmail } from "@/integrations/email/outbox";
 import { emailTemplates } from "@/integrations/email/templates";
@@ -57,6 +57,10 @@ export async function registerAction(formData: FormData) {
     confirmPassword: value(formData, "confirmPassword"),
   });
   if (!parsed.success) redirect("/register?error=invalid");
+
+  const requestHeaders = await headers();
+  const ip = requestHeaders.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+  if (!consumeRateLimit(`register:${ip}:${parsed.data.email}`, 5, 60 * 60_000).allowed) redirect("/register?error=rate-limited");
 
   const existing = await prisma.user.findUnique({ where: { email: parsed.data.email }, select: { id: true } });
   if (existing) redirect("/register?status=check-email");
@@ -129,6 +133,9 @@ export async function verifyEmailAction(formData: FormData) {
 export async function requestPasswordResetAction(formData: FormData) {
   const parsed = passwordResetRequestSchema.safeParse({ email: value(formData, "email") });
   if (parsed.success) {
+    const requestHeaders = await headers();
+    const ip = requestHeaders.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+    if (!consumeRateLimit(`password-reset:${ip}:${parsed.data.email}`, 3, 60 * 60_000).allowed) redirect("/forgot-password?status=sent");
     const user = await prisma.user.findFirst({ where: { email: parsed.data.email, customerProfile: { isNot: null } }, select: { id: true } });
     if (user) {
       const rawToken = randomBytes(32).toString("base64url");

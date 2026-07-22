@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { hasPermission, isProtectedRoleRemoval } from "../../src/domain/auth/permissions";
+import { isSessionUserEligible } from "../../src/domain/auth/rules";
 
 describe("hasPermission", () => {
   it("requires an explicit allow", () => {
@@ -27,5 +28,15 @@ describe("role assignment protections", () => {
   it("allows other role removals", () => {
     expect(isProtectedRoleRemoval("user-1", "user-2", "super-administrator")).toBe(false);
     expect(isProtectedRoleRemoval("user-1", "user-1", "administrator")).toBe(false);
+  });
+});
+
+describe("session account eligibility", () => {
+  it("rejects suspended, disabled, pending and soft-deleted accounts", () => {
+    expect(isSessionUserEligible({ status: "ACTIVE", deletedAt: null })).toBe(true);
+    expect(isSessionUserEligible({ status: "SUSPENDED", deletedAt: null })).toBe(false);
+    expect(isSessionUserEligible({ status: "DISABLED", deletedAt: null })).toBe(false);
+    expect(isSessionUserEligible({ status: "PENDING_VERIFICATION", deletedAt: null })).toBe(false);
+    expect(isSessionUserEligible({ status: "ACTIVE", deletedAt: new Date() })).toBe(false);
   });
 });

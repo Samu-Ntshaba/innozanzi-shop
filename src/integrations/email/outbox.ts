@@ -16,7 +16,19 @@ export async function enqueueEmail(message: EmailMessage, userId?: string) {
   if (existing?.status === "SENT" && deliveryMode !== "sandbox" && existingData?.deliveryMode === deliveryMode) return existing;
   if (existing?.status === "SENT" && deliveryMode === "sandbox" && existingData?.deliveryMode === "sandbox") return existing;
 
-  const result = await getEmailProvider().send(message);
+  let result: { messageId: string };
+  try {
+    result = await getEmailProvider().send(message);
+  } catch (error) {
+    const failureData = { to: message.to, text: message.text, idempotencyKey: message.idempotencyKey, deliveryMode };
+    const failure = error instanceof Error ? error.message.slice(0, 2_000) : "Email provider rejected the message.";
+    if (existing) {
+      await prisma.notification.update({ where: { id: existing.id }, data: { userId: userId ?? existing.userId, subject: message.subject, body: message.html, data: failureData, status: "FAILED", sentAt: null, error: failure } });
+    } else {
+      await prisma.notification.create({ data: { userId, type: "EMAIL_OUTBOX", channel: "email", subject: message.subject, body: message.html, data: failureData, status: "FAILED", error: failure } });
+    }
+    throw error;
+  }
   const data = { to: message.to, text: message.text, idempotencyKey: message.idempotencyKey, messageId: result.messageId, deliveryMode };
 
   if (existing) {

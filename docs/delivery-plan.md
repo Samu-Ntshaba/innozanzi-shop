@@ -1,4 +1,6 @@
-# Delivery plan, decisions and risks
+# Historical delivery plan, decisions and risks
+
+> Historical context: the implementation has passed these original phase gates and evolved into a quotation-led platform with partnership management. Use `system-audit-2026-07-23.md` for current completion and production readiness. Do not treat unimplemented early checkout targets below as current requirements.
 
 ## Current baseline
 

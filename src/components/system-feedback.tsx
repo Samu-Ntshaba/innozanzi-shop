@@ -40,8 +40,7 @@ export function SystemFeedback() {
       setNotice({ tone: "busy", message: "Processing your request…" });
 
       timeout = setTimeout(() => {
-        restore();
-        setNotice({ tone: "error", message: "This request is taking too long. Please check your connection and try again." });
+        setNotice({ tone: "busy", message: "This request is still processing. Please keep this page open and do not submit it again." });
       }, REQUEST_TIMEOUT_MS);
     };
 

@@ -9,8 +9,9 @@ A production-oriented quotation, payment-verification and fulfilment platform fo
 - [Target data model](docs/data-model.md)
 - [Delivery plan, assumptions and risks](docs/delivery-plan.md)
 - [Quotation-to-delivery implementation progress](docs/quotation-lifecycle-progress.md)
+- [Final production-readiness audit](docs/system-audit-2026-07-23.md)
 
-Implementation is intentionally delivered through reviewable phase gates. Phase 1 documents the target system; Phase 2 replaces the current scaffold schema with authentication, RBAC and foundational commerce domains.
+The current implementation includes authentication/RBAC, catalogue and inventory, quotation-to-delivery operations, CRM communications, reporting and partnership management. Historical phase documents are retained for decision context; the final audit describes the current system.
 
 ## Setup
 
@@ -43,9 +44,9 @@ Set `OPENAI_API_KEY`, `OPENAI_MODEL`, and `OPENAI_ROUTE_SECRET` to enable the pr
 
 ## Authentication and administration
 
-Authentication uses Argon2id password hashes and opaque session cookies. Only a SHA-256 hash of each session token is stored in PostgreSQL. Configure `ADMIN_EMAIL`, `ADMIN_PASSWORD`, and `ADMIN_NAME`, then run `npm run db:seed` to create or update the initial Super Administrator. The `/admin` layout enforces permissions on the server.
+Authentication uses Argon2id password hashes and opaque session cookies. Only a SHA-256 hash of each session token is stored in PostgreSQL. Disabled, suspended and soft-deleted users are rejected on every session lookup. Configure `ADMIN_EMAIL`, `ADMIN_PASSWORD`, and `ADMIN_NAME`, then run the seed only in an environment where its full catalogue/bootstrap effects are intended. Use `scripts/upsert-super-admin.ts` for narrowly scoped administrator bootstrap.
 
-Transactional email uses Mailtrap. Configure `MAILTRAP_API_TOKEN`, `MAIL_FROM_EMAIL` (a verified Mailtrap sending-domain address), `MAIL_FROM_NAME`, `EMAIL_LOGO_URL`, `SUPPORT_EMAIL`, `EMAIL_UNSUBSCRIBE_SECRET`, and `NEXT_PUBLIC_SITE_URL`. Delivery is immediate and also recorded in the `Notification` outbox with `PENDING`, `SENT`, or `FAILED` status. Without a Mailtrap token, local development falls back to console delivery.
+Transactional email uses Mailtrap Email Sending. Configure `MAILTRAP_API_TOKEN`, `MAILTRAP_DELIVERY_MODE`, `MAIL_FROM_EMAIL` (a verified sending-domain address), `MAIL_FROM_NAME`, `EMAIL_DARK_HEADER_LOGO_URL`, `SUPPORT_EMAIL`, `EMAIL_UNSUBSCRIBE_SECRET`, and `NEXT_PUBLIC_SITE_URL`. Required delivery is immediate and fail-closed for the associated business submission. Successes and failures are recorded in `Notification`; authorised staff can retry failures from email administration. Sandbox is ignored on production/Railway. Without credentials, only local development falls back to console delivery.
 
 New customer accounts remain pending until they use the emailed verification link. Password resets, quotation lifecycle messages, invoices, order status changes, and payment-proof decisions use shared branded templates.
 
