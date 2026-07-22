@@ -1,24 +1,11 @@
 import Link from "next/link";
+import { AlertCircle, CheckCircle2 } from "lucide-react";
 import { registerAction } from "../actions";
+import { AuthShell, authInputClass } from "@/components/auth/auth-shell";
 
-export default async function RegisterPage({ searchParams }: { searchParams: Promise<{ error?: string; status?: string }> }) {
-  const params = await searchParams;
-  return (
-    <main className="grid min-h-screen place-items-center bg-zinc-50 p-6">
-      <section className="w-full max-w-md rounded-2xl border border-zinc-200 bg-white p-8 shadow-sm">
-        <h1 className="text-2xl font-semibold text-zinc-950">Create an account</h1>
-        {params.error && <p className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">Check your details and password requirements.</p>}
-        {params.status === "check-email" && <p className="mt-4 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-800">If registration was successful, check your email to verify the account.</p>}
-        <form action={registerAction} className="mt-6 space-y-4">
-          <label className="block text-sm font-medium">Full name<input className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2" name="name" autoComplete="name" required /></label>
-          <label className="block text-sm font-medium">Email<input className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2" name="email" type="email" autoComplete="email" required /></label>
-          <label className="block text-sm font-medium">South African phone (optional)<input className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2" name="phone" type="tel" autoComplete="tel" /></label>
-          <label className="block text-sm font-medium">Password<input className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2" name="password" type="password" autoComplete="new-password" minLength={12} required /></label>
-          <label className="block text-sm font-medium">Confirm password<input className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2" name="confirmPassword" type="password" autoComplete="new-password" minLength={12} required /></label>
-          <button className="w-full rounded-lg bg-zinc-900 px-4 py-3 font-medium text-white" type="submit">Register</button>
-        </form>
-        <p className="mt-5 text-sm text-zinc-600">Already registered? <Link className="font-medium text-zinc-950 underline" href="/sign-in">Sign in</Link></p>
-      </section>
-    </main>
-  );
-}
+export default async function RegisterPage({searchParams}:{searchParams:Promise<{error?:string;status?:string}>}){const params=await searchParams;return <AuthShell eyebrow="Customer registration" title="Create your account" description="Set up your secure customer workspace for quotations, invoices, orders and support." footer={<>Already have an account? <Link className="font-bold text-sky-700 hover:text-sky-800" href="/sign-in">Sign in</Link></>}>
+  {params.error?<Notice tone="error">Check your details. Passwords must match and contain at least 12 characters.</Notice>:null}{params.status==="check-email"?<Notice tone="success">Check your inbox for the verification link from support@innozanzi.co.za.</Notice>:null}
+  <form action={registerAction} className="mt-7 grid gap-4 sm:grid-cols-2"><Field label="Full name" name="name" autoComplete="name" placeholder="Your full name" className="sm:col-span-2"/><Field label="Email address" name="email" type="email" inputMode="email" autoComplete="email" placeholder="you@company.co.za"/><Field label="Phone (optional)" name="phone" type="tel" inputMode="tel" autoComplete="tel" placeholder="+27 00 000 0000" optional/><Field label="Password" name="password" type="password" autoComplete="new-password" placeholder="At least 12 characters" minLength={12}/><Field label="Confirm password" name="confirmPassword" type="password" autoComplete="new-password" placeholder="Repeat password" minLength={12}/><div className="rounded-lg bg-slate-50 p-3 text-xs leading-5 text-slate-600 sm:col-span-2"><strong className="text-slate-800">Account security:</strong> use at least 12 characters. We’ll email you a secure link to verify this customer account.</div><button className="min-h-12 w-full rounded-lg bg-[#0a6ed1] px-5 py-3 font-bold text-white shadow-sm transition hover:bg-[#085caf] focus-visible:ring-4 focus-visible:ring-sky-200 sm:col-span-2" type="submit">Create customer account</button></form>
+  </AuthShell>}
+type FieldProps={label:string;name:string;type?:string;inputMode?:"email"|"tel";autoComplete:string;placeholder:string;className?:string;optional?:boolean;minLength?:number};function Field({label,name,type="text",inputMode,autoComplete,placeholder,className="",optional=false,minLength}:FieldProps){return <label className={`block text-sm font-semibold text-slate-800 ${className}`}>{label}<input className={authInputClass} name={name} type={type} inputMode={inputMode} autoComplete={autoComplete} placeholder={placeholder} minLength={minLength} required={!optional}/></label>}
+function Notice({tone,children}:{tone:"error"|"success";children:React.ReactNode}){const Icon=tone==="error"?AlertCircle:CheckCircle2;return <div className={`mt-5 flex gap-3 rounded-lg border p-3 text-sm ${tone==="error"?"border-red-200 bg-red-50 text-red-800":"border-emerald-200 bg-emerald-50 text-emerald-800"}`} role="status"><Icon className="mt-0.5 size-4 shrink-0"/><span>{children}</span></div>}

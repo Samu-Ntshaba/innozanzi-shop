@@ -1,25 +1,11 @@
 import Link from "next/link";
+import { AlertCircle, CheckCircle2, LockKeyhole, Mail } from "lucide-react";
 import { loginAction } from "../actions";
+import { AuthShell, authInputClass } from "@/components/auth/auth-shell";
 
-export default async function SignInPage({ searchParams }: { searchParams: Promise<{ error?: string; status?: string }> }) {
-  const { error, status } = await searchParams;
-  const message = error === "rate-limited" ? "Too many attempts. Try again in 15 minutes." : error ? "The email or password is incorrect." : null;
-
-  return (
-    <main className="grid min-h-screen place-items-center bg-zinc-50 p-6">
-      <section className="w-full max-w-md rounded-2xl border border-zinc-200 bg-white p-8 shadow-sm">
-        <h1 className="text-2xl font-semibold text-zinc-950">Sign in</h1>
-        <p className="mt-2 text-sm text-zinc-600">Access your Innozanzi Shop account.</p>
-        {message && <p className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">{message}</p>}
-        {status === "password-reset" && <p className="mt-4 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-800">Your password was reset. You can now sign in.</p>}
-        <form action={loginAction} className="mt-6 space-y-4">
-          <label className="block text-sm font-medium text-zinc-800">Email<input className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2" name="email" type="email" autoComplete="email" required /></label>
-          <label className="block text-sm font-medium text-zinc-800">Password<input className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2" name="password" type="password" autoComplete="current-password" required /></label>
-          <button className="w-full rounded-lg bg-zinc-900 px-4 py-3 font-medium text-white" type="submit">Sign in</button>
-        </form>
-        <p className="mt-5 text-sm text-zinc-600">New customer? <Link className="font-medium text-zinc-950 underline" href="/register">Create an account</Link></p>
-        <p className="mt-2 text-sm"><Link className="text-zinc-700 underline" href="/forgot-password">Forgot your password?</Link></p>
-      </section>
-    </main>
-  );
-}
+export default async function SignInPage({searchParams}:{searchParams:Promise<{error?:string;status?:string}>}){const{error,status}=await searchParams;const message=error==="rate-limited"?"Too many sign-in attempts. Please try again in 15 minutes.":error?"The email or password is incorrect.":null;return <AuthShell eyebrow="Welcome back" title="Sign in to your account" description="Access quotations, invoices, orders and support requests from your customer workspace." footer={<>New to Innozanzi? <Link className="font-bold text-sky-700 hover:text-sky-800" href="/register">Create a customer account</Link></>}>
+  {message?<Notice tone="error">{message}</Notice>:null}{status==="password-reset"?<Notice tone="success">Your password was reset. You can now sign in.</Notice>:null}
+  <form action={loginAction} className="mt-7 space-y-5"><label className="block text-sm font-semibold text-slate-800"><span className="flex items-center gap-2"><Mail className="size-4 text-slate-400"/>Email address</span><input className={authInputClass} name="email" type="email" inputMode="email" autoComplete="email" placeholder="you@company.co.za" required/></label><label className="block text-sm font-semibold text-slate-800"><span className="flex items-center gap-2"><LockKeyhole className="size-4 text-slate-400"/>Password</span><input className={authInputClass} name="password" type="password" autoComplete="current-password" placeholder="Enter your password" required/></label><div className="flex justify-end"><Link className="text-sm font-semibold text-sky-700 hover:underline" href="/forgot-password">Forgot password?</Link></div><button className="flex min-h-12 w-full items-center justify-center rounded-lg bg-[#0a6ed1] px-5 py-3 font-bold text-white shadow-sm transition hover:bg-[#085caf] focus-visible:ring-4 focus-visible:ring-sky-200" type="submit">Sign in securely</button></form>
+  <div className="mt-6 flex items-center justify-center gap-2 border-t border-slate-200 pt-5 text-xs text-slate-500"><LockKeyhole className="size-3.5"/>Encrypted and securely managed</div>
+  </AuthShell>}
+function Notice({tone,children}:{tone:"error"|"success";children:React.ReactNode}){const Icon=tone==="error"?AlertCircle:CheckCircle2;return <div className={`mt-5 flex gap-3 rounded-lg border p-3 text-sm ${tone==="error"?"border-red-200 bg-red-50 text-red-800":"border-emerald-200 bg-emerald-50 text-emerald-800"}`} role="status"><Icon className="mt-0.5 size-4 shrink-0"/><span>{children}</span></div>}
