@@ -1,13 +1,8 @@
 import type { ReactNode } from "react";
-
-export function AdminPage({ title, description, actions, children }: { title: string; description: string; actions?: ReactNode; children: ReactNode }) {
-  return <section className="space-y-6"><header className="flex flex-wrap items-end justify-between gap-4"><div><h1 className="text-2xl font-semibold text-slate-950">{title}</h1><p className="mt-1 text-sm text-slate-600">{description}</p></div>{actions}</header>{children}</section>;
-}
-
-export function Panel({ children, className = "" }: { children: ReactNode; className?: string }) {
-  return <div className={`overflow-x-auto rounded-xl border border-slate-200 bg-white p-5 shadow-sm ${className}`}>{children}</div>;
-}
-
-export const inputClass = "rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm";
-export const buttonClass = "rounded-lg bg-[#071b33] px-4 py-2 text-sm font-semibold text-white hover:bg-sky-900";
-export const tableClass = "w-full min-w-[700px] text-left text-sm [&_th]:border-b [&_th]:border-slate-200 [&_th]:px-3 [&_th]:py-3 [&_th]:font-semibold [&_td]:border-b [&_td]:border-slate-100 [&_td]:px-3 [&_td]:py-3";
+export function AdminPage({title,description,actions,children}:{title:string;description:string;actions?:ReactNode;children:ReactNode}){return <section className="space-y-5"><header className="flex flex-wrap items-end justify-between gap-4 border-b border-slate-300 pb-4"><div><p className="mb-1 text-[11px] font-bold uppercase tracking-[.14em] text-sky-700">Innozanzi Business Suite</p><h1 className="text-2xl font-semibold tracking-tight">{title}</h1><p className="mt-1 text-sm text-slate-600">{description}</p></div>{actions}</header>{children}</section>}
+export function Panel({children,className=""}:{children:ReactNode;className?:string}){return <div className={`overflow-x-auto border border-slate-300 bg-white p-5 shadow-sm ${className}`}>{children}</div>}
+export function StatusBadge({value}:{value:string}){const good=["PAID","ACCEPTED","APPROVED","ISSUED","COMPLETED"].includes(value);const warn=["PENDING","OPEN","IN_REVIEW","PENDING_APPROVAL","DRAFT"].includes(value);return <span className={`inline-flex border px-2 py-1 text-[11px] font-bold uppercase tracking-wide ${good?"border-emerald-200 bg-emerald-50 text-emerald-800":warn?"border-amber-200 bg-amber-50 text-amber-800":"border-slate-300 bg-slate-100 text-slate-700"}`}>{value.replaceAll("_"," ")}</span>}
+export function MetricCard({label,value,detail}:{label:string;value:ReactNode;detail?:string}){return <div className="border border-slate-300 bg-white p-5 shadow-sm"><p className="text-xs font-bold uppercase tracking-wider text-slate-500">{label}</p><p className="mt-2 text-3xl font-semibold tabular-nums">{value}</p>{detail?<p className="mt-2 text-xs text-slate-500">{detail}</p>:null}</div>}
+export const inputClass="border border-slate-400 bg-white px-3 py-2 text-sm outline-none focus:border-sky-700 focus:ring-1 focus:ring-sky-700";
+export const buttonClass="bg-[#0a6ed1] px-4 py-2 text-sm font-semibold text-white hover:bg-[#085caf]";
+export const tableClass="w-full min-w-[760px] border-collapse text-left text-sm [&_thead]:bg-slate-100 [&_th]:border-b [&_th]:border-slate-300 [&_th]:px-3 [&_th]:py-2.5 [&_th]:text-[11px] [&_th]:font-bold [&_th]:uppercase [&_th]:tracking-wider [&_th]:text-slate-600 [&_td]:border-b [&_td]:border-slate-200 [&_td]:px-3 [&_td]:py-3 [&_tbody_tr:hover]:bg-sky-50/60";

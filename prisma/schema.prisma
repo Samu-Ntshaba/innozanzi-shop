@@ -137,12 +137,23 @@ enum QuotationRequestStatus {
 
 enum QuotationStatus {
   DRAFT
+  PENDING_APPROVAL
+  DECLINED_INTERNAL
   ISSUED
   ACCEPTED
   REJECTED
   EXPIRED
   CONVERTED
   CANCELLED
+}
+
+enum InvoiceStatus {
+  DRAFT
+  ISSUED
+  PARTIALLY_PAID
+  PAID
+  OVERDUE
+  VOID
 }
 
 enum ReviewStatus {
@@ -923,6 +934,7 @@ model QuotationRequest {
   deliveryAddress    Json?
   requirements       String?                      @db.Text
   customerNotes      String?                      @db.Text
+  markupPercent      Decimal                      @default(0) @db.Decimal(7, 4)
   createdAt          DateTime                     @default(now())
   updatedAt          DateTime                     @updatedAt
   user               User?                        @relation(fields: [userId], references: [id], onDelete: SetNull)
@@ -983,6 +995,11 @@ model Quotation {
   validUntil         DateTime
   terms              String?                  @db.Text
   notes              String?                  @db.Text
+  aiGenerated        Boolean                  @default(false)
+  aiRationale        String?                  @db.Text
+  internalReviewNote String?                  @db.Text
+  reviewedAt         DateTime?
+  reviewedByEmail    String?
   pdfPath            String?
   issuedAt           DateTime?
   acceptedAt         DateTime?
@@ -993,10 +1010,35 @@ model Quotation {
   convertedOrder     Order?                   @relation("ConvertedOrder", fields: [convertedOrderId], references: [id], onDelete: SetNull)
   items              QuotationItem[]
   statusHistory      QuotationStatusHistory[]
+  invoices           Invoice[]
 
   @@unique([quotationRequestId, version])
   @@index([status, createdAt])
   @@index([customerId, createdAt])
+}
+
+model Invoice {
+  id String @id @default(uuid()) @db.Uuid
+  invoiceNumber String @unique
+  quotationId String? @db.Uuid
+  status InvoiceStatus @default(DRAFT)
+  customerName String
+  customerEmail String
+  companyName String?
+  currency String @default("ZAR") @db.Char(3)
+  subtotal Decimal @db.Decimal(19, 4)
+  vatTotal Decimal @default(0) @db.Decimal(19, 4)
+  grandTotal Decimal @db.Decimal(19, 4)
+  issuedAt DateTime?
+  dueAt DateTime
+  paidAt DateTime?
+  notes String? @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  quotation Quotation? @relation(fields: [quotationId], references: [id], onDelete: SetNull)
+  @@index([status, dueAt])
+  @@index([customerEmail, createdAt])
+  @@index([quotationId])
 }
 
 model QuotationItem {

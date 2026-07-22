@@ -1,0 +1,11 @@
+ALTER TYPE "QuotationStatus" ADD VALUE IF NOT EXISTS 'PENDING_APPROVAL';
+ALTER TYPE "QuotationStatus" ADD VALUE IF NOT EXISTS 'DECLINED_INTERNAL';
+CREATE TYPE "InvoiceStatus" AS ENUM ('DRAFT', 'ISSUED', 'PARTIALLY_PAID', 'PAID', 'OVERDUE', 'VOID');
+ALTER TABLE "QuotationRequest" ADD COLUMN "markupPercent" DECIMAL(7,4) NOT NULL DEFAULT 0;
+ALTER TABLE "Quotation" ADD COLUMN "aiGenerated" BOOLEAN NOT NULL DEFAULT false, ADD COLUMN "aiRationale" TEXT, ADD COLUMN "internalReviewNote" TEXT, ADD COLUMN "reviewedAt" TIMESTAMP(3), ADD COLUMN "reviewedByEmail" TEXT;
+CREATE TABLE "Invoice" ("id" UUID NOT NULL, "invoiceNumber" TEXT NOT NULL, "quotationId" UUID, "status" "InvoiceStatus" NOT NULL DEFAULT 'DRAFT', "customerName" TEXT NOT NULL, "customerEmail" TEXT NOT NULL, "companyName" TEXT, "currency" CHAR(3) NOT NULL DEFAULT 'ZAR', "subtotal" DECIMAL(19,4) NOT NULL, "vatTotal" DECIMAL(19,4) NOT NULL DEFAULT 0, "grandTotal" DECIMAL(19,4) NOT NULL, "issuedAt" TIMESTAMP(3), "dueAt" TIMESTAMP(3) NOT NULL, "paidAt" TIMESTAMP(3), "notes" TEXT, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL, CONSTRAINT "Invoice_pkey" PRIMARY KEY ("id"));
+CREATE UNIQUE INDEX "Invoice_invoiceNumber_key" ON "Invoice"("invoiceNumber");
+CREATE INDEX "Invoice_status_dueAt_idx" ON "Invoice"("status", "dueAt");
+CREATE INDEX "Invoice_customerEmail_createdAt_idx" ON "Invoice"("customerEmail", "createdAt");
+CREATE INDEX "Invoice_quotationId_idx" ON "Invoice"("quotationId");
+ALTER TABLE "Invoice" ADD CONSTRAINT "Invoice_quotationId_fkey" FOREIGN KEY ("quotationId") REFERENCES "Quotation"("id") ON DELETE SET NULL ON UPDATE CASCADE;

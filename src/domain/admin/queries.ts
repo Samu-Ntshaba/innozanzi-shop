@@ -1,15 +1,19 @@
 import { prisma } from "@/lib/prisma";
 
 export async function getAdminDashboard() {
-  const [products, orders, customers, pendingPayments, lowStock, revenue] = await Promise.all([
+  const [products, orders, customers, pendingPayments, lowStock, revenue, openRequests, quotesToApprove, outstandingInvoices, pipeline] = await Promise.all([
     prisma.product.count({ where: { deletedAt: null } }),
     prisma.order.count(),
     prisma.user.count({ where: { customerProfile: { isNot: null } } }),
     prisma.paymentProof.count({ where: { status: "PENDING" } }),
     prisma.inventory.count({ where: { onHand: { lte: prisma.inventory.fields.reorderLevel } } }),
     prisma.order.aggregate({ where: { paymentStatus: "PAID" }, _sum: { grandTotal: true } }),
+    prisma.quotationRequest.count({where:{status:{in:["OPEN","IN_REVIEW"]}}}),
+    prisma.quotation.count({where:{status:"PENDING_APPROVAL"}}),
+    prisma.invoice.count({where:{status:{in:["DRAFT","ISSUED","PARTIALLY_PAID","OVERDUE"]}}}),
+    prisma.quotation.aggregate({where:{status:{in:["PENDING_APPROVAL","ISSUED","ACCEPTED"]}},_sum:{grandTotal:true}}),
   ]);
-  return { products, orders, customers, pendingPayments, lowStock, revenue: revenue._sum.grandTotal?.toString() ?? "0" };
+  return {products,orders,customers,pendingPayments,lowStock,openRequests,quotesToApprove,outstandingInvoices,pipeline:pipeline._sum.grandTotal?.toString()??"0",revenue:revenue._sum.grandTotal?.toString()??"0"};
 }
 
 export const getAdminProducts = () => prisma.product.findMany({ where: { deletedAt: null }, include: { category: true, brand: true, inventory: true }, orderBy: { updatedAt: "desc" }, take: 100 });
