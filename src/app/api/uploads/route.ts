@@ -1,6 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { createSupabaseAdmin } from "@/lib/supabase";
+import { getAuthContext } from "@/domain/auth/session";
+import { hasPermission } from "@/domain/auth/permissions";
 
 export const runtime = "nodejs";
 
@@ -50,6 +52,14 @@ async function ensureBucket() {
 
 export async function POST(request: Request) {
   try {
+    const auth = await getAuthContext();
+    if (
+      !auth ||
+      !hasPermission(auth.grants, "products.update", auth.isSuperAdministrator)
+    ) {
+      return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+    }
+
     const formData = await request.formData();
     const file = formData.get("file");
 

@@ -104,6 +104,8 @@ CREATE TABLE "Session" (
     "sessionToken" TEXT NOT NULL,
     "userId" UUID NOT NULL,
     "expires" TIMESTAMP(3) NOT NULL,
+    "ipAddress" TEXT,
+    "userAgent" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
