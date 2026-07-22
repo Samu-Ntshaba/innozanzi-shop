@@ -1,0 +1,16 @@
+import { prisma } from "@/lib/prisma";
+import type { PaymentEvent } from "@/integrations/payments/provider";
+
+export async function processPaymentEvent(provider: "PAYSTACK" | "YOCO", event: PaymentEvent) {
+  return prisma.$transaction(async (tx) => {
+    const payment = await tx.payment.findUnique({ where: { provider_externalReference: { provider, externalReference: event.externalReference } }, include: { order: true } });
+    if (!payment) throw new Error("Unknown payment reference");
+    if (payment.status === event.status) return { duplicate: true, paymentId: payment.id };
+    if (payment.status === "PAID") return { duplicate: true, paymentId: payment.id };
+    if (event.amount && Number(event.amount) !== Number(payment.amount)) throw new Error("Payment amount mismatch");
+    await tx.payment.update({ where: { id: payment.id }, data: { status: event.status, paidAt: event.status === "PAID" ? new Date() : null, providerMetadata: event.raw as object } });
+    await tx.order.update({ where: { id: payment.orderId }, data: { paymentStatus: event.status, status: event.status === "PAID" ? "PAID" : payment.order.status } });
+    await tx.auditLog.create({ data: { action: "payment.webhook", entityType: "Payment", entityId: payment.id, metadata: { eventId: event.eventId, provider } } });
+    return { duplicate: false, paymentId: payment.id };
+  });
+}
