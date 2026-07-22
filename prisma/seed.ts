@@ -22,11 +22,11 @@ const roles = [
 const rolePermissions: Record<string, readonly (typeof PERMISSIONS)[number][]> = {
   "super-administrator": PERMISSIONS,
   administrator: PERMISSIONS.filter((key) => key !== "users.manage"),
-  sales: ["products.view", "orders.view", "orders.update", "quotations.manage", "customers.manage"],
+  sales: ["products.view", "orders.view", "orders.update", "quotations.manage", "customers.manage", "partnership.view", "partnership.application.review", "partnership.request.view", "partnership.request.manage"],
   finance: ["orders.view", "payments.approve", "reports.view"],
   "inventory-manager": ["products.view", "products.update", "inventory.manage"],
   "content-manager": ["products.view", "products.update"],
-  "support-agent": ["orders.view", "customers.manage"],
+  "support-agent": ["orders.view", "customers.manage", "partnership.view", "partnership.request.view"],
   customer: [],
 };
 
@@ -69,6 +69,13 @@ async function main() {
   for (const [name, slug] of roles) {
     await prisma.role.upsert({ where: { slug }, update: { name }, create: { name, slug, isSystem: true } });
   }
+
+  const partnershipTypes = [
+    { track: "ECOMMERCE" as const, name: "E-commerce Partner", description: "For verified businesses and individuals actively selling through recognised online channels.", benefits: "Structured sourcing requests, controlled partner pricing, stock and lead-time responses, and negotiated offers.", eligibilitySummary: "Active online sales evidence, verified business/contact details and required compliance documents.", requiredDocumentTypes: ["CIPC_REGISTRATION", "BANKING_CONFIRMATION", "MARKETPLACE_SELLER_EVIDENCE", "SALES_EVIDENCE"] },
+    { track: "BUSINESS_PROCUREMENT" as const, name: "Business Procurement Partner", description: "For established organisations that need an ongoing, structured procurement relationship.", benefits: "Direct and recurring requests, assigned account management, structured responses, alternatives and faster procurement workflows.", eligibilitySummary: "Verified company profile, procurement requirements, representative authority and core compliance documents.", requiredDocumentTypes: ["CIPC_REGISTRATION", "PROOF_OF_ADDRESS", "BUSINESS_PROFILE", "TAX_COMPLIANCE"] },
+    { track: "GROWTH" as const, name: "Growth Partner", description: "For developing businesses building a verified, long-term sourcing relationship with Innozanzi.", benefits: "Guided sourcing, product recommendations, selected opportunities and a pathway to advanced tracks.", eligibilitySummary: "Verified business identity, profile, purchasing expectations and foundational compliance evidence.", requiredDocumentTypes: ["CIPC_REGISTRATION", "PROOF_OF_ADDRESS", "BUSINESS_PROFILE"] },
+  ];
+  for (const type of partnershipTypes) await prisma.partnershipType.upsert({ where: { track: type.track }, update: type, create: type });
 
   const storedRoles = await prisma.role.findMany({ select: { id: true, slug: true } });
   const permissions = await prisma.permission.findMany({ select: { id: true, key: true } });

@@ -18,3 +18,16 @@ Rotate exposed secrets, configure provider secrets, test denied permissions, ver
 ## Performance budget
 
 Target p75 LCP under 2.5 seconds, INP under 200 ms, CLS under 0.1, initial JavaScript under 250 KB compressed per key storefront route, and database-backed page responses under 500 ms at normal load.
+# Partnership security review
+
+- Partners reuse customer authentication; there is no alternate login or privilege-bearing client flag.
+- Workspace and request mutations verify an approved partnership server-side. Navigation visibility is not treated as authorization.
+- Application, request, offer and document reads are scoped through the owning user or an explicit RBAC permission.
+- Supplier costs, internal notes and internal messages are never selected into customer-facing views.
+- Approval, rejection, suspension, pricing, document review and request management use separate least-privilege permissions.
+- The database unique `activeKey` prevents concurrent active application creation, with serializable draft creation as an additional guard.
+- Private files are stored in the private document bucket; the public database stores metadata and an opaque object path only.
+- Offer acceptance snapshots verified offer values into the quotation domain and cannot directly create an active order.
+- High-impact mutations preserve actor, before/after state, reason and timestamp in audit/history tables.
+
+Operational follow-up: configure retention periods for declined application evidence, periodically expire documents/reviews, and include partnership permissions in quarterly access reviews.

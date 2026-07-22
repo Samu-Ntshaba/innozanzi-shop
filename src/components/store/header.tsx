@@ -78,6 +78,7 @@ export async function StoreHeader() {
               </Link>
             ))}
             <Link className="ml-auto px-3 py-3 text-sm font-bold text-amber-700" href="/quotations/request">Bulk quotations</Link>
+            <Link className="px-3 py-3 text-sm font-bold text-sky-700" href="/partners">Partners</Link>
           </nav>
         </div>
       </header>

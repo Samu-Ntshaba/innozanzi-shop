@@ -3,6 +3,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import {
   loginSchema,
@@ -44,7 +45,7 @@ export async function loginAction(formData: FormData) {
   await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
   clearAuthAttempts(rateLimitKey);
   await createSession(user.id);
-  redirect("/account");
+  const returnTo=(await cookies()).get("innozanzi-return-to")?.value;(await cookies()).delete("innozanzi-return-to");redirect(returnTo?.startsWith("/")&&!returnTo.startsWith("//")?returnTo:"/account");
 }
 
 export async function registerAction(formData: FormData) {
@@ -122,7 +123,7 @@ export async function verifyEmailAction(formData: FormData) {
     return updated;
   });
   await createSession(user.id);
-  redirect("/account");
+  const returnTo=(await cookies()).get("innozanzi-return-to")?.value;(await cookies()).delete("innozanzi-return-to");redirect(returnTo?.startsWith("/")&&!returnTo.startsWith("//")?returnTo:"/account");
 }
 
 export async function requestPasswordResetAction(formData: FormData) {

@@ -1,0 +1,9 @@
+import{prisma}from"@/lib/prisma";
+export{ACTIVE_APPLICATION_STATUSES,APPROVED_PARTNERSHIP_STATUSES}from"./rules";
+import{ACTIVE_APPLICATION_STATUSES,APPROVED_PARTNERSHIP_STATUSES}from"./rules";
+export async function partnershipEligibility(userId:string){const user=await prisma.user.findUnique({where:{id:userId},include:{customerProfile:{include:{company:true}},partnershipApplications:{where:{status:{in:[...ACTIVE_APPLICATION_STATUSES]}},select:{id:true,status:true,applicationNumber:true},take:1},partnerships:{where:{status:{in:[...APPROVED_PARTNERSHIP_STATUSES]}},select:{id:true,partnerNumber:true,status:true},take:1}}});if(!user)return{eligible:false,reasons:["Customer account not found."],user:null};const reasons:string[]=[];if(user.status!=="ACTIVE"||!user.emailVerified)reasons.push("Verify and activate your customer account.");if(!user.customerProfile)reasons.push("Complete your customer profile.");if(!user.name||!user.phone)reasons.push("Add your full name and phone number.");if(!user.customerProfile?.company)reasons.push("Complete your company profile before submission.");else{const company=user.customerProfile.company;if(!company.companyName||!company.registrationNo)reasons.push("Add the registered company name and registration number.")}return{eligible:reasons.length===0,reasons,user,activeApplication:user.partnershipApplications[0]??null,approvedPartnership:user.partnerships[0]??null}}
+export function applicationNumber(){return`PA-${Date.now().toString(36).toUpperCase()}`}
+export function partnerNumber(){return`PN-${Date.now().toString(36).toUpperCase()}`}
+export function partnerRequestNumber(){return`PR-${Date.now().toString(36).toUpperCase()}`}
+export function offerNumber(){return`PO-${Date.now().toString(36).toUpperCase()}`}
+export function reviewDate(months:number){const date=new Date();date.setMonth(date.getMonth()+months);return date}

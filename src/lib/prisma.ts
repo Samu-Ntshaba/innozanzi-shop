@@ -8,7 +8,7 @@ const globalForPrisma = globalThis as unknown as {
 
 // Increment when a migration adds or removes Prisma models. Next.js development
 // hot reload preserves globalThis, so an older client must not survive a schema change.
-const PRISMA_SCHEMA_VERSION = "2026-07-22-customer-communications";
+const PRISMA_SCHEMA_VERSION = "2026-07-22-partnership-management";
 
 const connectionString =
   process.env.NODE_ENV === "production"

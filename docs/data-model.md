@@ -102,3 +102,10 @@ Indexes will be validated with real query plans rather than added indiscriminate
 | Manual inventory adjustment | Lock inventory; adjust on-hand; append movement with reason and actor |
 
 External calls are never held inside database transactions. An outbox/idempotency pattern coordinates post-commit email, PDF, and payment operations.
+# Partnership aggregate
+
+`User` remains the identity and customer boundary. `PartnershipType` defines the three configurable programme tracks. A user submits a `PartnershipApplication`, which owns section progress and `PartnershipApplicationDocument` records linked to private `UploadedDocument` objects. Approval creates a one-to-one source-linked `Partnership`.
+
+The partnership owns `PartnerBenefit`, `PartnerCommercialTerm`, `PartnershipReview`, `PartnerMessage`, `PartnerTrackChangeRequest` and `PartnerRequest`. Requests own requested items, attachments, activities and versionable commercial offers. Accepted offer items are copied into the existing quotation models so later catalogue price changes cannot alter the agreed response.
+
+Lifecycle changes are append-recorded in `PartnershipStatusHistory`; sensitive mutations are additionally stored in the global `AuditLog`.

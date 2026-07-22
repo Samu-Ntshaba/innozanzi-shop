@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 
 export const adminNavGroups = [
   ["CRM", [["Overview", "/admin"], ["Customers", "/admin/customers"], ["Quote pipeline", "/admin/quotations"], ["Invoices", "/admin/invoices"], ["Help desk", "/admin/help-desk"]]],
+  ["Partnerships", [["Dashboard", "/admin/partnerships"], ["Applications", "/admin/partnerships/applications"], ["Approved partners", "/admin/partnerships/partners"], ["Partner requests", "/admin/partnerships/requests"]]],
   ["Marketing", [["Email marketing", "/admin/email-marketing"]]],
   ["Operations", [["Orders", "/admin/orders"], ["Payments", "/admin/payments"], ["Inventory", "/admin/inventory"], ["Suppliers", "/admin/suppliers"]]],
   ["Catalogue", [["Products", "/admin/products"], ["Categories", "/admin/categories"], ["Brands", "/admin/brands"], ["Promotions", "/admin/promotions"]]],

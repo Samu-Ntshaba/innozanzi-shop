@@ -72,3 +72,19 @@ All `/admin` routes require an active authenticated user and the relevant server
 | `POST /api/openai` | Existing protected, server-to-server optional integration |
 
 Server Actions are preferred for first-party forms such as cart updates, profile changes, catalogue editing, inventory adjustments, quotation editing, and order transitions. Actions use Zod, authentication, permission checks, domain services, and consistent typed results.
+# Partnership routes
+
+| Surface | Route | Access |
+| --- | --- | --- |
+| Public | `/partners` | Everyone |
+| Auth continuation | `/partners/apply` | Preserves return URL, then sign-in/registration |
+| Application status | `/account/partnership` | Verified customer |
+| Application wizard | `/account/partnership/apply` | Eligible customer/application owner |
+| Partner workspace | `/account/partner` | Approved or conditionally approved partner |
+| Partner requests | `/account/partner/requests` | Approved partner, owner-scoped |
+| Admin overview | `/admin/partnerships` | Partnership dashboard permission |
+| Admin applications | `/admin/partnerships/applications` | Application review permission |
+| Admin partners | `/admin/partnerships/partners` | Partner management permission |
+| Admin requests | `/admin/partnerships/requests` | Request management permission |
+
+Private partnership evidence is downloaded through `/api/documents/[id]`, which checks ownership or the relevant admin document permission before issuing a short-lived signed URL.

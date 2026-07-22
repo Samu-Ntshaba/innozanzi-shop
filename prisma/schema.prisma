@@ -196,6 +196,90 @@ enum CampaignStatus {
   SENT
 }
 
+enum PartnershipTrack {
+  ECOMMERCE
+  BUSINESS_PROCUREMENT
+  GROWTH
+}
+
+enum PartnershipStatus {
+  NOT_APPLIED
+  DRAFT
+  SUBMITTED
+  DOCUMENTS_REQUIRED
+  UNDER_REVIEW
+  DUE_DILIGENCE
+  CHANGES_REQUESTED
+  APPROVED
+  CONDITIONALLY_APPROVED
+  REJECTED
+  SUSPENDED
+  EXPIRED
+  TERMINATED
+  WITHDRAWN
+}
+
+enum PartnershipDocumentStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  REPLACEMENT_REQUIRED
+  EXPIRED
+}
+
+enum PartnerRequestStatus {
+  DRAFT
+  SUBMITTED
+  RECEIVED
+  ASSIGNED
+  SOURCING
+  AWAITING_SUPPLIER
+  RESPONSE_READY
+  OFFER_SENT
+  CHANGES_REQUESTED
+  ACCEPTED
+  DECLINED
+  CONVERTED_TO_QUOTATION
+  CONVERTED_TO_ORDER
+  FULFILLED
+  CANCELLED
+  CLOSED
+}
+
+enum PartnerRequestType {
+  ECOMMERCE_SOURCING
+  BUSINESS_PROCUREMENT
+  RECURRING_SUPPLY
+  PROJECT
+  PRODUCT_RECOMMENDATION
+}
+
+enum PartnerRequestUrgency {
+  NORMAL
+  URGENT
+  PROJECT
+}
+
+enum PartnerOfferStatus {
+  DRAFT
+  SENT
+  ACCEPTED
+  DECLINED
+  EXPIRED
+  WITHDRAWN
+}
+
+enum PartnerTermType {
+  STANDARD_DISCOUNT
+  CATEGORY_DISCOUNT
+  PRODUCT_PRICE
+  QUANTITY_PRICE
+  PAYMENT_TERMS
+  DELIVERY_TERMS
+  SINGLE_ITEM_PERMISSION
+  OTHER
+}
+
 enum ReviewStatus {
   PENDING
   APPROVED
@@ -217,43 +301,53 @@ enum PageStatus {
 }
 
 model User {
-  id                     String                   @id @default(uuid()) @db.Uuid
-  email                  String                   @unique
-  passwordHash           String?
-  name                   String?
-  phone                  String?
-  image                  String?
-  status                 UserStatus               @default(PENDING_VERIFICATION)
-  emailVerified          DateTime?
-  passwordChangedAt      DateTime?
-  lastLoginAt            DateTime?
-  deletedAt              DateTime?
-  createdAt              DateTime                 @default(now())
-  updatedAt              DateTime                 @updatedAt
-  accounts               Account[]
-  sessions               Session[]
-  roles                  UserRole[]
-  assignedRoles          UserRole[]               @relation("UserRoleAssigner")
-  addresses              Address[]
-  customerProfile        CustomerProfile?
-  carts                  Cart[]
-  wishlists              Wishlist[]
-  orders                 Order[]
-  couponRedemptions      CouponRedemption[]
-  couponCustomers        CouponCustomer[]
-  quotationRequests      QuotationRequest[]
-  quotations             Quotation[]              @relation("CustomerQuotations")
-  reviews                Review[]
-  notifications          Notification[]
-  inventoryMovements     InventoryMovement[]      @relation("InventoryMovementActor")
-  reviewedPaymentProofs  PaymentProof[]           @relation("PaymentProofReviewer")
-  uploadedPaymentProofs  PaymentProof[]           @relation("PaymentProofUploader")
-  orderStatusChanges     OrderStatusHistory[]     @relation("OrderStatusActor")
-  quotationStatusChanges QuotationStatusHistory[] @relation("QuotationStatusActor")
-  auditLogs              AuditLog[]               @relation("AuditActor")
-  paymentSubmissions     PaymentSubmission[]      @relation("PaymentSubmitter")
-  paymentVerifications   PaymentVerification[]    @relation("PaymentVerifier")
-  deliveryEvents         DeliveryTrackingEvent[]  @relation("DeliveryEventActor")
+  id                              String                           @id @default(uuid()) @db.Uuid
+  email                           String                           @unique
+  passwordHash                    String?
+  name                            String?
+  phone                           String?
+  image                           String?
+  status                          UserStatus                       @default(PENDING_VERIFICATION)
+  emailVerified                   DateTime?
+  passwordChangedAt               DateTime?
+  lastLoginAt                     DateTime?
+  deletedAt                       DateTime?
+  createdAt                       DateTime                         @default(now())
+  updatedAt                       DateTime                         @updatedAt
+  accounts                        Account[]
+  sessions                        Session[]
+  roles                           UserRole[]
+  assignedRoles                   UserRole[]                       @relation("UserRoleAssigner")
+  addresses                       Address[]
+  customerProfile                 CustomerProfile?
+  carts                           Cart[]
+  wishlists                       Wishlist[]
+  orders                          Order[]
+  couponRedemptions               CouponRedemption[]
+  couponCustomers                 CouponCustomer[]
+  quotationRequests               QuotationRequest[]
+  quotations                      Quotation[]                      @relation("CustomerQuotations")
+  reviews                         Review[]
+  notifications                   Notification[]
+  inventoryMovements              InventoryMovement[]              @relation("InventoryMovementActor")
+  reviewedPaymentProofs           PaymentProof[]                   @relation("PaymentProofReviewer")
+  uploadedPaymentProofs           PaymentProof[]                   @relation("PaymentProofUploader")
+  orderStatusChanges              OrderStatusHistory[]             @relation("OrderStatusActor")
+  quotationStatusChanges          QuotationStatusHistory[]         @relation("QuotationStatusActor")
+  auditLogs                       AuditLog[]                       @relation("AuditActor")
+  paymentSubmissions              PaymentSubmission[]              @relation("PaymentSubmitter")
+  paymentVerifications            PaymentVerification[]            @relation("PaymentVerifier")
+  deliveryEvents                  DeliveryTrackingEvent[]          @relation("DeliveryEventActor")
+  partnershipApplications         PartnershipApplication[]         @relation("PartnershipApplicant")
+  reviewedPartnershipApplications PartnershipApplication[]         @relation("PartnershipReviewer")
+  managedPartnershipApplications  PartnershipApplication[]         @relation("ApplicationAccountManager")
+  partnerships                    Partnership[]                    @relation("PartnerOwner")
+  managedPartnerships             Partnership[]                    @relation("PartnerAccountManager")
+  partnershipStatusChanges        PartnershipStatusHistory[]       @relation("PartnershipStatusActor")
+  partnershipDocuments            PartnershipApplicationDocument[] @relation("PartnershipDocumentUploader")
+  reviewedPartnershipDocuments    PartnershipApplicationDocument[] @relation("PartnershipDocumentReviewer")
+  partnershipReviews              PartnershipReview[]              @relation("PartnershipReviewActor")
+  partnerMessages                 PartnerMessage[]                 @relation("PartnerMessageAuthor")
 
   @@index([status, createdAt])
   @@index([deletedAt])
@@ -482,6 +576,7 @@ model Product {
   quotationItems        QuotationItem[]
   reviews               Review[]
   couponProducts        CouponProduct[]
+  partnerRequestItems   PartnerRequestItem[]
 
   @@index([status, publishedAt])
   @@index([categoryId, status, createdAt])
@@ -1134,15 +1229,360 @@ model QuotationVersion {
 }
 
 model UploadedDocument {
-  id                String             @id @default(uuid()) @db.Uuid
-  bucket            String
-  path              String             @unique
-  originalName      String
-  mimeType          String
-  size              Int
-  isPrivate         Boolean            @default(true)
-  createdAt         DateTime           @default(now())
-  paymentSubmission PaymentSubmission?
+  id                       String                          @id @default(uuid()) @db.Uuid
+  bucket                   String
+  path                     String                          @unique
+  originalName             String
+  mimeType                 String
+  size                     Int
+  isPrivate                Boolean                         @default(true)
+  createdAt                DateTime                        @default(now())
+  paymentSubmission        PaymentSubmission?
+  partnershipDocument      PartnershipApplicationDocument?
+  partnerRequestAttachment PartnerRequestAttachment?
+}
+
+model PartnershipType {
+  id                    String                      @id @default(uuid()) @db.Uuid
+  track                 PartnershipTrack            @unique
+  name                  String
+  description           String                      @db.Text
+  benefits              String                      @db.Text
+  eligibilitySummary    String                      @db.Text
+  requiredDocumentTypes String[]
+  reviewFrequencyMonths Int                         @default(12)
+  isActive              Boolean                     @default(true)
+  createdAt             DateTime                    @default(now())
+  updatedAt             DateTime                    @updatedAt
+  applications          PartnershipApplication[]
+  partnerships          Partnership[]
+  trackChangeRequests   PartnerTrackChangeRequest[]
+}
+
+model PartnershipApplication {
+  id                     String                           @id @default(uuid()) @db.Uuid
+  applicationNumber      String                           @unique
+  userId                 String                           @db.Uuid
+  activeKey              String?                          @unique
+  partnershipTypeId      String                           @db.Uuid
+  status                 PartnershipStatus                @default(DRAFT)
+  currentStep            Int                              @default(1)
+  registeredBusinessName String?
+  tradingName            String?
+  registrationNumber     String?
+  vatNumber              String?
+  businessAddress        String?                          @db.Text
+  representativeName     String?
+  representativeRole     String?
+  representativePhone    String?
+  businessProfile        String?                          @db.Text
+  productCategories      String[]
+  purchasingFrequency    String?
+  estimatedMonthlyValue  Decimal?                         @db.Decimal(19, 4)
+  salesChannels          String[]
+  marketplaceLinks       String[]
+  references             String?                          @db.Text
+  termsAcceptedAt        DateTime?
+  accuracyDeclaredAt     DateTime?
+  verificationConsentAt  DateTime?
+  submittedAt            DateTime?
+  reviewerId             String?                          @db.Uuid
+  accountManagerId       String?                          @db.Uuid
+  internalNote           String?                          @db.Text
+  customerResponseNote   String?                          @db.Text
+  decisionReason         String?                          @db.Text
+  createdAt              DateTime                         @default(now())
+  updatedAt              DateTime                         @updatedAt
+  applicant              User                             @relation("PartnershipApplicant", fields: [userId], references: [id], onDelete: Restrict)
+  partnershipType        PartnershipType                  @relation(fields: [partnershipTypeId], references: [id], onDelete: Restrict)
+  reviewer               User?                            @relation("PartnershipReviewer", fields: [reviewerId], references: [id], onDelete: SetNull)
+  accountManager         User?                            @relation("ApplicationAccountManager", fields: [accountManagerId], references: [id], onDelete: SetNull)
+  sections               PartnershipApplicationSection[]
+  documents              PartnershipApplicationDocument[]
+  partnership            Partnership?
+  statusHistory          PartnershipStatusHistory[]
+
+  @@index([userId, status, createdAt])
+  @@index([status, submittedAt])
+  @@index([partnershipTypeId, status])
+}
+
+model PartnershipApplicationSection {
+  id            String                 @id @default(uuid()) @db.Uuid
+  applicationId String                 @db.Uuid
+  sectionKey    String
+  isComplete    Boolean                @default(false)
+  completedAt   DateTime?
+  metadata      Json?
+  updatedAt     DateTime               @updatedAt
+  application   PartnershipApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@unique([applicationId, sectionKey])
+}
+
+model PartnershipApplicationDocument {
+  id            String                    @id @default(uuid()) @db.Uuid
+  applicationId String                    @db.Uuid
+  documentId    String                    @unique @db.Uuid
+  documentType  String
+  status        PartnershipDocumentStatus @default(PENDING)
+  uploadedById  String                    @db.Uuid
+  reviewNote    String?                   @db.Text
+  expiryDate    DateTime?
+  verifiedAt    DateTime?
+  verifiedById  String?                   @db.Uuid
+  createdAt     DateTime                  @default(now())
+  updatedAt     DateTime                  @updatedAt
+  application   PartnershipApplication    @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  document      UploadedDocument          @relation(fields: [documentId], references: [id], onDelete: Restrict)
+  uploadedBy    User                      @relation("PartnershipDocumentUploader", fields: [uploadedById], references: [id], onDelete: Restrict)
+  verifiedBy    User?                     @relation("PartnershipDocumentReviewer", fields: [verifiedById], references: [id], onDelete: SetNull)
+
+  @@index([applicationId, documentType])
+  @@index([status, expiryDate])
+}
+
+model Partnership {
+  id                    String                      @id @default(uuid()) @db.Uuid
+  partnerNumber         String                      @unique
+  userId                String                      @db.Uuid
+  partnershipTypeId     String                      @db.Uuid
+  sourceApplicationId   String                      @unique @db.Uuid
+  status                PartnershipStatus           @default(APPROVED)
+  accountManagerId      String?                     @db.Uuid
+  approvedAt            DateTime
+  reviewDate            DateTime?
+  renewalDate           DateTime?
+  suspendedAt           DateTime?
+  terminatedAt          DateTime?
+  standingSummary       String?
+  internalStandingScore Int?
+  createdAt             DateTime                    @default(now())
+  updatedAt             DateTime                    @updatedAt
+  owner                 User                        @relation("PartnerOwner", fields: [userId], references: [id], onDelete: Restrict)
+  partnershipType       PartnershipType             @relation(fields: [partnershipTypeId], references: [id], onDelete: Restrict)
+  sourceApplication     PartnershipApplication      @relation(fields: [sourceApplicationId], references: [id], onDelete: Restrict)
+  accountManager        User?                       @relation("PartnerAccountManager", fields: [accountManagerId], references: [id], onDelete: SetNull)
+  benefits              PartnerBenefit[]
+  commercialTerms       PartnerCommercialTerm[]
+  requests              PartnerRequest[]
+  reviews               PartnershipReview[]
+  statusHistory         PartnershipStatusHistory[]
+  messages              PartnerMessage[]
+  trackChangeRequests   PartnerTrackChangeRequest[]
+
+  @@index([userId, status])
+  @@index([status, renewalDate])
+}
+
+model PartnershipStatusHistory {
+  id            String                  @id @default(uuid()) @db.Uuid
+  applicationId String?                 @db.Uuid
+  partnershipId String?                 @db.Uuid
+  fromStatus    PartnershipStatus?
+  toStatus      PartnershipStatus
+  actorId       String?                 @db.Uuid
+  reason        String?                 @db.Text
+  createdAt     DateTime                @default(now())
+  application   PartnershipApplication? @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  partnership   Partnership?            @relation(fields: [partnershipId], references: [id], onDelete: Cascade)
+  actor         User?                   @relation("PartnershipStatusActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([applicationId, createdAt])
+  @@index([partnershipId, createdAt])
+}
+
+model PartnerBenefit {
+  id            String      @id @default(uuid()) @db.Uuid
+  partnershipId String      @db.Uuid
+  name          String
+  description   String      @db.Text
+  isActive      Boolean     @default(true)
+  startsAt      DateTime?
+  endsAt        DateTime?
+  createdAt     DateTime    @default(now())
+  partnership   Partnership @relation(fields: [partnershipId], references: [id], onDelete: Cascade)
+}
+
+model PartnerCommercialTerm {
+  id            String          @id @default(uuid()) @db.Uuid
+  partnershipId String          @db.Uuid
+  type          PartnerTermType
+  title         String
+  value         String
+  categoryId    String?         @db.Uuid
+  productId     String?         @db.Uuid
+  minimumQty    Int?
+  validFrom     DateTime?
+  validUntil    DateTime?
+  isActive      Boolean         @default(true)
+  createdById   String          @db.Uuid
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  partnership   Partnership     @relation(fields: [partnershipId], references: [id], onDelete: Cascade)
+
+  @@index([partnershipId, isActive])
+}
+
+model PartnershipReview {
+  id            String      @id @default(uuid()) @db.Uuid
+  partnershipId String      @db.Uuid
+  reviewType    String
+  dueAt         DateTime
+  completedAt   DateTime?
+  outcome       String?
+  internalNote  String?     @db.Text
+  reviewedById  String?     @db.Uuid
+  createdAt     DateTime    @default(now())
+  partnership   Partnership @relation(fields: [partnershipId], references: [id], onDelete: Cascade)
+  reviewedBy    User?       @relation("PartnershipReviewActor", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@index([dueAt, completedAt])
+}
+
+model PartnerRequest {
+  id                String                     @id @default(uuid()) @db.Uuid
+  requestNumber     String                     @unique
+  partnershipId     String                     @db.Uuid
+  type              PartnerRequestType
+  status            PartnerRequestStatus       @default(DRAFT)
+  urgency           PartnerRequestUrgency      @default(NORMAL)
+  title             String
+  description       String                     @db.Text
+  marketplace       String?
+  targetPrice       Decimal?                   @db.Decimal(19, 4)
+  requiredMargin    Decimal?                   @db.Decimal(7, 4)
+  deliveryLocation  String?
+  requiredDate      DateTime?
+  recurringSchedule String?
+  assignedToId      String?                    @db.Uuid
+  customerNote      String?                    @db.Text
+  internalNote      String?                    @db.Text
+  adminResponse     String?                    @db.Text
+  linkedQuotationId String?                    @db.Uuid
+  linkedOrderId     String?                    @db.Uuid
+  submittedAt       DateTime?
+  createdAt         DateTime                   @default(now())
+  updatedAt         DateTime                   @updatedAt
+  partnership       Partnership                @relation(fields: [partnershipId], references: [id], onDelete: Restrict)
+  items             PartnerRequestItem[]
+  offers            PartnerRequestOffer[]
+  attachments       PartnerRequestAttachment[]
+  activities        PartnerActivity[]
+  messages          PartnerMessage[]
+
+  @@index([partnershipId, status, createdAt])
+  @@index([status, urgency, submittedAt])
+}
+
+model PartnerRequestItem {
+  id          String         @id @default(uuid()) @db.Uuid
+  requestId   String         @db.Uuid
+  productId   String?        @db.Uuid
+  sku         String?
+  description String
+  brand       String?
+  category    String?
+  quantity    Int
+  notes       String?
+  request     PartnerRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  product     Product?       @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  @@index([requestId])
+}
+
+model PartnerRequestOffer {
+  id               String                    @id @default(uuid()) @db.Uuid
+  offerNumber      String                    @unique
+  requestId        String                    @db.Uuid
+  status           PartnerOfferStatus        @default(DRAFT)
+  currency         String                    @default("ZAR") @db.Char(3)
+  subtotal         Decimal                   @db.Decimal(19, 4)
+  vatTotal         Decimal                   @default(0) @db.Decimal(19, 4)
+  deliveryTotal    Decimal                   @default(0) @db.Decimal(19, 4)
+  grandTotal       Decimal                   @db.Decimal(19, 4)
+  availability     String?
+  leadTime         String?
+  deliveryEstimate String?
+  commercialTerms  String?                   @db.Text
+  validUntil       DateTime
+  customerResponse String?                   @db.Text
+  sentAt           DateTime?
+  respondedAt      DateTime?
+  createdById      String                    @db.Uuid
+  createdAt        DateTime                  @default(now())
+  updatedAt        DateTime                  @updatedAt
+  request          PartnerRequest            @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  items            PartnerRequestOfferItem[]
+
+  @@index([requestId, status])
+  @@index([status, validUntil])
+}
+
+model PartnerRequestOfferItem {
+  id            String              @id @default(uuid()) @db.Uuid
+  offerId       String              @db.Uuid
+  productId     String?             @db.Uuid
+  productName   String
+  sku           String?
+  quantity      Int
+  unitPrice     Decimal             @db.Decimal(19, 4)
+  vatTotal      Decimal             @db.Decimal(19, 4)
+  lineTotal     Decimal             @db.Decimal(19, 4)
+  isAlternative Boolean             @default(false)
+  offer         PartnerRequestOffer @relation(fields: [offerId], references: [id], onDelete: Cascade)
+
+  @@index([offerId])
+}
+
+model PartnerRequestAttachment {
+  id         String           @id @default(uuid()) @db.Uuid
+  requestId  String           @db.Uuid
+  documentId String           @unique @db.Uuid
+  createdAt  DateTime         @default(now())
+  request    PartnerRequest   @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  document   UploadedDocument @relation(fields: [documentId], references: [id], onDelete: Restrict)
+}
+
+model PartnerTrackChangeRequest {
+  id              String            @id @default(uuid()) @db.Uuid
+  partnershipId   String            @db.Uuid
+  requestedTypeId String            @db.Uuid
+  status          PartnershipStatus @default(SUBMITTED)
+  reason          String            @db.Text
+  decidedAt       DateTime?
+  createdAt       DateTime          @default(now())
+  partnership     Partnership       @relation(fields: [partnershipId], references: [id], onDelete: Cascade)
+  requestedType   PartnershipType   @relation(fields: [requestedTypeId], references: [id], onDelete: Restrict)
+}
+
+model PartnerActivity {
+  id           String         @id @default(uuid()) @db.Uuid
+  requestId    String         @db.Uuid
+  actorId      String?        @db.Uuid
+  action       String
+  publicNote   String?
+  internalNote String?
+  createdAt    DateTime       @default(now())
+  request      PartnerRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@index([requestId, createdAt])
+}
+
+model PartnerMessage {
+  id            String          @id @default(uuid()) @db.Uuid
+  partnershipId String          @db.Uuid
+  requestId     String?         @db.Uuid
+  authorId      String          @db.Uuid
+  body          String          @db.Text
+  isInternal    Boolean         @default(false)
+  createdAt     DateTime        @default(now())
+  partnership   Partnership     @relation(fields: [partnershipId], references: [id], onDelete: Cascade)
+  request       PartnerRequest? @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  author        User            @relation("PartnerMessageAuthor", fields: [authorId], references: [id], onDelete: Restrict)
+
+  @@index([partnershipId, createdAt])
+  @@index([requestId, createdAt])
 }
 
 model PaymentSubmission {

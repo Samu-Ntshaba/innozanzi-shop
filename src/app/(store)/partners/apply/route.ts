@@ -1,0 +1,2 @@
+import{cookies}from"next/headers";import{NextResponse}from"next/server";import{getAuthContext}from"@/domain/auth/session";
+export async function GET(request:Request){const auth=await getAuthContext();if(auth)return NextResponse.redirect(new URL("/account/partnership",request.url));(await cookies()).set("innozanzi-return-to","/account/partnership",{httpOnly:true,secure:process.env.NODE_ENV==="production",sameSite:"lax",path:"/",maxAge:86400});return NextResponse.redirect(new URL("/register",request.url))}

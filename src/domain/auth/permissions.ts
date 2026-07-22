@@ -14,6 +14,18 @@ export const PERMISSIONS = [
   "reports.view",
   "users.manage",
   "settings.manage",
+  "partnership.view",
+  "partnership.application.review",
+  "partnership.application.approve",
+  "partnership.application.reject",
+  "partnership.partner.manage",
+  "partnership.partner.suspend",
+  "partnership.document.review",
+  "partnership.request.view",
+  "partnership.request.manage",
+  "partnership.pricing.manage",
+  "partnership.settings.manage",
+  "partnership.report.view",
 ] as const;
 
 export type PermissionKey = (typeof PERMISSIONS)[number];

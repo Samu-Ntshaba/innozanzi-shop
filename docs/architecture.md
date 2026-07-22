@@ -21,6 +21,17 @@ The binding transaction boundary is payment verification. Requests and quotation
 - All money is stored as `Decimal(19, 4)` and rounded through shared decimal utilities. Browser totals are display-only.
 - All timestamps are stored in UTC and displayed in `Africa/Johannesburg`.
 
+## Partnership management
+
+Partnership management is another domain inside the same modular monolith and identity boundary. A partner is always an existing verified customer; approval adds a `Partnership` record and workspace access to that user instead of creating a second account.
+
+- `PartnershipApplication` owns the resumable application, sections and private evidence. `activeKey` provides a database-enforced single-active-application guard.
+- `Partnership` is created only by an authorised approval decision and owns benefits, negotiated terms, reviews, requests and messages.
+- Partner requests and offers retain public and internal fields separately. Customer queries explicitly exclude internal messages and supplier notes.
+- Accepting an offer creates a snapshot in the existing quotation workflow. It does not create a paid order or bypass payment verification.
+- Partnership documents use the existing private Supabase bucket and authorised signed-download endpoint.
+- Every lifecycle mutation writes status history and an audit log in the same database transaction. Email is queued before state commits where the customer must not be told a change succeeded unless notification was accepted by the mail outbox.
+
 ## Runtime architecture
 
 ```text
