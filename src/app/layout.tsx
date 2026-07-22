@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Innozanzi Shop",
   description: "ICT products, procurement and technology solutions for South Africa.",
-  icons: { icon: "/icon.svg" },
+  icons: { icon: "/icon.png", apple: "/icon.png" },
   openGraph: {
     title: "Innozanzi Shop",
     description: "ICT products, procurement and technology solutions for South Africa.",
