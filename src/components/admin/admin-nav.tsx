@@ -4,7 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 export const adminNavGroups = [
-  ["CRM", [["Overview", "/admin"], ["Customers", "/admin/customers"], ["Quote pipeline", "/admin/quotations"], ["Invoices", "/admin/invoices"], ["Help desk", "/admin/help-desk"], ["Email marketing", "/admin/email-marketing"]]],
+  ["CRM", [["Overview", "/admin"], ["Customers", "/admin/customers"], ["Quote pipeline", "/admin/quotations"], ["Invoices", "/admin/invoices"], ["Help desk", "/admin/help-desk"]]],
+  ["Marketing", [["Email marketing", "/admin/email-marketing"]]],
   ["Operations", [["Orders", "/admin/orders"], ["Payments", "/admin/payments"], ["Inventory", "/admin/inventory"], ["Suppliers", "/admin/suppliers"]]],
   ["Catalogue", [["Products", "/admin/products"], ["Categories", "/admin/categories"], ["Brands", "/admin/brands"], ["Promotions", "/admin/promotions"]]],
   ["Intelligence", [["Reports", "/admin/reports"], ["Syntech AI Sync", "/admin/syntech"]]],
