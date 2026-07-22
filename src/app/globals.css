@@ -29,6 +29,50 @@ body {
   outline-offset: 3px;
 }
 
+.system-button-pending {
+  cursor: wait !important;
+  opacity: .72;
+  pointer-events: none;
+}
+
+.system-button-pending::before,
+.system-spinner {
+  display: inline-block;
+  width: 1rem;
+  height: 1rem;
+  margin-right: .5rem;
+  vertical-align: -.15rem;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 9999px;
+  content: "";
+  animation: system-spin .7s linear infinite;
+}
+
+.system-notice {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 10000;
+  display: flex;
+  max-width: min(26rem, calc(100vw - 2rem));
+  align-items: center;
+  gap: .5rem;
+  border: 1px solid #334155;
+  border-radius: .65rem;
+  background: #071b33;
+  padding: .85rem 1rem;
+  color: white;
+  box-shadow: 0 16px 40px rgb(15 23 42 / .25);
+  font-size: .875rem;
+  font-weight: 600;
+}
+
+.system-notice-error { border-color: #fca5a5; background: #991b1b; }
+.system-notice button { margin-left: auto; padding: 0 .25rem; font-size: 1.35rem; line-height: 1; }
+
+@keyframes system-spin { to { transform: rotate(360deg); } }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
 }
