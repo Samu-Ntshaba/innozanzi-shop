@@ -1,4 +1,5 @@
 import Image from "next/image";
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { FileDown, PackageCheck, ShieldCheck, Truck } from "lucide-react";
@@ -7,6 +8,13 @@ import { getProductBySlug } from "@/domain/catalogue/queries";
 import { formatZar } from "@/lib/money";
 
 export const dynamic = "force-dynamic";
+
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const product = await getProductBySlug((await params).slug);
+  if (!product) return {};
+  const image = product.images.find((item) => item.isPrimary) ?? product.images[0];
+  return { title: product.metaTitle ?? product.name, description: product.metaDescription ?? product.shortDescription, alternates: { canonical: `/products/${product.slug}` }, openGraph: { title: product.name, description: product.shortDescription ?? undefined, images: image ? [image.path] : [] } };
+}
 
 export default async function ProductPage({ params }: { params: Promise<{ slug: string }> }) {
   const product = await getProductBySlug((await params).slug);

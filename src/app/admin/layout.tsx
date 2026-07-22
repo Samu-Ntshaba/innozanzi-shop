@@ -3,7 +3,7 @@ import { BrandLogo } from "@/components/brand-logo";
 import { logoutAction } from "@/app/(auth)/actions";
 import { requireUser } from "@/domain/auth/session";
 
-const links = [["Dashboard", "/admin"], ["Syntech AI Sync", "/admin/syntech"], ["Products", "/admin/products"], ["Categories", "/admin/categories"], ["Brands", "/admin/brands"], ["Suppliers", "/admin/suppliers"], ["Inventory", "/admin/inventory"], ["Orders", "/admin/orders"], ["Payments", "/admin/payments"], ["Quotations", "/admin/quotations"], ["Customers", "/admin/customers"], ["Reviews", "/admin/reviews"]] as const;
+const links = [["Dashboard", "/admin"], ["Reports", "/admin/reports"], ["Syntech AI Sync", "/admin/syntech"], ["Products", "/admin/products"], ["Categories", "/admin/categories"], ["Brands", "/admin/brands"], ["Suppliers", "/admin/suppliers"], ["Inventory", "/admin/inventory"], ["Orders", "/admin/orders"], ["Payments", "/admin/payments"], ["Quotations", "/admin/quotations"], ["Customers", "/admin/customers"], ["Reviews", "/admin/reviews"], ["Promotions", "/admin/promotions"], ["Content", "/admin/content"], ["Audit log", "/admin/audit-log"]] as const;
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const { user } = await requireUser();

@@ -13,6 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "https://shop.innozanzi.co.za"),
   title: "Innozanzi Shop",
   description: "ICT products, procurement and technology solutions for South Africa.",
   icons: { icon: "/icon.png", apple: "/icon.png" },
@@ -21,6 +22,8 @@ export const metadata: Metadata = {
     description: "ICT products, procurement and technology solutions for South Africa.",
     type: "website",
   },
+  alternates: { canonical: "/" },
+  robots: { index: true, follow: true },
 };
 
 export default function RootLayout({
