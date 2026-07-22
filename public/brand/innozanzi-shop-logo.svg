@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 152" role="img" aria-labelledby="title description">
+  <title id="title">Innozanzi Shop</title>
+  <desc id="description">Innozanzi Shop logo in navy, cyan and gold</desc>
+  <g transform="translate(4 4)">
+    <rect width="144" height="144" rx="30" fill="#082A4B"/>
+    <path d="M34 35h12v61l-12 10V35Zm24 0h53L89 67h22l-40 42c15-7 34-5 48 5l-8 14c-19-12-43-11-64 2l-5-9 48-71H58V35Z" fill="#0796DB"/>
+  </g>
+  <g fill="#082A4B" font-family="Arial, Helvetica, sans-serif" font-weight="700">
+    <text x="168" y="72" font-size="67" letter-spacing="-2">Inno</text>
+    <text x="168" y="132" font-size="67" letter-spacing="-2">Zanzi</text>
+  </g>
+  <g transform="translate(385 86)">
+    <rect width="164" height="50" rx="12" fill="#F6B900"/>
+    <text x="82" y="35" fill="#082A4B" font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="800" text-anchor="middle" letter-spacing="1">SHOP</text>
+  </g>
+</svg>
