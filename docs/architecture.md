@@ -6,7 +6,7 @@ Innozanzi Shop is a modular monolith deployed as one Next.js application with Po
 
 The application serves three surfaces:
 
-- Public storefront for catalogue discovery, cart, checkout, and quotation requests.
+- Public storefront for catalogue discovery and quotation-list submission; there is no immediate-payment checkout.
 - Customer account for orders, quotations, addresses, wishlist, and documents.
 - Protected administration portal for catalogue, inventory, fulfilment, finance, content, reporting, and access control.
 
@@ -15,7 +15,9 @@ Core rules:
 - Server Components read data directly through domain query modules.
 - Server Actions handle authenticated first-party mutations; Route Handlers handle webhooks, uploads, downloads, integrations, and public API boundaries.
 - UI components never contain pricing, stock, permission, or payment decisions.
-- PostgreSQL transactions protect checkout, inventory reservation, payment transitions, cancellation, refunds, and quotation conversion.
+- PostgreSQL serializable transactions protect payment verification, inventory reservation, one-time order activation and fulfilment transitions.
+
+The binding transaction boundary is payment verification. Requests and quotations do not reserve stock. An authorised finance decision verifies current availability, reserves stock, records payment verification and creates the immutable order snapshot atomically.
 - All money is stored as `Decimal(19, 4)` and rounded through shared decimal utilities. Browser totals are display-only.
 - All timestamps are stored in UTC and displayed in `Africa/Johannesburg`.
 

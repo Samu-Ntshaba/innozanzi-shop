@@ -20,3 +20,5 @@ Redeploy the last known-good Railway deployment. Schema changes must remain back
 ## Routine checks
 
 Review failed payments/webhooks, email outbox failures, audit activity, low stock, quotation backlog, backup status, response latency, and expiring provider credentials.
+
+Run `POST /api/cron/expire-quotations` daily with `Authorization: Bearer <CRON_SECRET>`. Finance must compare proof amount/reference with the final quotation and bank records before verification. A stock exception blocks verification and order creation; resolve availability or regenerate the quotation rather than bypassing the transaction.

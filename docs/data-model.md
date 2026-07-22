@@ -64,7 +64,7 @@ Valid state transitions live in the order/payment domains. Webhooks never set ar
 - `Quotation`, `QuotationItem`: versioned price snapshot, terms, expiry, totals and numbered PDF.
 - `QuotationStatusHistory`: append-only lifecycle.
 
-Conversion to an order occurs once in a transaction, copies immutable snapshots, reserves inventory, links the records, and returns the existing order on an idempotent retry.
+`QuotationVersion` preserves provisional/final snapshots. `PaymentSubmission`, `PaymentVerification`, private `UploadedDocument`, and `DeliveryTrackingEvent` provide the evidence and append-only operational trail. Conversion to an order occurs only after payment verification, once in a serializable transaction that copies immutable snapshots and reserves inventory.
 
 ## Engagement, content and operations
 
@@ -98,7 +98,7 @@ Indexes will be validated with real query plans rather than added indiscriminate
 | Payment confirmation | Lock payment/order; verify amount/provider event; transition status; append histories; enqueue notifications |
 | Cancellation | Validate transition; release remaining reservations; cancel payment where possible; append ledger/history |
 | Refund | Validate refundable amount; create refund record; update aggregate state; optionally return stock; audit |
-| Quotation conversion | Lock accepted quotation; create order snapshots; reserve stock; link once; append histories |
+| Payment verification / quotation conversion | Lock pending submission and final quotation; verify available stock; reserve stock; create order/payment snapshots; link once; append histories |
 | Manual inventory adjustment | Lock inventory; adjust on-hand; append movement with reason and actor |
 
 External calls are never held inside database transactions. An outbox/idempotency pattern coordinates post-commit email, PDF, and payment operations.

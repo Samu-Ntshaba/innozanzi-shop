@@ -62,7 +62,7 @@ export async function StoreHeader() {
               <UserRound className="size-5" /><span className="hidden xl:inline">Account</span>
             </Link>
             <Link className="relative flex min-h-11 items-center gap-2 rounded-lg bg-[#071b33] px-3 py-2 text-sm font-semibold text-white hover:bg-slate-800" href="/cart">
-              <ShoppingCart className="size-5" /><span className="hidden sm:inline">Cart</span>
+              <ShoppingCart className="size-5" /><span className="hidden sm:inline">Quote list</span>
               <span className="absolute -right-1.5 -top-1.5 grid size-5 place-items-center rounded-full bg-amber-400 text-[10px] font-black text-slate-950">{cartCount > 9 ? "9+" : cartCount}</span>
             </Link>
           </nav>

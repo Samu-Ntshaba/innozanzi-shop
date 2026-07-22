@@ -8,9 +8,7 @@
 | `/shop` | Searchable, filterable and sortable product catalogue |
 | `/categories/[slug]` | SEO category landing and filtered catalogue |
 | `/products/[slug]` | Product gallery, variants, stock, documents and reviews |
-| `/cart` | Persistent anonymous or customer cart |
-| `/checkout` | Guest or customer checkout |
-| `/checkout/success/[orderNumber]` | Order acknowledgement without exposing internal IDs |
+| `/cart` | Persistent quotation list with requested quantities and indicative values |
 | `/quotations/request` | Multi-product quotation request |
 | `/search` | Full catalogue search results |
 | `/contact`, `/faq` | Support content |
@@ -26,6 +24,7 @@
 | `/account/profile`, `/account/company`, `/account/addresses` | Customer records |
 | `/account/orders`, `/account/orders/[orderNumber]` | Ownership-checked order history/details |
 | `/account/quotations`, `/account/quotations/[quotationNumber]` | Ownership-checked requests and quotations |
+| `/account/orders/[orderNumber]` | Ownership-checked fulfilment and delivery timeline |
 | `/account/wishlist`, `/account/recently-viewed` | Customer product lists |
 | `/account/security` | Password and active-session management |
 
@@ -63,6 +62,7 @@ All `/admin` routes require an active authenticated user and the relevant server
 | `POST /api/uploads/product-image` | Image validation; product permission; public storage |
 | `POST /api/uploads/payment-proof` | Ownership check; private storage |
 | `GET /api/documents/[id]` | Ownership/permission check followed by short-lived signed URL |
+| `POST /api/cron/expire-quotations` | `CRON_SECRET` authenticated expiry of unpaid final quotations |
 | `POST /api/payments/[provider]/initialize` | Checkout-bound initialization and idempotency |
 | `POST /api/webhooks/paystack` | Signature verification and idempotent payment transition |
 | `POST /api/webhooks/yoco` | Signature verification and idempotent payment transition |

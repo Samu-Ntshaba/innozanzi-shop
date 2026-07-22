@@ -1,19 +1,25 @@
 import { prisma } from "@/lib/prisma";
 
 export async function getAdminDashboard() {
-  const [products, orders, customers, pendingPayments, lowStock, revenue, openRequests, quotesToApprove, outstandingInvoices, pipeline] = await Promise.all([
+  const [products, orders, customers, pendingPayments, lowStock, revenue, openRequests, quotesToApprove, outstandingInvoices, pipeline, awaitingPayment, expiredQuotes, verifiedPayments, activeOrders, deliveriesInProgress, completedOrders] = await Promise.all([
     prisma.product.count({ where: { deletedAt: null } }),
     prisma.order.count(),
     prisma.user.count({ where: { customerProfile: { isNot: null } } }),
-    prisma.paymentProof.count({ where: { status: "PENDING" } }),
+    prisma.paymentSubmission.count({ where: { status: "PENDING_VERIFICATION" } }),
     prisma.inventory.count({ where: { onHand: { lte: prisma.inventory.fields.reorderLevel } } }),
     prisma.order.aggregate({ where: { paymentStatus: "PAID" }, _sum: { grandTotal: true } }),
-    prisma.quotationRequest.count({where:{status:{in:["OPEN","IN_REVIEW"]}}}),
-    prisma.quotation.count({where:{status:"PENDING_APPROVAL"}}),
+    prisma.quotation.count({where:{status:"PROVISIONAL_GENERATED"}}),
+    prisma.quotation.count({where:{status:{in:["UNDER_REVIEW","PENDING_APPROVAL"]}}}),
     prisma.invoice.count({where:{status:{in:["DRAFT","ISSUED","PARTIALLY_PAID","OVERDUE"]}}}),
-    prisma.quotation.aggregate({where:{status:{in:["PENDING_APPROVAL","ISSUED","ACCEPTED"]}},_sum:{grandTotal:true}}),
+    prisma.quotation.aggregate({where:{status:{in:["PROVISIONAL_GENERATED","UNDER_REVIEW","FINAL_APPROVED","SENT","PAYMENT_SUBMITTED"]}},_sum:{grandTotal:true}}),
+    prisma.quotation.count({where:{kind:"FINAL",status:"SENT"}}),
+    prisma.quotation.count({where:{status:"EXPIRED"}}),
+    prisma.paymentSubmission.count({where:{status:"VERIFIED"}}),
+    prisma.order.count({where:{status:{in:["PAYMENT_VERIFIED","PROCESSING","SOURCING_ITEMS","ITEMS_RECEIVED","PACKING","READY_FOR_DELIVERY"]}}}),
+    prisma.order.count({where:{status:{in:["DISPATCHED","IN_TRANSIT"]}}}),
+    prisma.order.count({where:{status:"COMPLETED"}}),
   ]);
-  return {products,orders,customers,pendingPayments,lowStock,openRequests,quotesToApprove,outstandingInvoices,pipeline:pipeline._sum.grandTotal?.toString()??"0",revenue:revenue._sum.grandTotal?.toString()??"0"};
+  return {products,orders,customers,pendingPayments,lowStock,openRequests,quotesToApprove,outstandingInvoices,awaitingPayment,expiredQuotes,verifiedPayments,activeOrders,deliveriesInProgress,completedOrders,pipeline:pipeline._sum.grandTotal?.toString()??"0",revenue:revenue._sum.grandTotal?.toString()??"0"};
 }
 
 export const getAdminProducts = () => prisma.product.findMany({ where: { deletedAt: null }, include: { category: true, brand: true, inventory: true }, orderBy: { updatedAt: "desc" }, take: 100 });

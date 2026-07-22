@@ -1,4 +1,5 @@
-export type EmailMessage = { to: string; subject: string; html: string; text: string; idempotencyKey: string };
+export type EmailAttachment = { filename: string; content: Buffer; contentType: string };
+export type EmailMessage = { to: string; subject: string; html: string; text: string; idempotencyKey: string; attachments?: EmailAttachment[] };
 export interface EmailProvider { send(message: EmailMessage): Promise<{ messageId: string }> }
 
 type MailtrapResponse = { success?: boolean; message_ids?: string[]; errors?: Array<{ message?: string }> };
@@ -30,6 +31,7 @@ export class MailtrapEmailProvider implements EmailProvider {
         html: message.html,
         category: "transactional",
         custom_variables: { idempotency_key: message.idempotencyKey },
+        attachments: message.attachments?.map(attachment => ({ filename: attachment.filename, content: attachment.content.toString("base64"), type: attachment.contentType, disposition: "attachment" })),
       }),
       signal: AbortSignal.timeout(15_000),
     });
@@ -61,7 +63,7 @@ export class MailtrapSmtpEmailProvider implements EmailProvider {
     });
   }
   async send(message: EmailMessage) {
-    const result = await this.transporter.sendMail({ from: { name: this.senderName, address: this.senderEmail }, to: message.to, subject: message.subject, text: message.text, html: message.html, headers: { "X-Idempotency-Key": message.idempotencyKey } });
+    const result = await this.transporter.sendMail({ from: { name: this.senderName, address: this.senderEmail }, to: message.to, subject: message.subject, text: message.text, html: message.html, attachments: message.attachments, headers: { "X-Idempotency-Key": message.idempotencyKey } });
     return { messageId: result.messageId };
   }
 }

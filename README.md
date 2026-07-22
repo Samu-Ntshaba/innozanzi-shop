@@ -1,6 +1,6 @@
 # Innozanzi Shop
 
-A production-oriented e-commerce platform for Innozanzi (Pty) Ltd, built with the Next.js App Router, TypeScript, Tailwind CSS, Prisma and PostgreSQL.
+A production-oriented quotation, payment-verification and fulfilment platform for Innozanzi (Pty) Ltd, built with the Next.js App Router, TypeScript, Tailwind CSS, Prisma and PostgreSQL. Customers request products; they do not pay during checkout.
 
 ## Architecture documentation
 
@@ -8,6 +8,7 @@ A production-oriented e-commerce platform for Innozanzi (Pty) Ltd, built with th
 - [Route map](docs/routes.md)
 - [Target data model](docs/data-model.md)
 - [Delivery plan, assumptions and risks](docs/delivery-plan.md)
+- [Quotation-to-delivery implementation progress](docs/quotation-lifecycle-progress.md)
 
 Implementation is intentionally delivered through reviewable phase gates. Phase 1 documents the target system; Phase 2 replaces the current scaffold schema with authentication, RBAC and foundational commerce domains.
 

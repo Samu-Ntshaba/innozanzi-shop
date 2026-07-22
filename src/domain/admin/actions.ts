@@ -63,11 +63,12 @@ export async function adjustInventory(formData: FormData) {
 
 export async function setOrderStatus(formData: FormData) {
   const context = await requirePermission("orders.update");
-  const { id, status, note } = z.object({ id: z.string().uuid(), status: z.enum(["PENDING", "AWAITING_PAYMENT", "PAID", "PROCESSING", "READY_FOR_COLLECTION", "SHIPPED", "DELIVERED", "COMPLETED", "CANCELLED"]), note: z.string().max(300).optional() }).parse(Object.fromEntries(formData));
+  const { id, status, note, internalNote } = z.object({ id: z.string().uuid(), status: z.enum(["PAYMENT_VERIFIED", "PROCESSING", "SOURCING_ITEMS", "ITEMS_RECEIVED", "PACKING", "READY_FOR_DELIVERY", "DISPATCHED", "IN_TRANSIT", "DELIVERED", "COMPLETED", "CANCELLED"]), note: z.string().trim().min(3).max(500), internalNote: z.string().trim().max(500).optional() }).parse(Object.fromEntries(formData));
   const order = await prisma.$transaction(async (tx) => {
     const before = await tx.order.findUniqueOrThrow({ where: { id }, select: { status: true } });
     await tx.order.update({ where: { id }, data: { status, completedAt: status === "COMPLETED" ? new Date() : undefined, cancelledAt: status === "CANCELLED" ? new Date() : undefined } });
     await tx.orderStatusHistory.create({ data: { orderId: id, fromStatus: before.status, toStatus: status, actorId: context.user.id, note } });
+    await tx.deliveryTrackingEvent.create({ data: { orderId: id, status, actorId: context.user.id, publicNote: note, internalNote: internalNote || null } });
     await tx.auditLog.create({ data: { actorId: context.user.id, action: "order.status", entityType: "Order", entityId: id, before, after: { status, note } } });
     return tx.order.findUniqueOrThrow({ where: { id }, select: { orderNumber: true, email: true, userId: true } });
   });

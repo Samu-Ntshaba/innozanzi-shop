@@ -2,7 +2,7 @@
 
 ## Current baseline
 
-The repository currently has Next.js App Router, strict TypeScript, Tailwind CSS, Prisma 7/PostgreSQL, a Supabase client, and an optional protected OpenAI route. The current schema contains only a placeholder `User`; it is not compatible with the target identity or commerce model and will be replaced in Phase 2 before production data exists.
+The repository has Next.js App Router, strict TypeScript, Tailwind CSS, Prisma 7/PostgreSQL, Supabase storage, Mailtrap and protected OpenAI access. Identity, RBAC, catalogue, quotation, payment-submission, order and tracking foundations are implemented. See `quotation-lifecycle-progress.md` for the current lifecycle gate.
 
 The existing generic public upload route is a security risk because it is unauthenticated and creates a public bucket. Phase 2 will disable or replace it with purpose-specific routes before any public launch.
 
@@ -50,7 +50,7 @@ Exit: retail purchase happy path and critical failure paths pass unit/integratio
 
 Exit: privileged workflows are permission-tested and audited; overselling concurrency tests pass.
 
-### Phase 5 — quotations and integrations
+### Phase 5 — quotations and integrations (implemented baseline)
 
 - Quotation request/editor/versioning/PDF/conversion.
 - Payment-provider adapters for Paystack, Yoco and EFT.

@@ -4,6 +4,8 @@
 
 - Server-side RBAC with explicit permission checks and privileged-action audit records.
 - Purpose-specific public/private storage access and signed private document retrieval.
+- Proof-of-payment documents use a private bucket and five-minute ownership/permission-checked signed URLs.
+- Payment verification and order activation are one serializable, duplicate-resistant transaction; internal cost and tracking notes are excluded from customer queries.
 - Password hashing, session controls, authentication throttling, and quotation throttling.
 - Payment webhook signature/idempotency boundaries and server-authoritative commerce totals.
 - HSTS, clickjacking, MIME sniffing, referrer, permissions, and cross-origin opener headers.

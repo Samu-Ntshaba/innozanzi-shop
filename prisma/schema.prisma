@@ -71,7 +71,14 @@ enum OrderStatus {
   AWAITING_PAYMENT
   PAYMENT_UNDER_REVIEW
   PAID
+  PAYMENT_VERIFIED
   PROCESSING
+  SOURCING_ITEMS
+  ITEMS_RECEIVED
+  PACKING
+  READY_FOR_DELIVERY
+  DISPATCHED
+  IN_TRANSIT
   READY_FOR_COLLECTION
   SHIPPED
   DELIVERED
@@ -136,6 +143,14 @@ enum QuotationRequestStatus {
 }
 
 enum QuotationStatus {
+  REQUESTED
+  PROVISIONAL_GENERATED
+  UNDER_REVIEW
+  FINAL_APPROVED
+  SENT
+  PAYMENT_SUBMITTED
+  PAYMENT_VERIFIED
+  PAYMENT_REJECTED
   DRAFT
   PENDING_APPROVAL
   DECLINED_INTERNAL
@@ -145,6 +160,18 @@ enum QuotationStatus {
   EXPIRED
   CONVERTED
   CANCELLED
+}
+
+enum QuotationKind {
+  PROVISIONAL
+  FINAL
+}
+
+enum PaymentSubmissionStatus {
+  PENDING_VERIFICATION
+  VERIFIED
+  REJECTED
+  CORRECTION_REQUIRED
 }
 
 enum InvoiceStatus {
@@ -224,6 +251,9 @@ model User {
   orderStatusChanges     OrderStatusHistory[]     @relation("OrderStatusActor")
   quotationStatusChanges QuotationStatusHistory[] @relation("QuotationStatusActor")
   auditLogs              AuditLog[]               @relation("AuditActor")
+  paymentSubmissions     PaymentSubmission[]      @relation("PaymentSubmitter")
+  paymentVerifications   PaymentVerification[]    @relation("PaymentVerifier")
+  deliveryEvents         DeliveryTrackingEvent[]  @relation("DeliveryEventActor")
 
   @@index([status, createdAt])
   @@index([deletedAt])
@@ -704,39 +734,41 @@ model WishlistItem {
 }
 
 model Order {
-  id                   String               @id @default(uuid()) @db.Uuid
-  orderNumber          String               @unique
-  userId               String?              @db.Uuid
+  id                   String                  @id @default(uuid()) @db.Uuid
+  orderNumber          String                  @unique
+  userId               String?                 @db.Uuid
   email                String
   phone                String?
   companyName          String?
   vatNumber            String?
   purchaseOrderNumber  String?
-  currency             String               @default("ZAR") @db.Char(3)
-  subtotal             Decimal              @db.Decimal(19, 4)
-  discountTotal        Decimal              @default(0) @db.Decimal(19, 4)
-  deliveryTotal        Decimal              @default(0) @db.Decimal(19, 4)
-  vatTotal             Decimal              @default(0) @db.Decimal(19, 4)
-  grandTotal           Decimal              @db.Decimal(19, 4)
-  status               OrderStatus          @default(PENDING)
-  paymentStatus        PaymentStatus        @default(PENDING)
+  currency             String                  @default("ZAR") @db.Char(3)
+  subtotal             Decimal                 @db.Decimal(19, 4)
+  discountTotal        Decimal                 @default(0) @db.Decimal(19, 4)
+  deliveryTotal        Decimal                 @default(0) @db.Decimal(19, 4)
+  vatTotal             Decimal                 @default(0) @db.Decimal(19, 4)
+  grandTotal           Decimal                 @db.Decimal(19, 4)
+  status               OrderStatus             @default(PENDING)
+  paymentStatus        PaymentStatus           @default(PENDING)
   paymentMethod        PaymentProvider
-  customerNotes        String?              @db.Text
-  internalNotes        String?              @db.Text
-  customerVisibleNotes String?              @db.Text
+  customerNotes        String?                 @db.Text
+  internalNotes        String?                 @db.Text
+  customerVisibleNotes String?                 @db.Text
   placedAt             DateTime?
   cancelledAt          DateTime?
   completedAt          DateTime?
-  createdAt            DateTime             @default(now())
-  updatedAt            DateTime             @updatedAt
-  user                 User?                @relation(fields: [userId], references: [id], onDelete: SetNull)
+  createdAt            DateTime                @default(now())
+  updatedAt            DateTime                @updatedAt
+  user                 User?                   @relation(fields: [userId], references: [id], onDelete: SetNull)
   items                OrderItem[]
   addresses            OrderAddress[]
   payments             Payment[]
   shipments            Shipment[]
   couponRedemptions    CouponRedemption[]
   statusHistory        OrderStatusHistory[]
-  convertedQuotation   Quotation?           @relation("ConvertedOrder")
+  convertedQuotation   Quotation?              @relation("ConvertedOrder")
+  paymentSubmissions   PaymentSubmission[]
+  deliveryEvents       DeliveryTrackingEvent[]
 
   @@index([userId, createdAt])
   @@index([status, createdAt])
@@ -998,7 +1030,9 @@ model Quotation {
   customerId         String?                  @db.Uuid
   convertedOrderId   String?                  @unique @db.Uuid
   status             QuotationStatus          @default(DRAFT)
+  kind               QuotationKind            @default(PROVISIONAL)
   version            Int                      @default(1)
+  markupPercent      Decimal                  @default(5) @db.Decimal(7, 4)
   currency           String                   @default("ZAR") @db.Char(3)
   subtotal           Decimal                  @db.Decimal(19, 4)
   discountTotal      Decimal                  @default(0) @db.Decimal(19, 4)
@@ -1016,6 +1050,9 @@ model Quotation {
   pdfPath            String?
   issuedAt           DateTime?
   acceptedAt         DateTime?
+  finalApprovedAt    DateTime?
+  paymentReference   String?
+  bankDetails        String?                  @db.Text
   createdAt          DateTime                 @default(now())
   updatedAt          DateTime                 @updatedAt
   quotationRequest   QuotationRequest?        @relation(fields: [quotationRequestId], references: [id], onDelete: SetNull)
@@ -1024,6 +1061,8 @@ model Quotation {
   items              QuotationItem[]
   statusHistory      QuotationStatusHistory[]
   invoices           Invoice[]
+  versions           QuotationVersion[]
+  paymentSubmissions PaymentSubmission[]
 
   @@unique([quotationRequestId, version])
   @@index([status, createdAt])
@@ -1031,24 +1070,25 @@ model Quotation {
 }
 
 model Invoice {
-  id String @id @default(uuid()) @db.Uuid
-  invoiceNumber String @unique
-  quotationId String? @db.Uuid
-  status InvoiceStatus @default(DRAFT)
-  customerName String
+  id            String        @id @default(uuid()) @db.Uuid
+  invoiceNumber String        @unique
+  quotationId   String?       @db.Uuid
+  status        InvoiceStatus @default(DRAFT)
+  customerName  String
   customerEmail String
-  companyName String?
-  currency String @default("ZAR") @db.Char(3)
-  subtotal Decimal @db.Decimal(19, 4)
-  vatTotal Decimal @default(0) @db.Decimal(19, 4)
-  grandTotal Decimal @db.Decimal(19, 4)
-  issuedAt DateTime?
-  dueAt DateTime
-  paidAt DateTime?
-  notes String? @db.Text
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  quotation Quotation? @relation(fields: [quotationId], references: [id], onDelete: SetNull)
+  companyName   String?
+  currency      String        @default("ZAR") @db.Char(3)
+  subtotal      Decimal       @db.Decimal(19, 4)
+  vatTotal      Decimal       @default(0) @db.Decimal(19, 4)
+  grandTotal    Decimal       @db.Decimal(19, 4)
+  issuedAt      DateTime?
+  dueAt         DateTime
+  paidAt        DateTime?
+  notes         String?       @db.Text
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  quotation     Quotation?    @relation(fields: [quotationId], references: [id], onDelete: SetNull)
+
   @@index([status, dueAt])
   @@index([customerEmail, createdAt])
   @@index([quotationId])
@@ -1063,6 +1103,7 @@ model QuotationItem {
   sku           String?
   quantity      Int
   unitPrice     Decimal         @db.Decimal(19, 4)
+  costPrice     Decimal?        @db.Decimal(19, 4)
   discountTotal Decimal         @default(0) @db.Decimal(19, 4)
   vatRate       Decimal         @db.Decimal(7, 4)
   vatTotal      Decimal         @db.Decimal(19, 4)
@@ -1076,6 +1117,81 @@ model QuotationItem {
 
   @@index([quotationId])
   @@index([productId])
+}
+
+model QuotationVersion {
+  id          String        @id @default(uuid()) @db.Uuid
+  quotationId String        @db.Uuid
+  version     Int
+  kind        QuotationKind
+  snapshot    Json
+  createdById String?       @db.Uuid
+  createdAt   DateTime      @default(now())
+  quotation   Quotation     @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+
+  @@unique([quotationId, version])
+  @@index([quotationId, createdAt])
+}
+
+model UploadedDocument {
+  id                String             @id @default(uuid()) @db.Uuid
+  bucket            String
+  path              String             @unique
+  originalName      String
+  mimeType          String
+  size              Int
+  isPrivate         Boolean            @default(true)
+  createdAt         DateTime           @default(now())
+  paymentSubmission PaymentSubmission?
+}
+
+model PaymentSubmission {
+  id               String                  @id @default(uuid()) @db.Uuid
+  quotationId      String                  @db.Uuid
+  orderId          String?                 @db.Uuid
+  submittedById    String                  @db.Uuid
+  documentId       String                  @unique @db.Uuid
+  amount           Decimal                 @db.Decimal(19, 4)
+  paymentDate      DateTime
+  paymentReference String
+  customerNote     String?                 @db.Text
+  status           PaymentSubmissionStatus @default(PENDING_VERIFICATION)
+  rejectionReason  String?                 @db.Text
+  submittedAt      DateTime                @default(now())
+  updatedAt        DateTime                @updatedAt
+  quotation        Quotation               @relation(fields: [quotationId], references: [id], onDelete: Restrict)
+  order            Order?                  @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  submittedBy      User                    @relation("PaymentSubmitter", fields: [submittedById], references: [id], onDelete: Restrict)
+  document         UploadedDocument        @relation(fields: [documentId], references: [id], onDelete: Restrict)
+  verification     PaymentVerification?
+
+  @@index([status, submittedAt])
+  @@index([quotationId, submittedAt])
+}
+
+model PaymentVerification {
+  id                  String                  @id @default(uuid()) @db.Uuid
+  paymentSubmissionId String                  @unique @db.Uuid
+  verifiedById        String                  @db.Uuid
+  decision            PaymentSubmissionStatus
+  internalNote        String?                 @db.Text
+  verifiedAt          DateTime                @default(now())
+  paymentSubmission   PaymentSubmission       @relation(fields: [paymentSubmissionId], references: [id], onDelete: Restrict)
+  verifiedBy          User                    @relation("PaymentVerifier", fields: [verifiedById], references: [id], onDelete: Restrict)
+}
+
+model DeliveryTrackingEvent {
+  id           String      @id @default(uuid()) @db.Uuid
+  orderId      String      @db.Uuid
+  status       OrderStatus
+  publicNote   String?
+  internalNote String?
+  actorId      String?     @db.Uuid
+  occurredAt   DateTime    @default(now())
+  order        Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  actor        User?       @relation("DeliveryEventActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([orderId, occurredAt])
 }
 
 model QuotationStatusHistory {
