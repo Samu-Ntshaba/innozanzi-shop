@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && next build",
-    "start": "next start",
+    "start": "prisma migrate deploy && npx tsx scripts/upsert-super-admin.ts && next start",
     "lint": "eslint",
     "test": "vitest run",
     "test:watch": "vitest",
