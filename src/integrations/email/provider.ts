@@ -47,6 +47,9 @@ export class MailtrapSmtpEmailProvider implements EmailProvider {
       port: Number(process.env.MAILTRAP_SMTP_PORT ?? 587),
       secure: false,
       requireTLS: true,
+      connectionTimeout: Number(process.env.MAILTRAP_CONNECTION_TIMEOUT_MS ?? 8_000),
+      greetingTimeout: Number(process.env.MAILTRAP_GREETING_TIMEOUT_MS ?? 8_000),
+      socketTimeout: Number(process.env.MAILTRAP_SOCKET_TIMEOUT_MS ?? 12_000),
       auth: { user: process.env.MAILTRAP_SMTP_USERNAME ?? "api", pass: password },
     });
   }

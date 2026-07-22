@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 
 const REQUEST_TIMEOUT_MS = 20_000;
 
@@ -8,6 +9,7 @@ type Notice = { tone: "busy" | "error"; message: string } | null;
 
 export function SystemFeedback() {
   const [notice, setNotice] = useState<Notice>(null);
+  const pathname = usePathname();
 
   useEffect(() => {
     let timeout: ReturnType<typeof setTimeout> | undefined;
@@ -73,7 +75,7 @@ export function SystemFeedback() {
       window.fetch = originalFetch;
       restore();
     };
-  }, []);
+  }, [pathname]);
 
   if (!notice) return null;
   return (
