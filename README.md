@@ -45,3 +45,7 @@ Set `OPENAI_API_KEY`, `OPENAI_MODEL`, and `OPENAI_ROUTE_SECRET` to enable the pr
 Authentication uses Argon2id password hashes and opaque session cookies. Only a SHA-256 hash of each session token is stored in PostgreSQL. Configure `ADMIN_EMAIL`, `ADMIN_PASSWORD`, and `ADMIN_NAME`, then run `npm run db:seed` to create or update the initial Super Administrator. The `/admin` layout enforces permissions on the server.
 
 New customer accounts remain pending until email verification. The verification token is created during registration; delivery will be connected through the email provider in the integrations phase.
+
+## Storefront foundation
+
+The current Phase 3 slice includes the branded homepage, catalogue filters, category/product pages, server-authoritative ZAR pricing, VAT-inclusive cart calculations, persistent anonymous/customer carts, and server-side stock validation. The seed command creates the required categories, brands, and 20 original sample products.

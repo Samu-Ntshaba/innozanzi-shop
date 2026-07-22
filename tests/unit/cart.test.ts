@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { activeUnitPrice, calculateCart } from "../../src/domain/cart/service";
+import { activeUnitPrice, calculateCart } from "../../src/domain/cart/calculations";
 
 const product = {
   regularPrice: { toString: () => "1000.00" },

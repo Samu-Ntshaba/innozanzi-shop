@@ -1,7 +1,8 @@
 import Image from "next/image";
 import Link from "next/link";
 import { removeCartItemAction, updateCartItemAction } from "@/domain/cart/actions";
-import { activeUnitPrice, calculateCart, getCurrentCart } from "@/domain/cart/service";
+import { activeUnitPrice, calculateCart } from "@/domain/cart/calculations";
+import { getCurrentCart } from "@/domain/cart/service";
 import { formatZar } from "@/lib/money";
 
 export const dynamic = "force-dynamic";
