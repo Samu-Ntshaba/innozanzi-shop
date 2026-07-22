@@ -2,7 +2,7 @@ import { createHmac } from "node:crypto";
 import { describe, expect, it, vi } from "vitest";
 import { HostedPaymentAdapter, EftPaymentAdapter } from "../../src/integrations/payments/adapters";
 import { quotationPdf } from "../../src/domain/quotations/pdf";
-import { MailtrapEmailProvider } from "../../src/integrations/email/provider";
+import { getEmailProvider, MailtrapEmailProvider } from "../../src/integrations/email/provider";
 import { emailTemplates } from "../../src/integrations/email/templates";
 
 describe("payment adapters", () => {
@@ -31,6 +31,11 @@ describe("quotation PDF", () => {
 });
 
 describe("transactional email", () => {
+  it("never selects Mailtrap Sandbox in production", () => {
+    vi.stubEnv("NODE_ENV", "production"); vi.stubEnv("MAILTRAP_SANDBOX", "true"); vi.stubEnv("MAILTRAP_SMTP_PASSWORD", ""); vi.stubEnv("MAILTRAP_API_TOKEN", "live-token");
+    expect(getEmailProvider()).toBeInstanceOf(MailtrapEmailProvider);
+    vi.unstubAllEnvs();
+  });
   it("renders branded verification links without exposing raw HTML", () => {
     const email = emailTemplates.verifyEmail("buyer@example.com", "A & B", "secure-token");
     expect(email.html).toContain("A &amp; B");

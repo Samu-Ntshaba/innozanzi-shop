@@ -14,9 +14,8 @@ export class MailtrapEmailProvider implements EmailProvider {
   async send(message: EmailMessage) {
     if (!this.token) throw new Error("MAILTRAP_API_TOKEN must be configured");
     const sandboxInboxId = process.env.MAILTRAP_SANDBOX_INBOX_ID;
-    const sandboxEnabled = process.env.MAILTRAP_SANDBOX === "true";
+    const sandboxEnabled = process.env.MAILTRAP_SANDBOX === "true" && process.env.NODE_ENV !== "production";
     if (sandboxEnabled && !sandboxInboxId) throw new Error("MAILTRAP_SANDBOX_INBOX_ID must be configured when sandbox mode is enabled");
-    if (sandboxEnabled && process.env.NODE_ENV === "production") throw new Error("Mailtrap Sandbox cannot be used for production customer email delivery");
     const endpoint = sandboxEnabled
       ? `https://sandbox.api.mailtrap.io/api/send/${sandboxInboxId}`
       : "https://send.api.mailtrap.io/api/send";
@@ -73,7 +72,7 @@ export class ConsoleEmailProvider implements EmailProvider {
 }
 
 export function getEmailProvider(): EmailProvider {
-  if (process.env.MAILTRAP_SANDBOX === "true") return new MailtrapEmailProvider();
+  if (process.env.MAILTRAP_SANDBOX === "true" && process.env.NODE_ENV !== "production") return new MailtrapEmailProvider();
   if (process.env.MAILTRAP_SMTP_PASSWORD) return new MailtrapSmtpEmailProvider();
   return process.env.MAILTRAP_API_TOKEN ? new MailtrapEmailProvider() : new ConsoleEmailProvider();
 }
