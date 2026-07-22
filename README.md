@@ -44,7 +44,9 @@ Set `OPENAI_API_KEY`, `OPENAI_MODEL`, and `OPENAI_ROUTE_SECRET` to enable the pr
 
 Authentication uses Argon2id password hashes and opaque session cookies. Only a SHA-256 hash of each session token is stored in PostgreSQL. Configure `ADMIN_EMAIL`, `ADMIN_PASSWORD`, and `ADMIN_NAME`, then run `npm run db:seed` to create or update the initial Super Administrator. The `/admin` layout enforces permissions on the server.
 
-New customer accounts remain pending until email verification. The verification token is created during registration; delivery will be connected through the email provider in the integrations phase.
+Transactional email uses Mailtrap. Configure `MAILTRAP_API_TOKEN`, `MAIL_FROM_EMAIL` (a verified Mailtrap sending-domain address), `MAIL_FROM_NAME`, and `NEXT_PUBLIC_SITE_URL`. Delivery is immediate and also recorded in the `Notification` outbox with `PENDING`, `SENT`, or `FAILED` status. Without a Mailtrap token, local development falls back to console delivery.
+
+New customer accounts remain pending until they use the emailed verification link. Password resets, quotation lifecycle messages, invoices, order status changes, and payment-proof decisions use shared branded templates.
 
 ## Storefront foundation
 

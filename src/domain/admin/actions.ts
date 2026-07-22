@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/domain/auth/session";
+import { enqueueEmail } from "@/integrations/email/outbox";
+import { emailTemplates } from "@/integrations/email/templates";
 
 const slugify = (value: string) => value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 const text = z.string().trim().min(1).max(200);
@@ -62,20 +64,23 @@ export async function adjustInventory(formData: FormData) {
 export async function setOrderStatus(formData: FormData) {
   const context = await requirePermission("orders.update");
   const { id, status, note } = z.object({ id: z.string().uuid(), status: z.enum(["PENDING", "AWAITING_PAYMENT", "PAID", "PROCESSING", "READY_FOR_COLLECTION", "SHIPPED", "DELIVERED", "COMPLETED", "CANCELLED"]), note: z.string().max(300).optional() }).parse(Object.fromEntries(formData));
-  await prisma.$transaction(async (tx) => {
+  const order = await prisma.$transaction(async (tx) => {
     const before = await tx.order.findUniqueOrThrow({ where: { id }, select: { status: true } });
     await tx.order.update({ where: { id }, data: { status, completedAt: status === "COMPLETED" ? new Date() : undefined, cancelledAt: status === "CANCELLED" ? new Date() : undefined } });
     await tx.orderStatusHistory.create({ data: { orderId: id, fromStatus: before.status, toStatus: status, actorId: context.user.id, note } });
     await tx.auditLog.create({ data: { actorId: context.user.id, action: "order.status", entityType: "Order", entityId: id, before, after: { status, note } } });
+    return tx.order.findUniqueOrThrow({ where: { id }, select: { orderNumber: true, email: true, userId: true } });
   });
+  await enqueueEmail(emailTemplates.orderStatus(order.email, order.orderNumber, status), order.userId ?? undefined);
   revalidatePath("/admin/orders");
 }
 
 export async function reviewPaymentProof(formData: FormData) {
   const context = await requirePermission("payments.approve");
   const { id, status, note } = z.object({ id: z.string().uuid(), status: z.enum(["APPROVED", "REJECTED"]), note: z.string().max(300).optional() }).parse(Object.fromEntries(formData));
-  const proof = await prisma.paymentProof.update({ where: { id }, data: { status, reviewNote: note, reviewerId: context.user.id, reviewedAt: new Date() } });
+  const proof = await prisma.paymentProof.update({ where: { id }, data: { status, reviewNote: note, reviewerId: context.user.id, reviewedAt: new Date() }, include: { payment: { include: { order: { select: { orderNumber: true, email: true, userId: true } } } } } });
   await audit(context.user.id, `payment-proof.${status.toLowerCase()}`, "PaymentProof", id, { status: "PENDING" }, { status: proof.status, note });
+  await enqueueEmail(emailTemplates.paymentReview(proof.payment.order.email, proof.payment.order.orderNumber, status), proof.payment.order.userId ?? undefined);
   revalidatePath("/admin/payments");
 }
 

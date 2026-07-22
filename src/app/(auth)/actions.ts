@@ -13,6 +13,8 @@ import {
 import { hashPassword, verifyPassword } from "@/domain/auth/password";
 import { clearAuthAttempts, consumeAuthAttempt } from "@/domain/auth/rate-limit";
 import { createSession, deleteCurrentSession } from "@/domain/auth/session";
+import { enqueueEmail } from "@/integrations/email/outbox";
+import { emailTemplates } from "@/integrations/email/templates";
 
 function value(formData: FormData, key: string) {
   const field = formData.get(key);
@@ -62,7 +64,7 @@ export async function registerAction(formData: FormData) {
   const rawToken = randomBytes(32).toString("base64url");
   const token = createHash("sha256").update(rawToken).digest("hex");
 
-  await prisma.$transaction(async (tx) => {
+  const user = await prisma.$transaction(async (tx) => {
     const customerRole = await tx.role.findUnique({ where: { slug: "customer" } });
     const user = await tx.user.create({
       data: {
@@ -83,9 +85,9 @@ export async function registerAction(formData: FormData) {
         expires: new Date(Date.now() + 24 * 60 * 60 * 1_000),
       },
     });
+    return user;
   });
-
-  // Phase 5 will send the raw verification token through the email provider.
+  await enqueueEmail(emailTemplates.verifyEmail(parsed.data.email, parsed.data.name, rawToken), user.id);
   redirect("/register?status=check-email");
 }
 
@@ -139,7 +141,7 @@ export async function requestPasswordResetAction(formData: FormData) {
           },
         });
       });
-      // Phase 5 will send the raw reset token through the email provider.
+      await enqueueEmail(emailTemplates.passwordReset(parsed.data.email, rawToken), user.id);
     }
   }
   redirect("/forgot-password?status=sent");
