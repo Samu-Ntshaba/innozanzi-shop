@@ -26,3 +26,5 @@ Open [http://localhost:3000](http://localhost:3000).
 `DATABASE_URL` is the private Railway connection used inside Railway's network.
 
 Set `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, and `SUPABASE_STORAGE_BUCKET` to enable uploads. The server creates the configured public bucket on the first upload. Never expose `SUPABASE_SECRET_KEY` through a `NEXT_PUBLIC_` variable.
+
+Set `OPENAI_API_KEY`, `OPENAI_MODEL`, and `OPENAI_ROUTE_SECRET` to enable the protected `POST /api/openai` route. Send JSON shaped as `{ "input": "..." }` with an `Authorization: Bearer <OPENAI_ROUTE_SECRET>` header. Keep both secrets server-only.
