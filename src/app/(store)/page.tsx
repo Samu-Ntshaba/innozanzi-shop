@@ -50,13 +50,13 @@ export default async function HomePage() {
     <main className="bg-slate-50">
       <section className="border-b border-slate-200 bg-white">
         <div className="mx-auto grid max-w-7xl gap-4 px-4 py-5 sm:px-6 lg:grid-cols-[1fr_310px] lg:px-8">
-          <div className="relative overflow-hidden rounded-2xl bg-[#071b33] px-7 py-10 text-white sm:px-10 sm:py-14">
+          <div className="relative overflow-hidden rounded-2xl bg-[#071b33] px-5 py-8 text-white sm:px-10 sm:py-14">
             <div className="absolute -right-24 -top-32 size-96 rounded-full bg-sky-500/20 blur-2xl" />
             <div className="relative max-w-2xl">
               <span className="inline-flex rounded-full bg-amber-400 px-3 py-1 text-xs font-black uppercase tracking-wide text-slate-950">Business technology, delivered</span>
-              <h1 className="mt-5 text-4xl font-black tracking-tight sm:text-5xl">Upgrade your tech. Get more done.</h1>
+              <h1 className="mt-5 text-3xl font-black tracking-tight min-[420px]:text-4xl sm:text-5xl">Upgrade your tech. Get more done.</h1>
               <p className="mt-4 max-w-xl text-base leading-7 text-sky-100 sm:text-lg">Shop dependable laptops, power, networking and office technology with local support and VAT-inclusive pricing.</p>
-              <div className="mt-7 flex flex-wrap gap-3">
+              <div className="mt-7 grid gap-3 min-[420px]:flex min-[420px]:flex-wrap">
                 <Link className={cn(buttonVariants({ size: "lg" }), "bg-sky-500 hover:bg-sky-400")} href="/shop">Shop all deals <ArrowRight className="ml-2 size-4" /></Link>
                 <Link className={cn(buttonVariants({ variant: "outline", size: "lg" }), "border-white/40 bg-white/10 text-white hover:bg-white/20")} href="/quotations/request">Get bulk pricing</Link>
               </div>
@@ -80,7 +80,7 @@ export default async function HomePage() {
       </section>
 
       <section className="border-b border-slate-200 bg-white">
-        <div className="mx-auto grid max-w-7xl grid-cols-2 divide-x divide-y divide-slate-200 px-4 sm:grid-cols-4 sm:divide-y-0 sm:px-6 lg:px-8">
+        <div className="mx-auto grid max-w-7xl grid-cols-1 divide-y divide-slate-200 px-4 min-[480px]:grid-cols-2 min-[480px]:divide-x sm:grid-cols-4 sm:divide-y-0 sm:px-6 lg:px-8">
           {trustItems.map(({ icon: Icon, title, body }) => (
             <div key={title} className="flex items-start gap-3 px-3 py-5 sm:px-5">
               <Icon className="mt-0.5 size-6 shrink-0 text-sky-600" />
@@ -92,7 +92,7 @@ export default async function HomePage() {
 
       <section className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
         <div className="mb-5 flex items-end justify-between"><div><p className="text-sm font-bold uppercase tracking-wider text-sky-600">Shop by category</p><h2 className="mt-1 text-2xl font-black text-slate-950 sm:text-3xl">Find the right technology</h2></div><Link className="hidden text-sm font-bold text-sky-700 hover:underline sm:block" href="/shop">View all categories</Link></div>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+        <div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
           {categories.map((category) => {
             const Icon = category.icon;
             return <Link key={category.id} href={`/categories/${category.slug}`} className="group rounded-xl border border-slate-200 bg-white p-5 text-center transition hover:-translate-y-0.5 hover:border-sky-400 hover:shadow-lg"><div className="mx-auto grid size-12 place-items-center rounded-full bg-sky-50 text-sky-600 group-hover:bg-sky-600 group-hover:text-white"><Icon className="size-6" /></div><h3 className="mt-3 text-sm font-bold text-slate-900">{category.name}</h3><p className="mt-1 line-clamp-2 text-xs leading-5 text-slate-500">{category.description}</p></Link>;
