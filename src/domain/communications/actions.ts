@@ -16,17 +16,17 @@ const supportSchema=z.object({name:z.string().trim().min(2).max(120),email,phone
 export async function subscribeNewsletter(formData:FormData){
   const data=z.object({email,name:z.string().trim().max(120).optional()}).parse({email:formData.get("email"),name:formData.get("name")||undefined});
   const existing=await prisma.newsletterSubscriber.findUnique({where:{email:data.email}});
+  await enqueueEmail(emailTemplates.newsletterWelcome(data.email,data.name||"there"));
   await prisma.newsletterSubscriber.upsert({where:{email:data.email},update:{name:data.name||existing?.name,isActive:true,unsubscribedAt:null},create:{email:data.email,name:data.name}});
-  let delivered=true;try{await enqueueEmail(emailTemplates.newsletterWelcome(data.email,data.name||"there"))}catch(error){delivered=false;console.error("Newsletter welcome delivery failed",error)}
-  redirect(`/newsletter/thank-you?delivery=${delivered?"sent":"pending"}`);
+  redirect("/newsletter/thank-you?delivery=sent");
 }
 
 export async function unsubscribeNewsletter(formData:FormData){const data=z.object({email,token:z.string().length(64)}).parse(Object.fromEntries(formData));if(newsletterToken(data.email)!==data.token)throw new Error("Invalid unsubscribe request.");await prisma.newsletterSubscriber.deleteMany({where:{email:data.email}});redirect("/unsubscribe?done=true")}
 
 export async function submitHelpDeskTicket(formData:FormData){
   const data=supportSchema.parse(Object.fromEntries(formData));const requestHeaders=await headers();const ip=requestHeaders.get("x-forwarded-for")?.split(",")[0]?.trim()??"unknown";const limit=consumeRateLimit(`helpdesk:${ip}:${data.email}`,5,60*60_000);if(!limit.allowed)throw new Error("Too many support requests. Please try again later.");
-  const ticketNumber=`SUP-${Date.now().toString(36).toUpperCase()}`;await prisma.helpDeskTicket.create({data:{ticketNumber,...data,phone:data.phone||null,companyName:data.companyName||null}});
-  await Promise.all([enqueueEmail(emailTemplates.helpDeskReceived(data.email,data.name,ticketNumber)),enqueueEmail(emailTemplates.helpDeskSupportAlert(ticketNumber,data.name,data.email,data.subject,data.message))]);
+  const ticketNumber=`SUP-${Date.now().toString(36).toUpperCase()}`;await Promise.all([enqueueEmail(emailTemplates.helpDeskReceived(data.email,data.name,ticketNumber)),enqueueEmail(emailTemplates.helpDeskSupportAlert(ticketNumber,data.name,data.email,data.subject,data.message))]);
+  await prisma.helpDeskTicket.create({data:{ticketNumber,...data,phone:data.phone||null,companyName:data.companyName||null}});
   redirect(`/contact?submitted=${ticketNumber}`);
 }
 
