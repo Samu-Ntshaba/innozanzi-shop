@@ -23,7 +23,7 @@ export async function subscribeNewsletter(formData:FormData){
     redirect("/newsletter/thank-you?delivery=failed");
   }
   await prisma.newsletterSubscriber.upsert({where:{email:data.email},update:{name:data.name||existing?.name,isActive:true,unsubscribedAt:null},create:{email:data.email,name:data.name}});
-  redirect("/newsletter/thank-you?delivery=sent");
+  redirect(`/newsletter/thank-you?delivery=${process.env.MAILTRAP_SANDBOX === "true" ? "sandbox" : "sent"}`);
 }
 
 export async function unsubscribeNewsletter(formData:FormData){const data=z.object({email,token:z.string().length(64)}).parse(Object.fromEntries(formData));if(newsletterToken(data.email)!==data.token)throw new Error("Invalid unsubscribe request.");await prisma.newsletterSubscriber.deleteMany({where:{email:data.email}});redirect("/unsubscribe?done=true")}
