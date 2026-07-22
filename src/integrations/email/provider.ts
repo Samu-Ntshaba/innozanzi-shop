@@ -4,6 +4,18 @@ export interface EmailProvider { send(message: EmailMessage): Promise<{ messageI
 
 type MailtrapResponse = { success?: boolean; message_ids?: string[]; errors?: Array<{ message?: string }> };
 
+export function isProductionDeployment(env: NodeJS.ProcessEnv = process.env) {
+  return env.NODE_ENV === "production" || Boolean(env.RAILWAY_ENVIRONMENT || env.RAILWAY_PROJECT_ID) || env.VERCEL_ENV === "production";
+}
+
+export function mailDeliveryMode(env: NodeJS.ProcessEnv = process.env): "sandbox" | "api" | "smtp" | "unconfigured" {
+  if (env.MAILTRAP_SANDBOX === "true" && !isProductionDeployment(env)) return "sandbox";
+  if (env.MAILTRAP_DELIVERY_MODE === "smtp" && env.MAILTRAP_SMTP_PASSWORD) return "smtp";
+  if (env.MAILTRAP_API_TOKEN) return "api";
+  if (env.MAILTRAP_SMTP_PASSWORD) return "smtp";
+  return "unconfigured";
+}
+
 export class MailtrapEmailProvider implements EmailProvider {
   constructor(
     private readonly token = process.env.MAILTRAP_API_TOKEN,
@@ -14,7 +26,7 @@ export class MailtrapEmailProvider implements EmailProvider {
   async send(message: EmailMessage) {
     if (!this.token) throw new Error("MAILTRAP_API_TOKEN must be configured");
     const sandboxInboxId = process.env.MAILTRAP_SANDBOX_INBOX_ID;
-    const sandboxEnabled = process.env.MAILTRAP_SANDBOX === "true" && process.env.NODE_ENV !== "production";
+    const sandboxEnabled = mailDeliveryMode() === "sandbox";
     if (sandboxEnabled && !sandboxInboxId) throw new Error("MAILTRAP_SANDBOX_INBOX_ID must be configured when sandbox mode is enabled");
     const endpoint = sandboxEnabled
       ? `https://sandbox.api.mailtrap.io/api/send/${sandboxInboxId}`
@@ -72,8 +84,10 @@ export class ConsoleEmailProvider implements EmailProvider {
 }
 
 export function getEmailProvider(): EmailProvider {
-  if (process.env.MAILTRAP_SANDBOX === "true" && process.env.NODE_ENV !== "production") return new MailtrapEmailProvider();
-  if (process.env.MAILTRAP_SMTP_PASSWORD) return new MailtrapSmtpEmailProvider();
-  return process.env.MAILTRAP_API_TOKEN ? new MailtrapEmailProvider() : new ConsoleEmailProvider();
+  const mode = mailDeliveryMode();
+  if (mode === "sandbox" || mode === "api") return new MailtrapEmailProvider();
+  if (mode === "smtp") return new MailtrapSmtpEmailProvider();
+  if (isProductionDeployment()) throw new Error("Production email is not configured. Set a Mailtrap Email Sending API token or live SMTP credential.");
+  return new ConsoleEmailProvider();
 }
 import nodemailer from "nodemailer";
