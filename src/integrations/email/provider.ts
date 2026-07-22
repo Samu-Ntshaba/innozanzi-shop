@@ -6,7 +6,7 @@ type MailtrapResponse = { success?: boolean; message_ids?: string[]; errors?: Ar
 export class MailtrapEmailProvider implements EmailProvider {
   constructor(
     private readonly token = process.env.MAILTRAP_API_TOKEN,
-    private readonly senderEmail = process.env.MAIL_FROM_EMAIL ?? "hello@demomailtrap.com",
+    private readonly senderEmail = process.env.MAIL_FROM_EMAIL ?? "support@innozanzi.co.za",
     private readonly senderName = process.env.MAIL_FROM_NAME ?? "Innozanzi Shop",
   ) {}
 

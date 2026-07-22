@@ -1,0 +1,11 @@
+CREATE TYPE "HelpDeskStatus" AS ENUM ('OPEN', 'IN_PROGRESS', 'WAITING_CUSTOMER', 'RESOLVED', 'CLOSED');
+CREATE TYPE "CampaignStatus" AS ENUM ('DRAFT', 'SENT');
+CREATE TABLE "NewsletterSubscriber" ("id" UUID NOT NULL, "email" TEXT NOT NULL, "name" TEXT, "source" TEXT NOT NULL DEFAULT 'website', "isActive" BOOLEAN NOT NULL DEFAULT true, "subscribedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "unsubscribedAt" TIMESTAMP(3), "updatedAt" TIMESTAMP(3) NOT NULL, CONSTRAINT "NewsletterSubscriber_pkey" PRIMARY KEY ("id"));
+CREATE UNIQUE INDEX "NewsletterSubscriber_email_key" ON "NewsletterSubscriber"("email");
+CREATE INDEX "NewsletterSubscriber_isActive_subscribedAt_idx" ON "NewsletterSubscriber"("isActive", "subscribedAt");
+CREATE TABLE "EmailCampaign" ("id" UUID NOT NULL, "name" TEXT NOT NULL, "subject" TEXT NOT NULL, "preview" TEXT, "html" TEXT NOT NULL, "status" "CampaignStatus" NOT NULL DEFAULT 'DRAFT', "sentAt" TIMESTAMP(3), "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL, CONSTRAINT "EmailCampaign_pkey" PRIMARY KEY ("id"));
+CREATE INDEX "EmailCampaign_status_createdAt_idx" ON "EmailCampaign"("status", "createdAt");
+CREATE TABLE "HelpDeskTicket" ("id" UUID NOT NULL, "ticketNumber" TEXT NOT NULL, "name" TEXT NOT NULL, "email" TEXT NOT NULL, "phone" TEXT, "companyName" TEXT, "category" TEXT NOT NULL, "subject" TEXT NOT NULL, "message" TEXT NOT NULL, "status" "HelpDeskStatus" NOT NULL DEFAULT 'OPEN', "priority" TEXT NOT NULL DEFAULT 'NORMAL', "assignedTo" TEXT, "resolution" TEXT, "resolvedAt" TIMESTAMP(3), "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL, CONSTRAINT "HelpDeskTicket_pkey" PRIMARY KEY ("id"));
+CREATE UNIQUE INDEX "HelpDeskTicket_ticketNumber_key" ON "HelpDeskTicket"("ticketNumber");
+CREATE INDEX "HelpDeskTicket_status_priority_createdAt_idx" ON "HelpDeskTicket"("status", "priority", "createdAt");
+CREATE INDEX "HelpDeskTicket_email_createdAt_idx" ON "HelpDeskTicket"("email", "createdAt");

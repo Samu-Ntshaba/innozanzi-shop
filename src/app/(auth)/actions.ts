@@ -103,10 +103,11 @@ export async function verifyEmailAction(formData: FormData) {
 
   const token = createHash("sha256").update(rawToken).digest("hex");
   const verification = await prisma.verificationToken.findUnique({ where: { token } });
+  const customer = await prisma.user.findUnique({ where: { email }, select: { id: true, name: true, customerProfile: { select: { id: true } } } });
   if (
     !verification ||
     verification.identifier !== `verify:${email}` ||
-    verification.expires <= new Date()
+    verification.expires <= new Date() || !customer?.customerProfile
   ) {
     redirect("/verify-email?error=invalid");
   }
@@ -121,13 +122,14 @@ export async function verifyEmailAction(formData: FormData) {
     return updated;
   });
   await createSession(user.id);
+  await enqueueEmail(emailTemplates.welcome(email, customer.name ?? "there"), user.id);
   redirect("/account");
 }
 
 export async function requestPasswordResetAction(formData: FormData) {
   const parsed = passwordResetRequestSchema.safeParse({ email: value(formData, "email") });
   if (parsed.success) {
-    const user = await prisma.user.findUnique({ where: { email: parsed.data.email }, select: { id: true } });
+    const user = await prisma.user.findFirst({ where: { email: parsed.data.email, customerProfile: { isNot: null } }, select: { id: true } });
     if (user) {
       const rawToken = randomBytes(32).toString("base64url");
       const token = createHash("sha256").update(rawToken).digest("hex");
@@ -158,7 +160,8 @@ export async function resetPasswordAction(formData: FormData) {
 
   const token = createHash("sha256").update(parsed.data.token).digest("hex");
   const reset = await prisma.verificationToken.findUnique({ where: { token } });
-  if (!reset || reset.identifier !== `reset:${parsed.data.email}` || reset.expires <= new Date()) {
+  const customer = await prisma.user.findFirst({ where: { email: parsed.data.email, customerProfile: { isNot: null } }, select: { id: true } });
+  if (!reset || !customer || reset.identifier !== `reset:${parsed.data.email}` || reset.expires <= new Date()) {
     redirect("/reset-password?error=invalid");
   }
 

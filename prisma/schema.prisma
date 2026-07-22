@@ -156,6 +156,19 @@ enum InvoiceStatus {
   VOID
 }
 
+enum HelpDeskStatus {
+  OPEN
+  IN_PROGRESS
+  WAITING_CUSTOMER
+  RESOLVED
+  CLOSED
+}
+
+enum CampaignStatus {
+  DRAFT
+  SENT
+}
+
 enum ReviewStatus {
   PENDING
   APPROVED
@@ -1142,6 +1155,55 @@ model SiteSetting {
   isSensitive Boolean  @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+}
+
+model NewsletterSubscriber {
+  id             String    @id @default(uuid()) @db.Uuid
+  email          String    @unique
+  name           String?
+  source         String    @default("website")
+  isActive       Boolean   @default(true)
+  subscribedAt   DateTime  @default(now())
+  unsubscribedAt DateTime?
+  updatedAt      DateTime  @updatedAt
+
+  @@index([isActive, subscribedAt])
+}
+
+model EmailCampaign {
+  id        String         @id @default(uuid()) @db.Uuid
+  name      String
+  subject   String
+  preview   String?
+  html      String         @db.Text
+  status    CampaignStatus @default(DRAFT)
+  sentAt    DateTime?
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  @@index([status, createdAt])
+}
+
+model HelpDeskTicket {
+  id           String         @id @default(uuid()) @db.Uuid
+  ticketNumber String         @unique
+  name         String
+  email        String
+  phone        String?
+  companyName  String?
+  category     String
+  subject      String
+  message      String         @db.Text
+  status       HelpDeskStatus @default(OPEN)
+  priority     String         @default("NORMAL")
+  assignedTo   String?
+  resolution   String?        @db.Text
+  resolvedAt   DateTime?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  @@index([status, priority, createdAt])
+  @@index([email, createdAt])
 }
 
 model AuditLog {
