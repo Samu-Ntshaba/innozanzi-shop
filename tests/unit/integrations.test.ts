@@ -44,6 +44,12 @@ describe("transactional email", () => {
     expect(email.text).toContain("secure-token");
   });
 
+  it("uses a fresh idempotency key for a new newsletter subscription lifecycle", () => {
+    expect(emailTemplates.newsletterWelcome("buyer@example.com", "Buyer", "attempt-one").idempotencyKey).not.toBe(
+      emailTemplates.newsletterWelcome("buyer@example.com", "Buyer", "attempt-two").idempotencyKey,
+    );
+  });
+
   it("sends Mailtrap's transactional payload and returns the message id", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({ success: true, message_ids: ["message-1"] }), { status: 200, headers: { "content-type": "application/json" } }));
     const provider = new MailtrapEmailProvider("test-token", "sender@example.com", "Sender");
