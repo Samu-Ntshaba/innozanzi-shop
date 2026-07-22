@@ -1,0 +1,6 @@
+import { AdminPage, Panel, tableClass } from "@/components/admin/admin-ui";
+import { getAdminProducts } from "@/domain/admin/queries";
+import { setProductStatus } from "@/domain/admin/actions";
+import { requirePermission } from "@/domain/auth/session";
+
+export default async function ProductsPage() { await requirePermission("products.view"); const products = await getAdminProducts(); return <AdminPage title="Products" description="Catalogue status, pricing and stock visibility."><Panel><table className={tableClass}><thead><tr><th>Product</th><th>Category</th><th>Price</th><th>Available</th><th>Status</th><th>Update</th></tr></thead><tbody>{products.map((p) => <tr key={p.id}><td><strong>{p.name}</strong><br/><span className="text-xs text-slate-500">{p.sku}</span></td><td>{p.category.name}</td><td>R {p.regularPrice.toString()}</td><td>{p.inventory.reduce((n, i) => n + i.onHand - i.reserved, 0)}</td><td>{p.status}</td><td><form action={setProductStatus} className="flex gap-2"><input type="hidden" name="id" value={p.id}/><select name="status" defaultValue={p.status} className="rounded border px-2 py-1"><option>DRAFT</option><option>PUBLISHED</option><option>ARCHIVED</option></select><button className="text-sky-800 underline">Save</button></form></td></tr>)}</tbody></table></Panel></AdminPage>; }
