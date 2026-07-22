@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { hasPermission } from "../../src/domain/auth/permissions";
+import { hasPermission, isProtectedRoleRemoval } from "../../src/domain/auth/permissions";
 
 describe("hasPermission", () => {
   it("requires an explicit allow", () => {
@@ -16,5 +16,16 @@ describe("hasPermission", () => {
 
   it("allows the super administrator bypass", () => {
     expect(hasPermission([], "settings.manage", true)).toBe(true);
+  });
+});
+
+describe("role assignment protections", () => {
+  it("prevents removing the active administrator's own super role", () => {
+    expect(isProtectedRoleRemoval("user-1", "user-1", "super-administrator")).toBe(true);
+  });
+
+  it("allows other role removals", () => {
+    expect(isProtectedRoleRemoval("user-1", "user-2", "super-administrator")).toBe(false);
+    expect(isProtectedRoleRemoval("user-1", "user-1", "administrator")).toBe(false);
   });
 });

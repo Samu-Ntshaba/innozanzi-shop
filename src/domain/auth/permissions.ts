@@ -23,6 +23,10 @@ export type PermissionGrant = {
   effect: PermissionEffect;
 };
 
+export function isProtectedRoleRemoval(actorId: string, userId: string, roleSlug: string) {
+  return actorId === userId && roleSlug === "super-administrator";
+}
+
 export function hasPermission(
   grants: readonly PermissionGrant[],
   permission: PermissionKey,

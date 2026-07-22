@@ -68,6 +68,15 @@ Exit: webhook idempotency, quotation conversion, private document access and pro
 
 Exit: launch checklist, restore plan, security review, performance budget and full test suite pass.
 
+### Phase 7 — access-control administration
+
+- Administrative role creation and safe deletion.
+- Per-role allow/deny permission rules, with explicit deny taking precedence.
+- User-role assignment and removal with self-lockout and system-role protections.
+- Audit records for every access-control change.
+
+Exit: only users with `users.manage` can change access; system roles and the active Super Administrator remain protected.
+
 ## Assumptions requiring confirmation
 
 1. Auth.js credentials authentication is acceptable; transactional email provider selection can happen in Phase 5.
