@@ -1,0 +1,6 @@
+import { resetPasswordAction } from "../actions";
+
+export default async function ResetPasswordPage({ searchParams }: { searchParams: Promise<{ email?: string; token?: string; error?: string }> }) {
+  const { email = "", token = "", error } = await searchParams;
+  return <main className="grid min-h-screen place-items-center bg-zinc-50 p-6"><section className="w-full max-w-md rounded-2xl bg-white p-8 shadow-sm"><h1 className="text-2xl font-semibold">Choose a new password</h1>{error && <p className="mt-4 text-sm text-red-700">The reset link or password is invalid.</p>}<form action={resetPasswordAction} className="mt-6 space-y-4"><input type="hidden" name="email" value={email} /><input type="hidden" name="token" value={token} /><label className="block text-sm font-medium">New password<input className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2" name="password" type="password" minLength={12} required /></label><label className="block text-sm font-medium">Confirm password<input className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2" name="confirmPassword" type="password" minLength={12} required /></label><button className="w-full rounded-lg bg-zinc-900 px-4 py-3 text-white" type="submit" disabled={!email || !token}>Reset password</button></form></section></main>;
+}

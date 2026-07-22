@@ -27,8 +27,10 @@ Open [http://localhost:3000](http://localhost:3000).
 - `npm run dev` — start the development server
 - `npm run build` — create a production build
 - `npm run lint` — run ESLint
+- `npm test` — run unit tests
 - `npm run db:generate` — regenerate Prisma Client
 - `npm run db:migrate` — create and apply a development migration
+- `npm run db:seed` — seed system roles, permissions and the optional administrator
 - `npm run db:studio` — open Prisma Studio
 
 `DATABASE_PUBLIC_URL` is used by local Prisma commands and local development.
@@ -37,3 +39,13 @@ Open [http://localhost:3000](http://localhost:3000).
 Set `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, and `SUPABASE_STORAGE_BUCKET` to enable uploads. The server creates the configured public bucket on the first upload. Never expose `SUPABASE_SECRET_KEY` through a `NEXT_PUBLIC_` variable.
 
 Set `OPENAI_API_KEY`, `OPENAI_MODEL`, and `OPENAI_ROUTE_SECRET` to enable the protected `POST /api/openai` route. Send JSON shaped as `{ "input": "..." }` with an `Authorization: Bearer <OPENAI_ROUTE_SECRET>` header. Keep both secrets server-only.
+
+## Authentication and administration
+
+Authentication uses Argon2id password hashes and opaque session cookies. Only a SHA-256 hash of each session token is stored in PostgreSQL. Configure `ADMIN_EMAIL`, `ADMIN_PASSWORD`, and `ADMIN_NAME`, then run `npm run db:seed` to create or update the initial Super Administrator. The `/admin` layout enforces permissions on the server.
+
+New customer accounts remain pending until email verification. The verification token is created during registration; delivery will be connected through the email provider in the integrations phase.
+
+## Storefront foundation
+
+The current Phase 3 slice includes the branded homepage, catalogue filters, category/product pages, server-authoritative ZAR pricing, VAT-inclusive cart calculations, persistent anonymous/customer carts, and server-side stock validation. The seed command creates the required categories, brands, and 20 original sample products.

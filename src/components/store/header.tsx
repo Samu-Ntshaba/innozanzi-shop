@@ -1,0 +1,7 @@
+import { Search, ShoppingCart, UserRound } from "lucide-react";
+import Link from "next/link";
+import { BrandLogo } from "@/components/brand-logo";
+
+export function StoreHeader() {
+  return <><div className="bg-[#071b33] px-4 py-2 text-center text-xs text-sky-50">Business pricing and bulk procurement available across South Africa</div><header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur"><div className="mx-auto flex max-w-7xl items-center gap-5 px-4 py-3 sm:px-6 lg:px-8"><BrandLogo className="w-40 sm:w-48" priority /><form action="/shop" className="hidden flex-1 md:flex"><label className="flex w-full items-center gap-2 rounded-full border border-slate-300 bg-slate-50 px-4 focus-within:border-sky-500 focus-within:ring-2 focus-within:ring-sky-100"><Search className="size-4 text-slate-500" /><input className="h-11 w-full bg-transparent text-sm outline-none" name="search" placeholder="Search laptops, power, networking and more" /></label></form><nav aria-label="Primary" className="ml-auto flex items-center gap-1 sm:gap-3"><Link className="rounded-lg p-2 font-medium text-slate-800 hover:bg-sky-50 hover:text-sky-700" href="/shop">Shop</Link><Link aria-label="Account" className="rounded-lg p-2 text-slate-800 hover:bg-sky-50 hover:text-sky-700" href="/account"><UserRound className="size-5" /></Link><Link aria-label="Cart" className="rounded-lg p-2 text-slate-800 hover:bg-sky-50 hover:text-sky-700" href="/cart"><ShoppingCart className="size-5" /></Link></nav></div></header></>;
+}
