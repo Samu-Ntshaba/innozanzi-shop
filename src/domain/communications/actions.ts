@@ -16,7 +16,12 @@ const supportSchema=z.object({name:z.string().trim().min(2).max(120),email,phone
 export async function subscribeNewsletter(formData:FormData){
   const data=z.object({email,name:z.string().trim().max(120).optional()}).parse({email:formData.get("email"),name:formData.get("name")||undefined});
   const existing=await prisma.newsletterSubscriber.findUnique({where:{email:data.email}});
-  await enqueueEmail(emailTemplates.newsletterWelcome(data.email,data.name||"there"));
+  try {
+    await enqueueEmail(emailTemplates.newsletterWelcome(data.email,data.name||"there"));
+  } catch (error) {
+    console.error("Newsletter welcome email could not be delivered", error);
+    redirect("/newsletter/thank-you?delivery=failed");
+  }
   await prisma.newsletterSubscriber.upsert({where:{email:data.email},update:{name:data.name||existing?.name,isActive:true,unsubscribedAt:null},create:{email:data.email,name:data.name}});
   redirect("/newsletter/thank-you?delivery=sent");
 }

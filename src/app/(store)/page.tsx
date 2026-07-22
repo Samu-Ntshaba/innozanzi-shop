@@ -119,7 +119,7 @@ export default async function HomePage() {
       </section>
 
       <section className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
-        <div className="rounded-2xl bg-sky-50 p-7 text-center sm:p-10"><h2 className="text-2xl font-black text-slate-950">Deals, new arrivals and ICT advice</h2><p className="mt-2 text-sm text-slate-600">Join the Innozanzi Shop newsletter. No noise—only useful updates.</p><form action={subscribeNewsletter} className="mx-auto mt-5 flex max-w-lg flex-col gap-2 sm:flex-row"><input aria-label="Email address" className="h-12 flex-1 rounded-lg border border-slate-300 bg-white px-4 outline-none focus:border-sky-500" name="email" type="email" placeholder="you@company.co.za" required /><button className="h-12 rounded-lg bg-sky-600 px-6 font-bold text-white hover:bg-sky-700" type="submit">Subscribe</button></form></div>
+        <div id="newsletter" className="scroll-mt-24 rounded-2xl bg-sky-50 p-7 text-center sm:p-10"><h2 className="text-2xl font-black text-slate-950">Deals, new arrivals and ICT advice</h2><p className="mt-2 text-sm text-slate-600">Join the Innozanzi Shop newsletter. No noise—only useful updates.</p><form action={subscribeNewsletter} className="mx-auto mt-5 flex max-w-lg flex-col gap-2 sm:flex-row"><input aria-label="Email address" className="h-12 flex-1 rounded-lg border border-slate-300 bg-white px-4 outline-none focus:border-sky-500" name="email" type="email" placeholder="you@company.co.za" required /><button className="h-12 rounded-lg bg-sky-600 px-6 font-bold text-white hover:bg-sky-700" type="submit">Subscribe</button></form></div>
       </section>
     </main>
   );
