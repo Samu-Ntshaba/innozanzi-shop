@@ -1,6 +1,15 @@
 # Innozanzi Shop
 
-An empty Next.js starter using the App Router, TypeScript, Tailwind CSS, Prisma, PostgreSQL, and Supabase Storage.
+A production-oriented e-commerce platform for Innozanzi (Pty) Ltd, built with the Next.js App Router, TypeScript, Tailwind CSS, Prisma and PostgreSQL.
+
+## Architecture documentation
+
+- [Architecture](docs/architecture.md)
+- [Route map](docs/routes.md)
+- [Target data model](docs/data-model.md)
+- [Delivery plan, assumptions and risks](docs/delivery-plan.md)
+
+Implementation is intentionally delivered through reviewable phase gates. Phase 1 documents the target system; Phase 2 replaces the current scaffold schema with authentication, RBAC and foundational commerce domains.
 
 ## Setup
 
