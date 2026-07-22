@@ -40,6 +40,7 @@ describe("transactional email", () => {
     const email = emailTemplates.verifyEmail("buyer@example.com", "A & B", "secure-token");
     expect(email.html).toContain("A &amp; B");
     expect(email.html).toContain("verify-email?email=buyer%40example.com");
+    expect(email.html).toContain("/uploads/brand/email-logo-white.png");
     expect(email.text).toContain("secure-token");
   });
 
