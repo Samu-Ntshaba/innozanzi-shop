@@ -21,7 +21,7 @@ export async function subscribeNewsletter(formData:FormData){
   redirect(`/newsletter/thank-you?delivery=${delivered?"sent":"pending"}`);
 }
 
-export async function unsubscribeNewsletter(formData:FormData){const data=z.object({email,token:z.string().length(64)}).parse(Object.fromEntries(formData));if(newsletterToken(data.email)!==data.token)throw new Error("Invalid unsubscribe request.");await prisma.newsletterSubscriber.updateMany({where:{email:data.email},data:{isActive:false,unsubscribedAt:new Date()}});redirect("/unsubscribe?done=true")}
+export async function unsubscribeNewsletter(formData:FormData){const data=z.object({email,token:z.string().length(64)}).parse(Object.fromEntries(formData));if(newsletterToken(data.email)!==data.token)throw new Error("Invalid unsubscribe request.");await prisma.newsletterSubscriber.deleteMany({where:{email:data.email}});redirect("/unsubscribe?done=true")}
 
 export async function submitHelpDeskTicket(formData:FormData){
   const data=supportSchema.parse(Object.fromEntries(formData));const requestHeaders=await headers();const ip=requestHeaders.get("x-forwarded-for")?.split(",")[0]?.trim()??"unknown";const limit=consumeRateLimit(`helpdesk:${ip}:${data.email}`,5,60*60_000);if(!limit.allowed)throw new Error("Too many support requests. Please try again later.");
