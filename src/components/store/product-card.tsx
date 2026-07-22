@@ -19,8 +19,8 @@ export function ProductCard({ product }: { product: ProductCardData }) {
           {onSale && <span className="absolute left-3 top-3 rounded-full bg-red-600 px-2.5 py-1 text-xs font-semibold text-white">Special</span>}
         </div>
         <div className="p-4">
-          <p className="text-xs font-medium uppercase tracking-wide text-emerald-700">{product.brand?.name ?? product.category.name}</p>
-          <h3 className="mt-1 line-clamp-2 min-h-12 font-semibold text-zinc-950 group-hover:text-emerald-800">{product.name}</h3>
+          <p className="text-xs font-medium uppercase tracking-wide text-sky-600">{product.brand?.name ?? product.category.name}</p>
+          <h3 className="mt-1 line-clamp-2 min-h-12 font-semibold text-zinc-950 group-hover:text-sky-700">{product.name}</h3>
           <p className="mt-1 text-xs text-zinc-500">SKU {product.sku}</p>
           <div className="mt-4 flex items-baseline gap-2">
             <span className="text-lg font-bold text-zinc-950">{formatZar(onSale ? product.salePrice!.toString() : product.regularPrice.toString())}</span>
