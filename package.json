@@ -2,6 +2,11 @@
   "name": "innozanzi-shop",
   "version": "0.1.0",
   "private": true,
+  "packageManager": "npm@10.9.4",
+  "engines": {
+    "node": ">=20 <25",
+    "npm": "10.x"
+  },
   "scripts": {
     "dev": "tsx scripts/dev-railway.ts",
     "dev:direct": "next dev",
