@@ -191,8 +191,8 @@ ALTER TABLE "RfqCommission" ADD CONSTRAINT "RfqCommission_rfqId_fkey" FOREIGN KE
 ALTER TABLE "RfqStatusHistory" ADD CONSTRAINT "RfqStatusHistory_rfqId_fkey" FOREIGN KEY ("rfqId") REFERENCES "RfqOpportunity"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 ALTER TABLE "RfqStatusHistory" ADD CONSTRAINT "RfqStatusHistory_actorId_fkey" FOREIGN KEY ("actorId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
-INSERT INTO "Permission" ("id","key","description","createdAt")
-SELECT gen_random_uuid(), key, 'RFQ and tender management permission', CURRENT_TIMESTAMP
+INSERT INTO "Permission" ("id","key","description","createdAt","updatedAt")
+SELECT gen_random_uuid(), key, 'RFQ and tender management permission', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
 FROM unnest(ARRAY['rfq.view','rfq.create','rfq.update','rfq.delete','rfq.analyse','rfq.price','rfq.submit','rfq.approve','rfq.reject','rfq.assign','rfq.export','rfq.financials.view','rfq.commission.manage']) AS key
 ON CONFLICT ("key") DO NOTHING;
 
