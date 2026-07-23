@@ -6,6 +6,10 @@ Implemented on 22 July 2026:
 - Existing-account authentication continuation and customer eligibility enforcement.
 - Resumable application, declarations, required private evidence and duplicate prevention.
 - Admin queues, application and document review, decisions, account-manager assignment and lifecycle history.
+- Authorised staff can manually promote an existing active, verified client to a
+  partner. The operation creates the source application, partner record, approval
+  history, annual review, audit entry and customer notification transactionally;
+  it never creates a second login.
 - Approved partner workspace, benefits, negotiated terms and renewal/review visibility.
 - Structured sourcing/procurement requests, admin responses, commercial offers and safe quotation conversion.
 - Partnership permissions, audit events, customer/admin email templates and admin operational reporting.

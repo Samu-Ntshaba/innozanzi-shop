@@ -5,10 +5,6 @@ const productCardSelect = {
   name: true,
   slug: true,
   sku: true,
-  regularPrice: true,
-  salePrice: true,
-  saleStartsAt: true,
-  saleEndsAt: true,
   stockStatus: true,
   brand: { select: { name: true, slug: true } },
   category: { select: { name: true, slug: true } },
@@ -43,7 +39,7 @@ export async function getCatalogue(input: { search?: string; category?: string; 
     ...(input.category ? { category: { slug: input.category } } : {}),
     ...(input.brand ? { brand: { slug: input.brand } } : {}),
   };
-  const orderBy = input.sort === "price-asc" ? { regularPrice: "asc" as const } : input.sort === "price-desc" ? { regularPrice: "desc" as const } : input.sort === "name" ? { name: "asc" as const } : { publishedAt: "desc" as const };
+  const orderBy = input.sort === "name" ? { name: "asc" as const } : { publishedAt: "desc" as const };
 
   try {
     const [products, total, categories, brands] = await Promise.all([
