@@ -113,3 +113,27 @@ export async function restoreUser(formData: FormData) {
   revalidatePath("/admin/access-control");
   revalidatePath("/admin/customers");
 }
+
+export async function permanentlyDeleteUser(formData: FormData) {
+  const context = await requirePermission("users.manage");
+  if (!context.isSuperAdministrator) throw new Error("Only a Super Administrator can permanently delete user accounts.");
+  const userId = uuid.parse(formData.get("userId"));
+  if (userId === context.user.id) throw new Error("You cannot permanently delete your own signed-in account.");
+  const user = await prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { id: true, email: true, name: true, deletedAt: true } });
+  if (!user.deletedAt) throw new Error("Delete and revoke this user before attempting permanent deletion.");
+  const deletedAt = user.deletedAt;
+  try {
+    await prisma.$transaction(async (tx) => {
+      await tx.verificationToken.deleteMany({ where: { identifier: user.email } });
+      await tx.user.delete({ where: { id: userId } });
+      await tx.auditLog.create({ data: { actorId: context.user.id, action: "user.permanently-delete", entityType: "User", entityId: userId, before: { email: user.email, name: user.name, deletedAt: deletedAt.toISOString() }, after: { permanentlyDeleted: true } } });
+    });
+  } catch (error) {
+    if (typeof error === "object" && error && "code" in error && error.code === "P2003") {
+      throw new Error("This user cannot be permanently deleted because protected business, payment, partnership, support or audit records still reference the account. Keep the account deleted so access remains revoked and history stays intact.");
+    }
+    throw error;
+  }
+  revalidatePath("/admin/access-control");
+  revalidatePath("/admin/customers");
+}
