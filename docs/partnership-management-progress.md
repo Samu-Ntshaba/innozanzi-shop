@@ -16,3 +16,15 @@ Implemented on 22 July 2026:
 - Additive Prisma migration and seeded partnership types.
 
 Inventory is not reserved by a partnership request or offer. The existing payment-verification transaction remains the point at which availability is rechecked and stock is reserved, preventing a partner workflow from weakening paid-order integrity.
+# Agreement lifecycle completion
+
+Partnership agreements now use immutable versions and cannot activate from an
+unsigned draft. Administrators issue an exact version; the partner records initials,
+typed signature and consent; a separately authorised internal user signs the same
+version. Activation generates a branded final PDF with both signature records.
+
+Active agreements support audited renewal and amendment proposals. Approval creates
+a new immutable version and returns the agreement to the two-party signature flow.
+When both parties sign outside the platform, authorised document reviewers can
+upload the final signed PDF to private storage and activate the change. Historical
+versions and changes remain linked to the partnership.

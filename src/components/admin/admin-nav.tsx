@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 
 export const adminNavGroups = [
   ["CRM", [["Overview", "/admin"], ["Ticketing centre", "/admin/help-desk"], ["Operations calendar", "/admin/calendar"], ["Customers", "/admin/customers"], ["Quote pipeline", "/admin/quotations"], ["RFQs & tenders", "/admin/rfqs"], ["Invoices", "/admin/invoices"]]],
-  ["Partnerships", [["Dashboard", "/admin/partnerships"], ["Applications", "/admin/partnerships/applications"], ["Approved partners", "/admin/partnerships/partners"], ["Partner requests", "/admin/partnerships/requests"]]],
+  ["Partnerships", [["Dashboard", "/admin/partnerships"], ["Applications", "/admin/partnerships/applications"], ["Approved partners", "/admin/partnerships/partners"], ["Agreements", "/admin/partnerships/agreements"], ["Partner requests", "/admin/partnerships/requests"]]],
   ["Marketing", [["Dashboard", "/admin/marketing"],["Homepage", "/admin/marketing/homepage"],["Global SEO", "/admin/marketing/seo"],["Page SEO", "/admin/marketing/page-seo"],["SEO audit", "/admin/marketing/audit"],["Redirects", "/admin/marketing/redirects"],["Media library", "/admin/marketing/media"],["Email marketing", "/admin/email-marketing"]]],
   ["Operations", [["Orders", "/admin/orders"], ["Logistics & transport", "/admin/logistics"], ["Returns & refunds", "/admin/returns"], ["Delivery notes", "/admin/delivery-notes"], ["Payments", "/admin/payments"], ["Inventory", "/admin/inventory"], ["Suppliers", "/admin/suppliers"]]],
   ["Catalogue", [["Products", "/admin/products"], ["Categories", "/admin/categories"], ["Brands", "/admin/brands"], ["Promotions", "/admin/promotions"]]],

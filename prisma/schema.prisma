@@ -348,6 +348,20 @@ enum PartnershipDocumentStatus {
   EXPIRED
 }
 
+enum PartnershipAgreementStatus {
+  DRAFT
+  AWAITING_PARTNER_SIGNATURE
+  AWAITING_INTERNAL_SIGNATURE
+  ACTIVE
+  SUPERSEDED
+  CANCELLED
+}
+
+enum PartnershipChangeType {
+  AMENDMENT
+  RENEWAL
+}
+
 enum PartnerRequestStatus {
   DRAFT
   SUBMITTED
@@ -782,6 +796,10 @@ model User {
   transportReimbursements         StaffTransportReimbursement[]    @relation("TransportReimbursementEmployee")
   approvedTransportReimbursements StaffTransportReimbursement[]    @relation("TransportReimbursementApprover")
   transportEvents                 TransportEvent[]                 @relation("TransportEventActor")
+  partnershipAgreementVersions    PartnershipAgreementVersion[]    @relation("PartnershipAgreementVersionCreator")
+  partnershipAgreementSignatures  PartnershipAgreementSignature[]  @relation("PartnershipAgreementSigner")
+  partnershipChangesRequested     PartnershipChange[]              @relation("PartnershipChangeRequester")
+  partnershipChangesApproved      PartnershipChange[]              @relation("PartnershipChangeApprover")
 
   @@index([status, createdAt])
   @@index([deletedAt])
@@ -1919,6 +1937,7 @@ model UploadedDocument {
   transportProofDocuments   TransportProofDocument[]
   reimbursementReceipt      StaffTransportReimbursement?
   transportProviderDocument TransportProviderDocument?
+  partnershipOfflineChange  PartnershipChange?
 }
 
 model BusinessDocument {
@@ -2565,9 +2584,102 @@ model Partnership {
   messages              PartnerMessage[]
   trackChangeRequests   PartnerTrackChangeRequest[]
   transportRecords      TransportRecord[]
+  agreement             PartnershipAgreement?
+  changes               PartnershipChange[]
 
   @@index([userId, status])
   @@index([status, renewalDate])
+}
+
+model PartnershipAgreement {
+  id              String                          @id @default(uuid()) @db.Uuid
+  partnershipId   String                          @unique @db.Uuid
+  agreementNumber String                          @unique
+  status          PartnershipAgreementStatus      @default(DRAFT)
+  currentVersion  Int                             @default(1)
+  effectiveAt     DateTime?
+  expiresAt       DateTime?
+  activatedAt     DateTime?
+  cancelledAt     DateTime?
+  createdAt       DateTime                        @default(now())
+  updatedAt       DateTime                        @updatedAt
+  partnership     Partnership                     @relation(fields: [partnershipId], references: [id], onDelete: Cascade)
+  versions        PartnershipAgreementVersion[]
+  signatures      PartnershipAgreementSignature[]
+  changes         PartnershipChange[]
+
+  @@index([status, expiresAt])
+}
+
+model PartnershipAgreementVersion {
+  id            String                          @id @default(uuid()) @db.Uuid
+  agreementId   String                          @db.Uuid
+  version       Int
+  title         String
+  body          String                          @db.Text
+  termsSnapshot Json?
+  pdfContent    Bytes?
+  pdfFilename   String?
+  issuedAt      DateTime?
+  createdById   String                          @db.Uuid
+  createdAt     DateTime                        @default(now())
+  agreement     PartnershipAgreement            @relation(fields: [agreementId], references: [id], onDelete: Cascade)
+  createdBy     User                            @relation("PartnershipAgreementVersionCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  signatures    PartnershipAgreementSignature[]
+  changes       PartnershipChange[]
+
+  @@unique([agreementId, version])
+  @@index([agreementId, createdAt])
+}
+
+model PartnershipAgreementSignature {
+  id            String                      @id @default(uuid()) @db.Uuid
+  agreementId   String                      @db.Uuid
+  versionId     String                      @db.Uuid
+  signerId      String                      @db.Uuid
+  signerRole    String
+  legalName     String
+  initials      String
+  signatureText String
+  consentText   String                      @db.Text
+  signedAt      DateTime                    @default(now())
+  ipAddress     String?
+  userAgent     String?                     @db.Text
+  agreement     PartnershipAgreement        @relation(fields: [agreementId], references: [id], onDelete: Cascade)
+  version       PartnershipAgreementVersion @relation(fields: [versionId], references: [id], onDelete: Restrict)
+  signer        User                        @relation("PartnershipAgreementSigner", fields: [signerId], references: [id], onDelete: Restrict)
+
+  @@unique([versionId, signerRole])
+  @@index([agreementId, signedAt])
+}
+
+model PartnershipChange {
+  id                      String                       @id @default(uuid()) @db.Uuid
+  partnershipId           String                       @db.Uuid
+  agreementId             String                       @db.Uuid
+  resultingVersionId      String?                      @db.Uuid
+  type                    PartnershipChangeType
+  status                  String                       @default("DRAFT")
+  reason                  String                       @db.Text
+  proposedBody            String?                      @db.Text
+  requestedById           String                       @db.Uuid
+  approvedById            String?                      @db.Uuid
+  requestedAt             DateTime                     @default(now())
+  approvedAt              DateTime?
+  effectiveAt             DateTime?
+  newExpiryAt             DateTime?
+  offlineSignedDocumentId String?                      @unique @db.Uuid
+  createdAt               DateTime                     @default(now())
+  updatedAt               DateTime                     @updatedAt
+  partnership             Partnership                  @relation(fields: [partnershipId], references: [id], onDelete: Cascade)
+  agreement               PartnershipAgreement         @relation(fields: [agreementId], references: [id], onDelete: Cascade)
+  resultingVersion        PartnershipAgreementVersion? @relation(fields: [resultingVersionId], references: [id], onDelete: SetNull)
+  requestedBy             User                         @relation("PartnershipChangeRequester", fields: [requestedById], references: [id], onDelete: Restrict)
+  approvedBy              User?                        @relation("PartnershipChangeApprover", fields: [approvedById], references: [id], onDelete: SetNull)
+  offlineSignedDocument   UploadedDocument?            @relation(fields: [offlineSignedDocumentId], references: [id], onDelete: Restrict)
+
+  @@index([partnershipId, status])
+  @@index([type, status])
 }
 
 model PartnershipStatusHistory {
