@@ -2,16 +2,21 @@ import { AdminPage, Panel, buttonClass, inputClass, tableClass } from "@/compone
 import { assignRole, createRole, deleteRole, removeRoleAssignment, saveRoleRules } from "@/domain/auth/admin-actions";
 import { PERMISSIONS } from "@/domain/auth/permissions";
 import { requirePermission } from "@/domain/auth/session";
+import { inviteUser } from "@/domain/auth/invitations";
 import { prisma } from "@/lib/prisma";
 
 export default async function AccessControlPage() {
   const context = await requirePermission("users.manage");
-  const [roles, users] = await Promise.all([
+  const [roles, users, companies, departments] = await Promise.all([
     prisma.role.findMany({ include: { permissions: { include: { permission: true } }, _count: { select: { users: true } } }, orderBy: { name: "asc" } }),
     prisma.user.findMany({ where: { deletedAt: null }, include: { roles: { include: { role: true } } }, orderBy: { email: "asc" }, take: 250 }),
+    prisma.companyProfile.findMany({ select: { id: true, companyName: true }, orderBy: { companyName: "asc" }, take: 250 }),
+    prisma.department.findMany({ where: { isActive: true }, select: { id: true, name: true, companyId: true }, orderBy: { name: "asc" } }),
   ]);
+  const assignableRoles = roles.filter((role) => role.slug !== "super-administrator" || context.isSuperAdministrator);
 
   return <AdminPage title="Access control" description="Create roles, define allow/deny rules, and assign roles to staff accounts.">
+    <Panel><h2 className="font-semibold">Invite user</h2><p className="mt-1 text-sm text-slate-500">A secure temporary password and activation link will be emailed. The invited user is blocked from protected pages until activation.</p><form action={inviteUser} className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4"><input className={inputClass} name="name" placeholder="Full name" required /><input className={inputClass} name="email" type="email" placeholder="Email" required /><input className={inputClass} name="phone" placeholder="Phone (optional)" /><select className={inputClass} name="accountType" required><option value="INTERNAL_EMPLOYEE">Internal employee</option><option value="CUSTOMER">Customer</option><option value="SUPPLIER">Supplier</option><option value="EXTERNAL_COLLABORATOR">External collaborator</option></select><select className={inputClass} name="roleId" required><option value="">Select role</option>{assignableRoles.map((role) => <option key={role.id} value={role.id}>{role.name}</option>)}</select><select className={inputClass} name="companyId"><option value="">No company / Innozanzi</option>{companies.map((company) => <option key={company.id} value={company.id}>{company.companyName}</option>)}</select><select className={inputClass} name="departmentId"><option value="">No department</option>{departments.map((department) => <option key={department.id} value={department.id}>{department.name}</option>)}</select><button className={buttonClass}>Send invitation</button></form></Panel>
     <Panel><h2 className="font-semibold">Create role</h2><form action={createRole} className="mt-4 grid gap-3 md:grid-cols-[1fr_2fr_auto]"><input className={inputClass} name="name" placeholder="Role name" required /><input className={inputClass} name="description" placeholder="Description" /><button className={buttonClass}>Create role</button></form></Panel>
 
     <div className="space-y-5">{roles.map((role) => {

@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 const email = z.string().trim().toLowerCase().email().max(254);
-const password = z
+export const passwordSchema = z
   .string()
   .min(12, "Password must contain at least 12 characters.")
   .max(128)
@@ -24,7 +24,7 @@ export const registrationSchema = z
       .regex(/^(?:\+27|0)[6-8][0-9]{8}$/, "Enter a valid South African phone number.")
       .optional()
       .or(z.literal("")),
-    password,
+    password: passwordSchema,
     confirmPassword: z.string(),
   })
   .refine((value) => value.password === value.confirmPassword, {
@@ -38,7 +38,7 @@ export const passwordResetSchema = z
   .object({
     email,
     token: z.string().min(32).max(256),
-    password,
+    password: passwordSchema,
     confirmPassword: z.string(),
   })
   .refine((value) => value.password === value.confirmPassword, {

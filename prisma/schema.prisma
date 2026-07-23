@@ -8,10 +8,96 @@ datasource db {
 }
 
 enum UserStatus {
+  INVITED
   PENDING_VERIFICATION
   ACTIVE
   SUSPENDED
   DISABLED
+}
+
+enum AccountType {
+  INTERNAL_EMPLOYEE
+  CUSTOMER
+  SUPPLIER
+  EXTERNAL_COLLABORATOR
+}
+
+enum RfqType {
+  RFQ
+  TENDER
+  RFP
+  RFI
+  OTHER
+}
+
+enum RfqStatus {
+  DRAFT
+  ANALYSING
+  ANALYSIS_FAILED
+  READY_FOR_REVIEW
+  UNDER_REVIEW
+  ACCEPTED_FOR_PROCESSING
+  DECLINED_INTERNAL
+  PRICING_IN_PROGRESS
+  AWAITING_APPROVAL
+  APPROVED
+  REJECTED
+  SUBMITTED
+  WON
+  LOST
+  CANCELLED
+  EXPIRED
+  COMPLETED
+}
+
+enum RfqSourceType {
+  PDF
+  IMAGE
+  WORD
+  SPREADSHEET
+  WEBSITE
+  DOCUMENT_LINK
+  MANUAL
+}
+
+enum RfqProcessingStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum RfqPricingMethod {
+  MARKUP
+  MARGIN
+}
+
+enum RfqCostCategory {
+  TRANSPORT
+  COURIER
+  DELIVERY
+  INSTALLATION
+  LABOUR
+  PACKAGING
+  INSURANCE
+  IMPORT_DUTIES
+  BANK_CHARGES
+  TENDER_FEES
+  SUBCONTRACTOR
+  CONTINGENCY
+  OTHER
+}
+
+enum RfqCommissionType {
+  REVENUE_PERCENT
+  GROSS_PROFIT_PERCENT
+  FIXED
+}
+
+enum RfqDecision {
+  PENDING
+  APPROVED
+  REJECTED
 }
 
 enum PermissionEffect {
@@ -308,6 +394,12 @@ model User {
   phone                           String?
   image                           String?
   status                          UserStatus                       @default(PENDING_VERIFICATION)
+  accountType                     AccountType                      @default(CUSTOMER)
+  companyId                       String?                          @db.Uuid
+  departmentId                    String?                          @db.Uuid
+  mustChangePassword              Boolean                          @default(false)
+  temporaryPasswordExpiresAt      DateTime?
+  activatedAt                     DateTime?
   emailVerified                   DateTime?
   passwordChangedAt               DateTime?
   lastLoginAt                     DateTime?
@@ -348,9 +440,21 @@ model User {
   reviewedPartnershipDocuments    PartnershipApplicationDocument[] @relation("PartnershipDocumentReviewer")
   partnershipReviews              PartnershipReview[]              @relation("PartnershipReviewActor")
   partnerMessages                 PartnerMessage[]                 @relation("PartnerMessageAuthor")
+  company                         CompanyProfile?                  @relation("CompanyUsers", fields: [companyId], references: [id], onDelete: SetNull)
+  department                      Department?                      @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  invitationsReceived             UserInvitation[]                 @relation("InvitedUser")
+  invitationsSent                 UserInvitation[]                 @relation("InvitationCreator")
+  assignedRfqs                    RfqOpportunity[]                 @relation("RfqAssignee")
+  createdRfqs                     RfqOpportunity[]                 @relation("RfqCreator")
+  reviewedRfqAnalyses             RfqAnalysis[]                    @relation("RfqAnalysisReviewer")
+  rfqApprovals                    RfqApproval[]                    @relation("RfqApprover")
+  rfqStatusChanges                RfqStatusHistory[]               @relation("RfqStatusActor")
+  rfqSourceUploads                RfqSource[]                      @relation("RfqSourceUploader")
 
   @@index([status, createdAt])
   @@index([deletedAt])
+  @@index([companyId, status])
+  @@index([departmentId])
 }
 
 model Account {
@@ -406,6 +510,7 @@ model Role {
   updatedAt   DateTime         @updatedAt
   users       UserRole[]
   permissions RolePermission[]
+  invitations UserInvitation[]
 }
 
 model Permission {
@@ -455,15 +560,58 @@ model CustomerProfile {
 }
 
 model CompanyProfile {
-  id                    String          @id @default(uuid()) @db.Uuid
-  customerProfileId     String          @unique @db.Uuid
+  id                    String           @id @default(uuid()) @db.Uuid
+  customerProfileId     String           @unique @db.Uuid
   companyName           String
   registrationNo        String?
   vatNumber             String?
-  purchaseOrderRequired Boolean         @default(false)
-  createdAt             DateTime        @default(now())
-  updatedAt             DateTime        @updatedAt
-  customerProfile       CustomerProfile @relation(fields: [customerProfileId], references: [id], onDelete: Cascade)
+  purchaseOrderRequired Boolean          @default(false)
+  createdAt             DateTime         @default(now())
+  updatedAt             DateTime         @updatedAt
+  customerProfile       CustomerProfile  @relation(fields: [customerProfileId], references: [id], onDelete: Cascade)
+  users                 User[]           @relation("CompanyUsers")
+  departments           Department[]
+  invitations           UserInvitation[]
+  rfqs                  RfqOpportunity[]
+}
+
+model Department {
+  id          String           @id @default(uuid()) @db.Uuid
+  companyId   String?          @db.Uuid
+  name        String
+  description String?
+  isActive    Boolean          @default(true)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  company     CompanyProfile?  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  users       User[]
+  invitations UserInvitation[]
+  rfqs        RfqOpportunity[]
+
+  @@unique([companyId, name])
+  @@index([companyId, isActive])
+}
+
+model UserInvitation {
+  id                  String          @id @default(uuid()) @db.Uuid
+  userId              String          @db.Uuid
+  invitedById         String          @db.Uuid
+  roleId              String          @db.Uuid
+  companyId           String?         @db.Uuid
+  departmentId        String?         @db.Uuid
+  accountType         AccountType
+  activationTokenHash String          @unique
+  expiresAt           DateTime
+  acceptedAt          DateTime?
+  createdAt           DateTime        @default(now())
+  user                User            @relation("InvitedUser", fields: [userId], references: [id], onDelete: Cascade)
+  invitedBy           User            @relation("InvitationCreator", fields: [invitedById], references: [id], onDelete: Restrict)
+  role                Role            @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  company             CompanyProfile? @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  department          Department?     @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+
+  @@index([userId, expiresAt])
+  @@index([invitedById, createdAt])
 }
 
 model Address {
@@ -576,6 +724,7 @@ model Product {
   quotationItems        QuotationItem[]
   reviews               Review[]
   couponProducts        CouponProduct[]
+  rfqLineItems          RfqLineItem[]
   partnerRequestItems   PartnerRequestItem[]
 
   @@index([status, publishedAt])
@@ -709,6 +858,7 @@ model Supplier {
   createdAt     DateTime          @default(now())
   updatedAt     DateTime          @updatedAt
   products      SupplierProduct[]
+  rfqLineItems  RfqLineItem[]
 
   @@index([isActive, companyName])
   @@index([deletedAt])
@@ -1240,6 +1390,8 @@ model UploadedDocument {
   paymentSubmission        PaymentSubmission?
   partnershipDocument      PartnershipApplicationDocument?
   partnerRequestAttachment PartnerRequestAttachment?
+  rfqSource                RfqSource?
+  rfqAdditionalCost        RfqAdditionalCost?
 }
 
 model PartnershipType {
@@ -1760,6 +1912,240 @@ model HelpDeskTicket {
 
   @@index([status, priority, createdAt])
   @@index([email, createdAt])
+}
+
+model RfqOpportunity {
+  id                     String               @id @default(uuid()) @db.Uuid
+  referenceNumber        String               @unique
+  externalReference      String?
+  type                   RfqType
+  status                 RfqStatus            @default(DRAFT)
+  title                  String
+  description            String?              @db.Text
+  issuingOrganisation    String
+  contactName            String?
+  contactEmail           String?
+  contactPhone           String?
+  province               String?
+  publicationDate        DateTime?
+  closingAt              DateTime?
+  briefingAt             DateTime?
+  compulsoryBriefing     Boolean              @default(false)
+  submissionMethod       String?
+  submissionAddress      String?              @db.Text
+  sourceUrl              String?
+  priority               String               @default("NORMAL")
+  tags                   String[]
+  notes                  String?              @db.Text
+  companyId              String?              @db.Uuid
+  departmentId           String?              @db.Uuid
+  assignedUserId         String?              @db.Uuid
+  createdById            String               @db.Uuid
+  currency               String               @default("ZAR") @db.Char(3)
+  totalProductCost       Decimal              @default(0) @db.Decimal(19, 4)
+  totalServiceCost       Decimal              @default(0) @db.Decimal(19, 4)
+  totalAdditionalCost    Decimal              @default(0) @db.Decimal(19, 4)
+  totalCostBeforeVat     Decimal              @default(0) @db.Decimal(19, 4)
+  totalVat               Decimal              @default(0) @db.Decimal(19, 4)
+  sellingBeforeVat       Decimal              @default(0) @db.Decimal(19, 4)
+  sellingIncludingVat    Decimal              @default(0) @db.Decimal(19, 4)
+  grossProfit            Decimal              @default(0) @db.Decimal(19, 4)
+  grossProfitPercent     Decimal              @default(0) @db.Decimal(7, 4)
+  commissionAmount       Decimal              @default(0) @db.Decimal(19, 4)
+  expectedProfit         Decimal              @default(0) @db.Decimal(19, 4)
+  submittedForApprovalAt DateTime?
+  submittedExternallyAt  DateTime?
+  createdAt              DateTime             @default(now())
+  updatedAt              DateTime             @updatedAt
+  company                CompanyProfile?      @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  department             Department?          @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  assignedUser           User?                @relation("RfqAssignee", fields: [assignedUserId], references: [id], onDelete: SetNull)
+  createdBy              User                 @relation("RfqCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  sources                RfqSource[]
+  analyses               RfqAnalysis[]
+  requirements           RfqRequirement[]
+  lineItems              RfqLineItem[]
+  additionalCosts        RfqAdditionalCost[]
+  pricingRevisions       RfqPricingRevision[]
+  approvals              RfqApproval[]
+  commission             RfqCommission?
+  statusHistory          RfqStatusHistory[]
+
+  @@index([companyId, status, closingAt])
+  @@index([departmentId, status])
+  @@index([assignedUserId, status, closingAt])
+  @@index([issuingOrganisation, createdAt])
+  @@index([externalReference])
+}
+
+model RfqSource {
+  id               String              @id @default(uuid()) @db.Uuid
+  rfqId            String              @db.Uuid
+  documentId       String?             @unique @db.Uuid
+  type             RfqSourceType
+  label            String
+  sourceUrl        String?
+  originalFilename String?
+  mimeType         String?
+  size             Int?
+  uploadedById     String              @db.Uuid
+  processingStatus RfqProcessingStatus @default(PENDING)
+  extractedText    String?             @db.Text
+  analysisResult   Json?
+  analysisError    String?             @db.Text
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  rfq              RfqOpportunity      @relation(fields: [rfqId], references: [id], onDelete: Cascade)
+  document         UploadedDocument?   @relation(fields: [documentId], references: [id], onDelete: SetNull)
+  uploadedBy       User                @relation("RfqSourceUploader", fields: [uploadedById], references: [id], onDelete: Restrict)
+  analyses         RfqAnalysis[]
+
+  @@index([rfqId, processingStatus])
+}
+
+model RfqAnalysis {
+  id                  String         @id @default(uuid()) @db.Uuid
+  rfqId               String         @db.Uuid
+  sourceId            String?        @db.Uuid
+  rawOutput           Json
+  confirmedOutput     Json?
+  confidence          Decimal?       @db.Decimal(5, 4)
+  requiresHumanReview Boolean        @default(true)
+  reviewedById        String?        @db.Uuid
+  reviewedAt          DateTime?
+  decision            String?
+  changeSummary       Json?
+  createdAt           DateTime       @default(now())
+  rfq                 RfqOpportunity @relation(fields: [rfqId], references: [id], onDelete: Cascade)
+  source              RfqSource?     @relation(fields: [sourceId], references: [id], onDelete: SetNull)
+  reviewedBy          User?          @relation("RfqAnalysisReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@index([rfqId, createdAt])
+  @@index([reviewedById, reviewedAt])
+}
+
+model RfqRequirement {
+  id          String         @id @default(uuid()) @db.Uuid
+  rfqId       String         @db.Uuid
+  category    String
+  description String         @db.Text
+  mandatory   Boolean        @default(false)
+  confirmed   Boolean        @default(false)
+  sourceRef   String?
+  notes       String?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  rfq         RfqOpportunity @relation(fields: [rfqId], references: [id], onDelete: Cascade)
+
+  @@index([rfqId, mandatory, confirmed])
+}
+
+model RfqLineItem {
+  id                   String           @id @default(uuid()) @db.Uuid
+  rfqId                String           @db.Uuid
+  productId            String?          @db.Uuid
+  supplierId           String?          @db.Uuid
+  description          String
+  specification        String?          @db.Text
+  supplierQuotationRef String?
+  isService            Boolean          @default(false)
+  quantity             Decimal          @db.Decimal(19, 4)
+  unitOfMeasure        String           @default("each")
+  unitCost             Decimal          @db.Decimal(19, 4)
+  pricingMethod        RfqPricingMethod @default(MARKUP)
+  pricingPercent       Decimal          @default(0) @db.Decimal(7, 4)
+  sellingPricePerUnit  Decimal          @db.Decimal(19, 4)
+  costSubtotal         Decimal          @db.Decimal(19, 4)
+  sellingSubtotal      Decimal          @db.Decimal(19, 4)
+  vatRate              Decimal          @default(0.15) @db.Decimal(7, 4)
+  vatAmount            Decimal          @db.Decimal(19, 4)
+  profit               Decimal          @db.Decimal(19, 4)
+  availability         String?
+  leadTimeDays         Int?
+  notes                String?          @db.Text
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+  rfq                  RfqOpportunity   @relation(fields: [rfqId], references: [id], onDelete: Cascade)
+  product              Product?         @relation(fields: [productId], references: [id], onDelete: SetNull)
+  supplier             Supplier?        @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+
+  @@index([rfqId])
+  @@index([productId])
+  @@index([supplierId])
+}
+
+model RfqAdditionalCost {
+  id          String            @id @default(uuid()) @db.Uuid
+  rfqId       String            @db.Uuid
+  documentId  String?           @unique @db.Uuid
+  category    RfqCostCategory
+  description String
+  amount      Decimal           @db.Decimal(19, 4)
+  vatRate     Decimal           @default(0.15) @db.Decimal(7, 4)
+  notes       String?           @db.Text
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  rfq         RfqOpportunity    @relation(fields: [rfqId], references: [id], onDelete: Cascade)
+  document    UploadedDocument? @relation(fields: [documentId], references: [id], onDelete: SetNull)
+
+  @@index([rfqId, category])
+}
+
+model RfqPricingRevision {
+  id          String         @id @default(uuid()) @db.Uuid
+  rfqId       String         @db.Uuid
+  revision    Int
+  snapshot    Json
+  createdById String         @db.Uuid
+  createdAt   DateTime       @default(now())
+  rfq         RfqOpportunity @relation(fields: [rfqId], references: [id], onDelete: Cascade)
+
+  @@unique([rfqId, revision])
+}
+
+model RfqApproval {
+  id         String         @id @default(uuid()) @db.Uuid
+  rfqId      String         @db.Uuid
+  revision   Int
+  decision   RfqDecision    @default(PENDING)
+  approverId String?        @db.Uuid
+  comments   String?        @db.Text
+  decidedAt  DateTime?
+  createdAt  DateTime       @default(now())
+  rfq        RfqOpportunity @relation(fields: [rfqId], references: [id], onDelete: Cascade)
+  approver   User?          @relation("RfqApprover", fields: [approverId], references: [id], onDelete: SetNull)
+
+  @@index([rfqId, decision, createdAt])
+}
+
+model RfqCommission {
+  id             String            @id @default(uuid()) @db.Uuid
+  rfqId          String            @unique @db.Uuid
+  enabled        Boolean           @default(false)
+  recipientId    String?           @db.Uuid
+  type           RfqCommissionType
+  percentage     Decimal?          @db.Decimal(7, 4)
+  amount         Decimal           @default(0) @db.Decimal(19, 4)
+  approvalStatus RfqDecision       @default(PENDING)
+  approvedById   String?           @db.Uuid
+  notes          String?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  rfq            RfqOpportunity    @relation(fields: [rfqId], references: [id], onDelete: Cascade)
+}
+
+model RfqStatusHistory {
+  id         String         @id @default(uuid()) @db.Uuid
+  rfqId      String         @db.Uuid
+  fromStatus RfqStatus?
+  toStatus   RfqStatus
+  actorId    String         @db.Uuid
+  note       String?        @db.Text
+  createdAt  DateTime       @default(now())
+  rfq        RfqOpportunity @relation(fields: [rfqId], references: [id], onDelete: Cascade)
+  actor      User           @relation("RfqStatusActor", fields: [actorId], references: [id], onDelete: Restrict)
+
+  @@index([rfqId, createdAt])
 }
 
 model AuditLog {

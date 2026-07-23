@@ -48,7 +48,7 @@ export async function deleteCurrentSession() {
   cookieStore.delete(cookieName);
 }
 
-export async function getAuthContext() {
+async function getSessionContext() {
   const token = (await cookies()).get(cookieName)?.value;
   if (!token) return null;
 
@@ -64,6 +64,11 @@ export async function getAuthContext() {
           name: true,
           status: true,
           deletedAt: true,
+          mustChangePassword: true,
+          temporaryPasswordExpiresAt: true,
+          accountType: true,
+          companyId: true,
+          departmentId: true,
           roles: {
             select: {
               role: {
@@ -84,7 +89,7 @@ export async function getAuthContext() {
     },
   });
 
-  if (!session || session.expires <= new Date() || !isSessionUserEligible(session.user)) {
+  if (!session || session.expires <= new Date() || session.user.deletedAt || !["ACTIVE", "INVITED"].includes(session.user.status)) {
     return null;
   }
 
@@ -95,10 +100,22 @@ export async function getAuthContext() {
 
   return {
     sessionId: session.id,
-    user: { id: session.user.id, email: session.user.email, name: session.user.name, roles },
+    user: { id: session.user.id, email: session.user.email, name: session.user.name, roles, status: session.user.status, accountType: session.user.accountType, companyId: session.user.companyId, departmentId: session.user.departmentId, mustChangePassword: session.user.mustChangePassword, temporaryPasswordExpiresAt: session.user.temporaryPasswordExpiresAt },
     grants,
     isSuperAdministrator: roles.includes("super-administrator"),
   };
+}
+
+export async function getAuthContext() {
+  const context = await getSessionContext();
+  return context && isSessionUserEligible({ status: context.user.status, deletedAt: null }) && !context.user.mustChangePassword ? context : null;
+}
+
+export async function requireActivationUser() {
+  const context = await getSessionContext();
+  if (!context || context.user.status !== "INVITED" || !context.user.mustChangePassword) redirect("/sign-in");
+  if (!context.user.temporaryPasswordExpiresAt || context.user.temporaryPasswordExpiresAt <= new Date()) redirect("/sign-in?error=invitation-expired");
+  return context;
 }
 
 export async function requireUser() {

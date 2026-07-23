@@ -46,7 +46,10 @@ export async function saveRoleRules(formData: FormData) {
 export async function assignRole(formData: FormData) {
   const context = await requirePermission("users.manage");
   const { userId, roleId } = z.object({ userId: uuid, roleId: uuid }).parse(Object.fromEntries(formData));
-  const role = await prisma.role.findUniqueOrThrow({ where: { id: roleId }, select: { name: true } });
+  const role = await prisma.role.findUniqueOrThrow({ where: { id: roleId }, select: { name: true, slug: true } });
+  if (role.slug === "super-administrator" && !context.isSuperAdministrator) {
+    throw new Error("Only a Super Administrator can assign the Super Administrator role.");
+  }
   await prisma.userRole.upsert({ where: { userId_roleId: { userId, roleId } }, update: { assignedBy: context.user.id }, create: { userId, roleId, assignedBy: context.user.id } });
   await recordAudit(context.user.id, "user.role.assign", "User", userId, undefined, { roleId, roleName: role.name });
   revalidatePath("/admin/access-control");

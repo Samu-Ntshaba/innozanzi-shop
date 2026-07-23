@@ -26,6 +26,19 @@ export const PERMISSIONS = [
   "partnership.pricing.manage",
   "partnership.settings.manage",
   "partnership.report.view",
+  "rfq.view",
+  "rfq.create",
+  "rfq.update",
+  "rfq.delete",
+  "rfq.analyse",
+  "rfq.price",
+  "rfq.submit",
+  "rfq.approve",
+  "rfq.reject",
+  "rfq.assign",
+  "rfq.export",
+  "rfq.financials.view",
+  "rfq.commission.manage",
 ] as const;
 
 export type PermissionKey = (typeof PERMISSIONS)[number];

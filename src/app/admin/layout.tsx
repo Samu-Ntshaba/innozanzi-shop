@@ -2,9 +2,11 @@ import { BrandLogo } from "@/components/brand-logo";
 import { AdminNav } from "@/components/admin/admin-nav";
 import { logoutAction } from "@/app/(auth)/actions";
 import { requireUser } from "@/domain/auth/session";
+import { hasPermission } from "@/domain/auth/permissions";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-  const { user } = await requireUser();
+  const context = await requireUser();
+  const { user } = context;
   return <div className="min-h-screen bg-[#eef1f4]">
     <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-slate-300 bg-white px-4 shadow-sm lg:px-6">
       <div className="flex items-center gap-4"><BrandLogo className="w-32"/><span className="border-l border-slate-300 pl-4 text-sm font-semibold text-slate-700">Business Suite</span></div>
@@ -13,7 +15,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     <div className="grid min-h-[calc(100vh-3.5rem)] lg:grid-cols-[250px_minmax(0,1fr)]">
       <aside className="border-r border-slate-800 bg-[#172b3a] text-slate-200 lg:sticky lg:top-14 lg:h-[calc(100vh-3.5rem)] lg:self-start lg:overflow-y-auto lg:overscroll-contain">
         <div className="sticky top-0 z-10 border-b border-white/10 bg-[#172b3a] px-5 py-4"><p className="text-xs uppercase tracking-widest text-slate-400">Sales workspace</p><p className="mt-1 text-sm font-semibold text-white">CRM & Operations</p></div>
-        <AdminNav />
+        <AdminNav canViewRfqs={hasPermission(context.grants, "rfq.view", context.isSuperAdministrator)} canManageUsers={hasPermission(context.grants, "users.manage", context.isSuperAdministrator)} />
       </aside>
       <main className="min-w-0 p-4 sm:p-6 lg:p-8">{children}</main>
     </div>

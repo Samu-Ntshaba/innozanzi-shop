@@ -21,9 +21,9 @@ const roles = [
 
 const rolePermissions: Record<string, readonly (typeof PERMISSIONS)[number][]> = {
   "super-administrator": PERMISSIONS,
-  administrator: PERMISSIONS.filter((key) => key !== "users.manage"),
-  sales: ["products.view", "orders.view", "orders.update", "quotations.manage", "customers.manage", "partnership.view", "partnership.application.review", "partnership.request.view", "partnership.request.manage"],
-  finance: ["orders.view", "payments.approve", "reports.view"],
+  administrator: PERMISSIONS.filter((key) => key !== "users.manage" && key !== "rfq.approve" && key !== "rfq.commission.manage"),
+  sales: ["products.view", "orders.view", "orders.update", "quotations.manage", "customers.manage", "partnership.view", "partnership.application.review", "partnership.request.view", "partnership.request.manage", "rfq.view", "rfq.create", "rfq.update", "rfq.analyse", "rfq.price", "rfq.submit", "rfq.assign", "rfq.financials.view"],
+  finance: ["orders.view", "payments.approve", "reports.view", "rfq.view", "rfq.price", "rfq.approve", "rfq.reject", "rfq.financials.view", "rfq.commission.manage"],
   "inventory-manager": ["products.view", "products.update", "inventory.manage"],
   "content-manager": ["products.view", "products.update"],
   "support-agent": ["orders.view", "customers.manage", "partnership.view", "partnership.request.view"],

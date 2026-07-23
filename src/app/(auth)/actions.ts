@@ -33,11 +33,11 @@ export async function loginAction(formData: FormData) {
 
   const user = await prisma.user.findUnique({
     where: { email: parsed.data.email },
-    select: { id: true, passwordHash: true, status: true },
+    select: { id: true, email: true, passwordHash: true, status: true, mustChangePassword: true, temporaryPasswordExpiresAt: true },
   });
   const valid = Boolean(
     user?.passwordHash &&
-      user.status === "ACTIVE" &&
+      (user.status === "ACTIVE" || (user.status === "INVITED" && user.mustChangePassword && Boolean(user.temporaryPasswordExpiresAt && user.temporaryPasswordExpiresAt > new Date()))) &&
       (await verifyPassword(user.passwordHash, parsed.data.password)),
   );
   if (!user || !valid) redirect("/sign-in?error=invalid");
@@ -45,6 +45,7 @@ export async function loginAction(formData: FormData) {
   await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
   clearAuthAttempts(rateLimitKey);
   await createSession(user.id);
+  if (user.status === "INVITED") redirect(`/activate-account?email=${encodeURIComponent(user.email)}`);
   const returnTo=(await cookies()).get("innozanzi-return-to")?.value;(await cookies()).delete("innozanzi-return-to");redirect(returnTo?.startsWith("/")&&!returnTo.startsWith("//")?returnTo:"/account");
 }
 
