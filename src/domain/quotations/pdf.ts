@@ -4,6 +4,7 @@ type PdfQuote = {
   deliveryTotal?: Money; discountTotal?: Money; kind?: string; terms?: string | null; notes?: string | null;
   bankDetails?: string | null; paymentReference?: string | null;
   quotationRequest?: { contactName: string; companyName?: string | null; email: string } | null;
+  createdBy?: { name?: string | null; email: string; phone?: string | null } | null;
   items: Array<{ productName: string; sku?: string | null; quantity: number; unitPrice: Money; lineTotal: Money }>;
 };
 
@@ -15,13 +16,14 @@ export function quotationPdf(quote: PdfQuote) {
   const customer = quote.quotationRequest;
   const lines = [
     "INNOZANZI", "BUSINESS TECHNOLOGY MADE SIMPLE",
-    "Innozanzi (Pty) Ltd | support@innozanzi.co.za",
+    "Innozanzi (Pty) Ltd | support@innozanzi.co.za | 071 238 4185",
     "Ground Floor, Waterstone Building, Stonemill Office Park",
     "300 Acacia Rd, Darrenwood, Randburg, Johannesburg, 2195", "",
     final ? "FINAL QUOTATION" : "PROVISIONAL QUOTATION - SUBJECT TO REVIEW",
     `Quotation: ${quote.quotationNumber}`, `Issue date: ${new Date().toISOString().slice(0, 10)}`,
     `Expiry date: ${quote.validUntil.toISOString().slice(0, 10)}`,
-    customer ? `Customer: ${customer.companyName ?? customer.contactName}` : "", customer ? `Email: ${customer.email}` : "", "",
+    customer ? `Customer: ${customer.companyName ?? customer.contactName}` : "", customer ? `Email: ${customer.email}` : "",
+    quote.createdBy ? `Procurement officer: ${quote.createdBy.name ?? quote.createdBy.email}${quote.createdBy.phone ? ` | ${quote.createdBy.phone}` : ""}` : "", "",
     "Description | SKU | Qty | Unit price | Line total",
     ...quote.items.map(item => `${item.productName} | ${item.sku ?? "-"} | ${item.quantity} | ${money(item.unitPrice)} | ${money(item.lineTotal)}`),
     "", `Subtotal: ${money(quote.subtotal)}`, `VAT: ${money(quote.vatTotal)}`,

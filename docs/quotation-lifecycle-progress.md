@@ -31,6 +31,13 @@ Commercial PDFs use `support@innozanzi.co.za` and:
 
 `Ground Floor, Waterstone Building, Stonemill Office Park, 300 Acacia Rd, Darrenwood, Randburg, Johannesburg, 2195`
 
+The document contact number is `071 238 4185`. Manual quotations automatically
+use seven-day validity and the selected Procurement Officer as the responsible
+staff contact. Fixed company identity fields are not re-entered on each quote.
+Innozanzi is currently treated as not VAT registered, so manual quote VAT is
+off by default and must not be presented as company VAT unless registration is
+formally configured.
+
 Final quotation bank details continue to come only from verified administrator input.
 
 ## Inventory decision
