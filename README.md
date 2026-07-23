@@ -24,7 +24,8 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ## Commands
 
-- `npm run dev` — start the development server
+- `npm run dev` — open/reuse a Railway SSH database tunnel and start the development server
+- `npm run dev:direct` — start without a tunnel when PostgreSQL is directly reachable
 - `npm run build` — create a production build
 - `npm run lint` — run ESLint
 - `npm test` — run unit tests
@@ -35,6 +36,9 @@ Open [http://localhost:3000](http://localhost:3000).
 
 `DATABASE_PUBLIC_URL` is used by local Prisma commands and local development.
 `DATABASE_URL` is the private Railway connection used inside Railway's network.
+The default development command requires an authenticated Railway CLI session and
+uses `RAILWAY_DB_TUNNEL_PORT` (default `15432`) to avoid unreliable public TCP proxy
+connections. Run `railway login` once if the tunnel reports that authentication is required.
 
 Set `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, and `SUPABASE_STORAGE_BUCKET` to enable uploads. The server creates the configured public bucket on the first upload. Never expose `SUPABASE_SECRET_KEY` through a `NEXT_PUBLIC_` variable.
 
