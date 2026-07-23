@@ -277,6 +277,14 @@ enum HelpDeskStatus {
   CLOSED
 }
 
+enum ServiceTaskStatus {
+  OPEN
+  IN_PROGRESS
+  BLOCKED
+  COMPLETED
+  CANCELLED
+}
+
 enum CampaignStatus {
   DRAFT
   SENT
@@ -450,6 +458,11 @@ model User {
   rfqApprovals                    RfqApproval[]                    @relation("RfqApprover")
   rfqStatusChanges                RfqStatusHistory[]               @relation("RfqStatusActor")
   rfqSourceUploads                RfqSource[]                      @relation("RfqSourceUploader")
+  helpDeskTickets                 HelpDeskTicket[]                 @relation("HelpDeskCustomer")
+  assignedHelpDeskTickets         HelpDeskTicket[]                 @relation("HelpDeskAssignee")
+  assignedServiceTasks            ServiceTask[]                    @relation("ServiceTaskAssignee")
+  createdServiceTasks             ServiceTask[]                    @relation("ServiceTaskCreator")
+  helpDeskActivities              HelpDeskActivity[]               @relation("HelpDeskActivityActor")
 
   @@index([status, createdAt])
   @@index([deletedAt])
@@ -1893,25 +1906,70 @@ model EmailCampaign {
 }
 
 model HelpDeskTicket {
-  id           String         @id @default(uuid()) @db.Uuid
-  ticketNumber String         @unique
+  id           String             @id @default(uuid()) @db.Uuid
+  ticketNumber String             @unique
   name         String
   email        String
   phone        String?
   companyName  String?
   category     String
   subject      String
-  message      String         @db.Text
-  status       HelpDeskStatus @default(OPEN)
-  priority     String         @default("NORMAL")
+  message      String             @db.Text
+  status       HelpDeskStatus     @default(OPEN)
+  priority     String             @default("NORMAL")
   assignedTo   String?
-  resolution   String?        @db.Text
+  customerId   String?            @db.Uuid
+  assignedToId String?            @db.Uuid
+  dueAt        DateTime?
+  resolution   String?            @db.Text
   resolvedAt   DateTime?
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+  customer     User?              @relation("HelpDeskCustomer", fields: [customerId], references: [id], onDelete: SetNull)
+  assignee     User?              @relation("HelpDeskAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+  tasks        ServiceTask[]
+  activities   HelpDeskActivity[]
 
   @@index([status, priority, createdAt])
   @@index([email, createdAt])
+  @@index([customerId, createdAt])
+  @@index([assignedToId, status, dueAt])
+}
+
+model ServiceTask {
+  id           String            @id @default(uuid()) @db.Uuid
+  ticketId     String?           @db.Uuid
+  title        String
+  description  String?           @db.Text
+  status       ServiceTaskStatus @default(OPEN)
+  priority     String            @default("NORMAL")
+  dueAt        DateTime?
+  assignedToId String?           @db.Uuid
+  createdById  String            @db.Uuid
+  completedAt  DateTime?
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  ticket       HelpDeskTicket?   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  assignedTo   User?             @relation("ServiceTaskAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+  createdBy    User              @relation("ServiceTaskCreator", fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([status, dueAt])
+  @@index([assignedToId, status, dueAt])
+  @@index([ticketId, createdAt])
+}
+
+model HelpDeskActivity {
+  id         String         @id @default(uuid()) @db.Uuid
+  ticketId   String         @db.Uuid
+  actorId    String?        @db.Uuid
+  type       String
+  message    String         @db.Text
+  isInternal Boolean        @default(false)
+  createdAt  DateTime       @default(now())
+  ticket     HelpDeskTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  actor      User?          @relation("HelpDeskActivityActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([ticketId, createdAt])
 }
 
 model RfqOpportunity {

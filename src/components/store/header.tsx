@@ -61,8 +61,8 @@ export async function StoreHeader() {
             <Link aria-label="Account" className="grid size-11 place-items-center rounded-lg text-sm font-medium text-slate-700 hover:bg-sky-50 hover:text-sky-700 xl:flex xl:w-auto xl:px-3" href="/account">
               <UserRound className="size-5" /><span className="hidden xl:inline">Account</span>
             </Link>
-            <Link className="relative flex min-h-11 items-center gap-2 rounded-lg bg-[#071b33] px-3 py-2 text-sm font-semibold text-white hover:bg-slate-800" href="/cart">
-              <ShoppingCart className="size-5" /><span className="hidden sm:inline">Quote list</span>
+            <Link aria-label={`Quotation list with ${cartCount} requested item${cartCount === 1 ? "" : "s"}`} className="relative flex size-11 shrink-0 items-center justify-center rounded-full bg-[#071b33] text-white shadow-sm hover:bg-sky-800 sm:w-auto sm:px-4" href="/cart">
+              <ShoppingCart className="size-5" /><span className="ml-2 hidden whitespace-nowrap sm:inline">Quotation</span>
               <span className="absolute -right-1.5 -top-1.5 grid size-5 place-items-center rounded-full bg-amber-400 text-[10px] font-black text-slate-950">{cartCount > 9 ? "9+" : cartCount}</span>
             </Link>
           </nav>

@@ -22,6 +22,7 @@ Every account page calls `requireUser`; record queries additionally scope by the
 | `/account/quotations` | Quotation status, PDFs and private proof upload |
 | `/account/orders` | Customer-owned order history |
 | `/account/orders/[orderNumber]` | Customer-owned fulfilment timeline |
+| `/account/support`, `/account/support/[id]` | Customer-owned support tickets and public conversation timeline |
 | `/account/partnership`, `/account/partnership/apply` | Application/status and private evidence |
 | `/account/partner` | Approval-gated partner workspace |
 | `/account/partner/requests`, `/new`, `/[id]` | Owner-scoped partner sourcing requests/offers |
@@ -38,7 +39,7 @@ All reads and mutations repeat server-side permissions; navigation visibility is
 | quotations and invoices | `quotations.manage` |
 | payments | `payments.approve` |
 | orders and `/admin/orders/[id]` | `orders.view`; mutation `orders.update`; cancellation also `payments.approve` |
-| customers, help desk, email marketing/delivery | `customers.manage` |
+| customers, service workspace/ticket detail, operations calendar, email marketing/delivery | `customers.manage` |
 | promotions/content | `settings.manage` |
 | reviews | `products.update` |
 | access control/audit | `users.manage` |

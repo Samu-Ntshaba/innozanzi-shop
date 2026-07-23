@@ -7,7 +7,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { consumeRateLimit } from "@/domain/auth/rate-limit";
-import { requirePermission } from "@/domain/auth/session";
+import { getAuthContext, requirePermission } from "@/domain/auth/session";
 import { enqueueEmail } from "@/integrations/email/outbox";
 import {
   emailTemplates,
@@ -95,6 +95,7 @@ export async function unsubscribeNewsletter(formData: FormData) {
 
 export async function submitHelpDeskTicket(formData: FormData) {
   const data = supportSchema.parse(Object.fromEntries(formData));
+  const auth = await getAuthContext();
   const requestHeaders = await headers();
   const ip =
     requestHeaders.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
@@ -124,8 +125,10 @@ export async function submitHelpDeskTicket(formData: FormData) {
     data: {
       ticketNumber,
       ...data,
+      customerId: auth?.user.email === data.email ? auth.user.id : null,
       phone: data.phone || null,
       companyName: data.companyName || null,
+      activities: { create: { type: "CUSTOMER_MESSAGE", message: data.message } },
     },
   });
   redirect(`/contact?submitted=${ticketNumber}`);
@@ -133,7 +136,7 @@ export async function submitHelpDeskTicket(formData: FormData) {
 
 export async function updateHelpDeskTicket(formData: FormData) {
   const ctx = await requirePermission("customers.manage");
-  const { id, status, resolution } = z
+  const { id, status, resolution, priority, assignedToId, dueAt, customerMessage, internalNote } = z
     .object({
       id: z.string().uuid(),
       status: z.enum([
@@ -144,22 +147,33 @@ export async function updateHelpDeskTicket(formData: FormData) {
         "CLOSED",
       ]),
       resolution: z.string().trim().max(3000).optional(),
+      priority: z.enum(["LOW", "NORMAL", "HIGH", "URGENT"]),
+      assignedToId: z.string().uuid().optional(),
+      dueAt: z.coerce.date().optional(),
+      customerMessage: z.string().trim().max(3000).optional(),
+      internalNote: z.string().trim().max(3000).optional(),
     })
-    .parse(Object.fromEntries(formData));
+    .parse({ ...Object.fromEntries(formData), assignedToId: formData.get("assignedToId") || undefined, dueAt: formData.get("dueAt") || undefined });
   const before = await prisma.helpDeskTicket.findUniqueOrThrow({
     where: { id },
-    select: { status: true },
+    select: { status: true, email: true, ticketNumber: true },
   });
+  if (customerMessage) await enqueueEmail(emailTemplates.helpDeskUpdated(before.email, before.ticketNumber, status, customerMessage));
   await prisma.$transaction([
     prisma.helpDeskTicket.update({
       where: { id },
       data: {
         status,
+        priority,
+        assignedToId: assignedToId || null,
+        dueAt: dueAt || null,
         resolution: resolution || null,
         resolvedAt: ["RESOLVED", "CLOSED"].includes(status) ? new Date() : null,
         assignedTo: ctx.user.email,
       },
     }),
+    ...(customerMessage ? [prisma.helpDeskActivity.create({ data: { ticketId: id, actorId: ctx.user.id, type: "STAFF_REPLY", message: customerMessage } })] : []),
+    ...(internalNote ? [prisma.helpDeskActivity.create({ data: { ticketId: id, actorId: ctx.user.id, type: "INTERNAL_NOTE", message: internalNote, isInternal: true } })] : []),
     prisma.auditLog.create({
       data: {
         actorId: ctx.user.id,
@@ -172,6 +186,26 @@ export async function updateHelpDeskTicket(formData: FormData) {
     }),
   ]);
   revalidatePath("/admin/help-desk");
+  revalidatePath(`/admin/help-desk/${id}`);
+}
+
+export async function createServiceTask(formData: FormData) {
+  const ctx = await requirePermission("customers.manage");
+  const data = z.object({ ticketId: z.string().uuid().optional(), title: z.string().trim().min(3).max(160), description: z.string().trim().max(3000).optional(), priority: z.enum(["LOW","NORMAL","HIGH","URGENT"]), assignedToId: z.string().uuid().optional(), dueAt: z.coerce.date().optional() }).parse({ ...Object.fromEntries(formData), ticketId: formData.get("ticketId") || undefined, assignedToId: formData.get("assignedToId") || undefined, dueAt: formData.get("dueAt") || undefined });
+  const assignee = data.assignedToId ? await prisma.user.findUnique({ where: { id: data.assignedToId }, select: { email: true } }) : null;
+  const ticket = data.ticketId ? await prisma.helpDeskTicket.findUnique({ where: { id: data.ticketId }, select: { ticketNumber: true } }) : null;
+  if (assignee) await enqueueEmail(emailTemplates.serviceTaskAssigned(assignee.email, data.title, ticket?.ticketNumber, data.dueAt));
+  await prisma.serviceTask.create({ data: { ...data, ticketId: data.ticketId || null, assignedToId: data.assignedToId || null, description: data.description || null, dueAt: data.dueAt || null, createdById: ctx.user.id } });
+  revalidatePath("/admin/help-desk");
+  revalidatePath("/admin/calendar");
+}
+
+export async function updateServiceTask(formData: FormData) {
+  await requirePermission("customers.manage");
+  const { id, status } = z.object({ id: z.string().uuid(), status: z.enum(["OPEN","IN_PROGRESS","BLOCKED","COMPLETED","CANCELLED"]) }).parse(Object.fromEntries(formData));
+  await prisma.serviceTask.update({ where: { id }, data: { status, completedAt: status === "COMPLETED" ? new Date() : null } });
+  revalidatePath("/admin/help-desk");
+  revalidatePath("/admin/calendar");
 }
 
 export async function createCampaign(formData: FormData) {

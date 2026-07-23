@@ -1,0 +1,9 @@
+import Link from "next/link";
+import { requireUser } from "@/domain/auth/session";
+import { prisma } from "@/lib/prisma";
+
+export default async function SupportTicketsPage() {
+  const { user } = await requireUser();
+  const tickets = await prisma.helpDeskTicket.findMany({ where: { OR: [{ customerId: user.id }, { customerId: null, email: { equals: user.email, mode: "insensitive" } }] }, orderBy: { createdAt: "desc" } });
+  return <main className="mx-auto max-w-5xl px-4 py-10 sm:px-6"><p className="text-xs font-bold uppercase tracking-wider text-sky-700">Support</p><div className="flex flex-wrap items-end justify-between gap-3"><div><h1 className="mt-1 text-3xl font-black">Your support tickets</h1><p className="mt-2 text-slate-600">Track questions, progress updates and resolutions in one place.</p></div><Link className="rounded-lg bg-sky-600 px-4 py-3 font-bold text-white" href="/contact">Start a conversation</Link></div><div className="mt-7 space-y-3">{tickets.map(ticket=><Link className="grid gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm hover:border-sky-400 sm:grid-cols-[1fr_auto] sm:items-center" href={`/account/support/${ticket.id}`} key={ticket.id}><div><p className="text-xs font-bold text-sky-700">{ticket.ticketNumber}</p><h2 className="mt-1 font-bold">{ticket.subject}</h2><p className="mt-1 text-sm text-slate-500">{ticket.category} · Opened {ticket.createdAt.toLocaleDateString("en-ZA")}</p></div><span className="text-sm font-semibold">{ticket.status.replaceAll("_"," ")}</span></Link>)}{!tickets.length?<div className="rounded-xl border border-dashed p-10 text-center"><h2 className="font-bold">No support tickets yet</h2><p className="mt-1 text-sm text-slate-500">When you contact our help desk, your tracked conversation will appear here.</p></div>:null}</div></main>;
+}
