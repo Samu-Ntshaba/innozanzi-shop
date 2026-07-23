@@ -16,6 +16,7 @@ const roles = [
   ["Inventory Manager", "inventory-manager"],
   ["Content Manager", "content-manager"],
   ["Support Agent", "support-agent"],
+  ["Procurement Officer", "procurement-officer"],
   ["Customer", "customer"],
 ] as const;
 
@@ -27,6 +28,7 @@ const rolePermissions: Record<string, readonly (typeof PERMISSIONS)[number][]> =
   "inventory-manager": ["products.view", "products.update", "inventory.manage"],
   "content-manager": ["products.view", "products.update"],
   "support-agent": ["orders.view", "customers.manage", "partnership.view", "partnership.request.view"],
+  "procurement-officer": ["products.view", "orders.view", "orders.update", "quotations.manage", "inventory.manage", "customers.manage", "rfq.view", "rfq.create", "rfq.update", "rfq.price", "rfq.submit", "rfq.assign", "rfq.financials.view"],
   customer: [],
 };
 

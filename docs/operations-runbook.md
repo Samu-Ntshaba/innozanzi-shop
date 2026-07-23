@@ -31,7 +31,15 @@ support. Assign every active ticket an owner and due date, create the required
 to-dos, keep supplier/private context in internal notes, and use customer
 messages for updates that must be emailed and shown in the account timeline.
 Admin → Operations calendar combines ticket and task deadlines with quotation
-expiry, invoice due dates, RFQ closings and partnership commitments.
+expiry, invoice due dates, planned deliveries, RFQ closings and partnership commitments.
+
+Procurement officers use Admin → Quotations → Create manual quotation for
+off-platform enquiries. Save the quotation before review so it receives a
+number and audit trail. Use the origin filter to separate customer requests
+from staff-created quotations. After acceptance or verified payment, generate
+the invoice under Admin → Invoices. Operations records the delivery company,
+planned date and tracking details from the order’s Plan delivery action; this
+also emails the customer and places the commitment on the calendar.
 
 All email types—not only campaigns—appear under Admin → Email marketing → System email delivery. A retry reuses the same idempotency key. Investigate Mailtrap sending-domain, suppression and bounce status before repeated retries.
 

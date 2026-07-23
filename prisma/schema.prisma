@@ -253,6 +253,12 @@ enum QuotationKind {
   FINAL
 }
 
+enum QuotationOrigin {
+  CUSTOMER_REQUEST
+  MANUAL
+  PARTNER
+}
+
 enum PaymentSubmissionStatus {
   PENDING_VERIFICATION
   VERIFIED
@@ -458,6 +464,7 @@ model User {
   rfqApprovals                    RfqApproval[]                    @relation("RfqApprover")
   rfqStatusChanges                RfqStatusHistory[]               @relation("RfqStatusActor")
   rfqSourceUploads                RfqSource[]                      @relation("RfqSourceUploader")
+  createdQuotations               Quotation[]                      @relation("QuotationCreator")
   helpDeskTickets                 HelpDeskTicket[]                 @relation("HelpDeskCustomer")
   assignedHelpDeskTickets         HelpDeskTicket[]                 @relation("HelpDeskAssignee")
   assignedServiceTasks            ServiceTask[]                    @relation("ServiceTaskAssignee")
@@ -1138,17 +1145,23 @@ model PaymentProof {
 }
 
 model Shipment {
-  id             String         @id @default(uuid()) @db.Uuid
-  orderId        String         @db.Uuid
-  carrier        String?
-  trackingNumber String?
-  trackingUrl    String?
-  status         ShipmentStatus @default(PENDING)
-  shippedAt      DateTime?
-  deliveredAt    DateTime?
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
-  order          Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  id                   String         @id @default(uuid()) @db.Uuid
+  orderId              String         @db.Uuid
+  carrier              String?
+  trackingNumber       String?
+  trackingUrl          String?
+  deliveryCompany      String?
+  contactName          String?
+  contactPhone         String?
+  estimatedDeliveryAt  DateTime?
+  deliveryNoteNumber   String?        @unique
+  deliveryInstructions String?        @db.Text
+  status               ShipmentStatus @default(PENDING)
+  shippedAt            DateTime?
+  deliveredAt          DateTime?
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+  order                Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
   @@index([orderId, status])
   @@index([trackingNumber])
@@ -1289,6 +1302,8 @@ model Quotation {
   convertedOrderId   String?                  @unique @db.Uuid
   status             QuotationStatus          @default(DRAFT)
   kind               QuotationKind            @default(PROVISIONAL)
+  origin             QuotationOrigin          @default(CUSTOMER_REQUEST)
+  createdById        String?                  @db.Uuid
   version            Int                      @default(1)
   markupPercent      Decimal                  @default(5) @db.Decimal(7, 4)
   currency           String                   @default("ZAR") @db.Char(3)
@@ -1315,6 +1330,7 @@ model Quotation {
   updatedAt          DateTime                 @updatedAt
   quotationRequest   QuotationRequest?        @relation(fields: [quotationRequestId], references: [id], onDelete: SetNull)
   customer           User?                    @relation("CustomerQuotations", fields: [customerId], references: [id], onDelete: SetNull)
+  createdBy          User?                    @relation("QuotationCreator", fields: [createdById], references: [id], onDelete: SetNull)
   convertedOrder     Order?                   @relation("ConvertedOrder", fields: [convertedOrderId], references: [id], onDelete: SetNull)
   items              QuotationItem[]
   statusHistory      QuotationStatusHistory[]
@@ -1325,6 +1341,7 @@ model Quotation {
   @@unique([quotationRequestId, version])
   @@index([status, createdAt])
   @@index([customerId, createdAt])
+  @@index([origin, status, createdAt])
 }
 
 model Invoice {

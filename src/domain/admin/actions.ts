@@ -98,6 +98,16 @@ export async function setOrderStatus(formData: FormData) {
   revalidatePath("/admin/orders");
 }
 
+export async function saveShipmentDetails(formData: FormData) {
+  const context = await requirePermission("orders.update");
+  const data = z.object({ orderId: z.string().uuid(), deliveryCompany: z.string().trim().min(2).max(160), contactName: z.string().trim().max(120).optional(), contactPhone: z.string().trim().max(40).optional(), trackingNumber: z.string().trim().max(120).optional(), trackingUrl: z.string().url().optional(), estimatedDeliveryAt: z.coerce.date(), deliveryInstructions: z.string().trim().max(2000).optional() }).parse({ ...Object.fromEntries(formData), trackingUrl: formData.get("trackingUrl") || undefined });
+  const order = await prisma.order.findUniqueOrThrow({ where: { id: data.orderId }, include: { shipments: { orderBy: { createdAt: "desc" }, take: 1 } } });
+  await enqueueEmail(emailTemplates.deliveryScheduled(order.email, order.orderNumber, data.deliveryCompany, data.estimatedDeliveryAt, data.trackingNumber), order.userId??undefined);
+  const shipmentData = { deliveryCompany: data.deliveryCompany, contactName: data.contactName||null, contactPhone: data.contactPhone||null, trackingNumber: data.trackingNumber||null, trackingUrl: data.trackingUrl||null, estimatedDeliveryAt: data.estimatedDeliveryAt, deliveryNoteNumber: order.shipments[0]?.deliveryNoteNumber??`DN-${order.orderNumber}`, deliveryInstructions: data.deliveryInstructions||null };
+  await prisma.$transaction(async tx=>{if(order.shipments[0])await tx.shipment.update({where:{id:order.shipments[0].id},data:shipmentData});else await tx.shipment.create({data:{orderId:order.id,...shipmentData}});await tx.deliveryTrackingEvent.create({data:{orderId:order.id,status:order.status,actorId:context.user.id,publicNote:`Delivery planned with ${data.deliveryCompany} for ${data.estimatedDeliveryAt.toLocaleString("en-ZA")}.`,internalNote:data.deliveryInstructions||null}});await tx.auditLog.create({data:{actorId:context.user.id,action:"shipment.plan",entityType:"Order",entityId:order.id,after:shipmentData}})});
+  revalidatePath(`/admin/orders/${order.id}`);
+}
+
 export async function reviewPaymentProof(formData: FormData) {
   const context = await requirePermission("payments.approve");
   const { id, status, note } = z.object({ id: z.string().uuid(), status: z.enum(["APPROVED", "REJECTED"]), note: z.string().max(300).optional() }).parse(Object.fromEntries(formData));

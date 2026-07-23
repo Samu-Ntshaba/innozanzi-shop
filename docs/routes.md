@@ -21,7 +21,7 @@ Every account page calls `requireUser`; record queries additionally scope by the
 | `/account` | Customer operational overview |
 | `/account/quotations` | Quotation status, PDFs and private proof upload |
 | `/account/orders` | Customer-owned order history |
-| `/account/orders/[orderNumber]` | Customer-owned fulfilment timeline |
+| `/account/orders/[orderNumber]` | Customer-owned fulfilment timeline, provider tracking and delivery note |
 | `/account/support`, `/account/support/[id]` | Customer-owned support tickets and public conversation timeline |
 | `/account/partnership`, `/account/partnership/apply` | Application/status and private evidence |
 | `/account/partner` | Approval-gated partner workspace |
@@ -36,7 +36,7 @@ All reads and mutations repeat server-side permissions; navigation visibility is
 | `/admin` and reports/CSV | `reports.view` |
 | products, categories, brands, suppliers, Syntech | `products.view` or `products.update` as appropriate |
 | inventory | `inventory.manage` |
-| quotations and invoices | `quotations.manage` |
+| quotations, manual quotation creation and invoices | `quotations.manage` |
 | payments | `payments.approve` |
 | orders and `/admin/orders/[id]` | `orders.view`; mutation `orders.update`; cancellation also `payments.approve` |
 | customers, service workspace/ticket detail, operations calendar, email marketing/delivery | `customers.manage` |
@@ -53,6 +53,8 @@ All reads and mutations repeat server-side permissions; navigation visibility is
 | `POST /api/uploads` | `products.update`; image-only public catalogue assets |
 | `GET /api/documents/[id]` | Owner or finance/partnership permission; five-minute private signed URL |
 | `GET /api/quotations/[quotationNumber]/pdf` | Quotation owner or `quotations.manage` |
+| `GET /api/invoices/[invoiceNumber]/pdf` | Invoice customer or `quotations.manage` |
+| `GET /api/orders/[orderNumber]/delivery-note` | Order owner or `orders.view` |
 | `POST /api/cron/expire-quotations` | Timing-safe `CRON_SECRET` bearer validation |
 | `POST /api/webhooks/[provider]` | Paystack/Yoco signature validation and idempotent processing |
 | `POST /api/openai` | Timing-safe server secret; bounded input/output; no stored prompts |

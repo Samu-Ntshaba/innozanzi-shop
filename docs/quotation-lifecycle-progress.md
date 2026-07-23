@@ -19,6 +19,19 @@ Implemented controls:
 - Finance verification runs in a serializable transaction, verifies stock, reserves inventory, creates immutable order/payment snapshots, and prevents duplicate verification/order creation.
 - Fulfilment updates append customer-visible tracking events while keeping internal notes private.
 - The expiry endpoint marks unpaid final quotations expired after seven days.
+- Authorised staff can create a complete manual quotation in Admin → Quotations. `Quotation.origin` permanently distinguishes customer, manual and partner sources for filtering and reporting.
+- Manual and automated quotations use the same numbered, versioned review/finalisation lifecycle and branded PDF company identity.
+- Accepted or payment-verified quotations can generate numbered invoice PDFs from Admin → Invoices.
+- Every activated order has a downloadable delivery note; delivery provider, contact, planned date, tracking reference and customer instructions can be maintained by operations.
+- Planned delivery dates appear on the operations calendar and customer tracking exposes only customer-safe shipment data.
+
+## Company document identity
+
+Commercial PDFs use `support@innozanzi.co.za` and:
+
+`Ground Floor, Waterstone Building, Stonemill Office Park, 300 Acacia Rd, Darrenwood, Randburg, Johannesburg, 2195`
+
+Final quotation bank details continue to come only from verified administrator input.
 
 ## Inventory decision
 
@@ -35,4 +48,4 @@ Stock is reserved only when payment is verified. This avoids blocking inventory 
 
 - Prisma schema validates and Client generates.
 - Unit coverage includes deterministic markup, VAT, totals, discounts and seven-day validity.
-- Full lint, typecheck, test and production build are required at the final gate.
+- Lint, typecheck, tests and the production build form the final release gate.

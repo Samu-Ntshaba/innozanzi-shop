@@ -14,7 +14,11 @@ export function quotationPdf(quote: PdfQuote) {
   const final = quote.kind === "FINAL";
   const customer = quote.quotationRequest;
   const lines = [
-    "INNOZANZI (PTY) LTD", final ? "FINAL QUOTATION" : "PROVISIONAL QUOTATION - SUBJECT TO REVIEW",
+    "INNOZANZI", "BUSINESS TECHNOLOGY MADE SIMPLE",
+    "Innozanzi (Pty) Ltd | support@innozanzi.co.za",
+    "Ground Floor, Waterstone Building, Stonemill Office Park",
+    "300 Acacia Rd, Darrenwood, Randburg, Johannesburg, 2195", "",
+    final ? "FINAL QUOTATION" : "PROVISIONAL QUOTATION - SUBJECT TO REVIEW",
     `Quotation: ${quote.quotationNumber}`, `Issue date: ${new Date().toISOString().slice(0, 10)}`,
     `Expiry date: ${quote.validUntil.toISOString().slice(0, 10)}`,
     customer ? `Customer: ${customer.companyName ?? customer.contactName}` : "", customer ? `Email: ${customer.email}` : "", "",
@@ -30,7 +34,7 @@ export function quotationPdf(quote: PdfQuote) {
     final ? "Upload proof of payment using the secure link in your account. Processing begins only after verification." : "Do not make payment against this provisional quotation.",
   ].filter(Boolean);
   const y = 810;
-  const content = lines.slice(0, 34).map((line, index) => `BT /F1 ${index < 2 ? 16 : 9} Tf 38 ${y - index * 22} Td (${escapePdf(line)}) Tj ET`).join("\n");
+  const content = lines.slice(0, 38).map((line, index) => `BT /F1 ${index === 0 ? 20 : index === 6 ? 16 : 9} Tf 38 ${y - index * 20} Td (${escapePdf(line)}) Tj ET`).join("\n");
   const objects = ["<< /Type /Catalog /Pages 2 0 R >>", "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>", "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>", `<< /Length ${Buffer.byteLength(content)} >>\nstream\n${content}\nendstream`];
   let pdf = "%PDF-1.4\n"; const offsets = [0];
   objects.forEach((object, index) => { offsets.push(Buffer.byteLength(pdf)); pdf += `${index + 1} 0 obj\n${object}\nendobj\n`; });

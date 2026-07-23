@@ -12,7 +12,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
   const base = rawMonth && /^\d{4}-\d{2}$/.test(rawMonth) ? new Date(`${rawMonth}-01T00:00:00`) : new Date();
   const start = new Date(base.getFullYear(), base.getMonth(), 1);
   const end = new Date(base.getFullYear(), base.getMonth() + 1, 1);
-  const [tasks, tickets, quotations, invoices, rfqs, requests, reviews] = await Promise.all([
+  const [tasks, tickets, quotations, invoices, rfqs, requests, reviews, deliveries] = await Promise.all([
     prisma.serviceTask.findMany({ where: { dueAt: { gte: start, lt: end }, status: { notIn: ["COMPLETED","CANCELLED"] } }, include: { ticket: true } }),
     prisma.helpDeskTicket.findMany({ where: { dueAt: { gte: start, lt: end }, status: { notIn: ["RESOLVED","CLOSED"] } } }),
     prisma.quotation.findMany({ where: { validUntil: { gte: start, lt: end }, status: { notIn: ["PAYMENT_VERIFIED","CONVERTED","CANCELLED","EXPIRED","REJECTED"] } }, select: { id: true, quotationNumber: true, validUntil: true, status: true } }),
@@ -20,6 +20,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
     prisma.rfqOpportunity.findMany({ where: { closingAt: { gte: start, lt: end }, status: { notIn: ["LOST","CANCELLED","EXPIRED","COMPLETED"] } }, select: { id: true, referenceNumber: true, title: true, closingAt: true, status: true } }),
     prisma.partnerRequest.findMany({ where: { requiredDate: { gte: start, lt: end }, status: { notIn: ["FULFILLED","CANCELLED","CLOSED"] } }, select: { id: true, requestNumber: true, title: true, requiredDate: true, status: true } }),
     prisma.partnershipReview.findMany({ where: { dueAt: { gte: start, lt: end }, completedAt: null }, include: { partnership: { select: { id: true, partnerNumber: true } } } }),
+    prisma.shipment.findMany({ where: { estimatedDeliveryAt: { gte: start, lt: end }, order: { status: { notIn: ["DELIVERED","COMPLETED","CANCELLED"] } } }, include: { order: { select: { id: true, orderNumber: true, status: true } } } }),
   ]);
   const items: CalendarItem[] = [
     ...tasks.map(x=>({date:x.dueAt!,type:"Task",title:x.title,detail:x.ticket?.ticketNumber??"General service task",href:x.ticketId?`/admin/help-desk/${x.ticketId}`:"/admin/help-desk",status:x.status})),
@@ -29,6 +30,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
     ...rfqs.map(x=>({date:x.closingAt!,type:"RFQ",title:x.title,detail:`${x.referenceNumber} closes`,href:`/admin/rfqs/${x.id}`,status:x.status})),
     ...requests.map(x=>({date:x.requiredDate!,type:"Partner request",title:x.title,detail:x.requestNumber,href:`/admin/partnerships/requests/${x.id}`,status:x.status})),
     ...reviews.map(x=>({date:x.dueAt,type:"Partner review",title:`Review ${x.partnership.partnerNumber}`,detail:x.reviewType.replaceAll("_"," "),href:`/admin/partnerships/partners/${x.partnership.id}`,status:"PENDING"})),
+    ...deliveries.map(x=>({date:x.estimatedDeliveryAt!,type:"Delivery",title:`${x.order.orderNumber} planned`,detail:x.deliveryCompany??"Delivery provider to be confirmed",href:`/admin/orders/${x.order.id}`,status:x.order.status})),
   ].sort((a,b)=>a.date.getTime()-b.date.getTime());
   const byDay = new Map<string, CalendarItem[]>();
   items.forEach(item=>byDay.set(dayKey(item.date),[...(byDay.get(dayKey(item.date))??[]),item]));
