@@ -7,7 +7,7 @@ import { prisma } from "@/lib/prisma";
 export default async function NewManualQuotation() {
   const context = await requirePermission("quotations.manage");
   const procurementOfficers = await prisma.user.findMany({
-    where: { status: "ACTIVE", deletedAt: null, roles: { some: { role: { slug: "procurement-officer" } } } },
+    where: { status: { in: ["ACTIVE", "INVITED"] }, deletedAt: null, roles: { some: { role: { slug: "procurement-officer" } } } },
     select: { id: true, name: true, email: true, phone: true },
     orderBy: [{ name: "asc" }, { email: "asc" }],
   });

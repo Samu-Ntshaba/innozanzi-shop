@@ -19,7 +19,7 @@ const requestSchema=z.object({contactName:z.string().trim().min(2),email:z.strin
 export async function createManualQuotation(formData: FormData) {
   const ctx = await requirePermission("quotations.manage");
   const customer = z.object({ contactName: z.string().trim().min(2).max(120), email: z.string().trim().toLowerCase().email(), procurementOfficerId: z.string().uuid(), requirements: z.string().trim().max(3000).optional() }).parse(Object.fromEntries(formData));
-  const procurementOfficer = await prisma.user.findFirst({ where: { id: customer.procurementOfficerId, status: "ACTIVE", deletedAt: null, roles: { some: { role: { slug: "procurement-officer" } } } }, select: { id: true, name: true, email: true, phone: true } });
+  const procurementOfficer = await prisma.user.findFirst({ where: { id: customer.procurementOfficerId, status: { in: ["ACTIVE", "INVITED"] }, deletedAt: null, roles: { some: { role: { slug: "procurement-officer" } } } }, select: { id: true, name: true, email: true, phone: true } });
   if (!procurementOfficer) {
     if (customer.procurementOfficerId !== ctx.user.id) throw new Error("Select an active procurement officer.");
   }
