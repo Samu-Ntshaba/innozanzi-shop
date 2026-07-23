@@ -820,6 +820,8 @@ model User {
   completedReturnRepairs          ReturnRepair[]                   @relation("ReturnRepairCompleter")
   assignedReturnReplacements      ReturnReplacement[]              @relation("ReturnReplacementAssignee")
   completedReturnReplacements     ReturnReplacement[]              @relation("ReturnReplacementCompleter")
+  distributorClaimEvents          DistributorClaimEvent[]          @relation("DistributorClaimEventActor")
+  distributorRecoveries           DistributorRecovery[]            @relation("DistributorRecoveryRecorder")
   requestedTransports             TransportRecord[]                @relation("TransportRequester")
   responsibleTransports           TransportRecord[]                @relation("TransportResponsibleUser")
   drivenTransports                TransportRecord[]                @relation("TransportDriver")
@@ -1967,6 +1969,7 @@ model UploadedDocument {
   returnEvidence            ReturnEvidence?
   refundPaymentProof        ReturnRefundPayment?
   distributorClaimDocument  DistributorClaimDocument?
+  distributorRecoveryProof  DistributorRecovery?
   transportDocuments        TransportDocument[]
   transportQuoteDocument    TransportQuote?
   transportExpenseDocument  TransportExpense?
@@ -2189,6 +2192,8 @@ model ReturnReplacement {
   completedAt          DateTime?
   customerNote         String?                 @db.Text
   internalNote         String?                 @db.Text
+  estimatedCost        Decimal                 @default(0) @db.Decimal(19, 4)
+  actualCost           Decimal                 @default(0) @db.Decimal(19, 4)
   createdAt            DateTime                @default(now())
   updatedAt            DateTime                @updatedAt
   returnCase           ReturnCase              @relation(fields: [returnCaseId], references: [id], onDelete: Restrict)
@@ -2351,9 +2356,46 @@ model DistributorClaim {
   supplier            Supplier?                  @relation(fields: [supplierId], references: [id], onDelete: SetNull)
   documents           DistributorClaimDocument[]
   transports          TransportRecord[]
+  events              DistributorClaimEvent[]
+  recoveries          DistributorRecovery[]
 
   @@index([status, followUpAt])
   @@index([supplierId, createdAt])
+}
+
+model DistributorClaimEvent {
+  id                 String                  @id @default(uuid()) @db.Uuid
+  distributorClaimId String                  @db.Uuid
+  actorId            String?                 @db.Uuid
+  fromStatus         DistributorClaimStatus?
+  toStatus           DistributorClaimStatus
+  publicNote         String?                 @db.Text
+  internalNote       String?                 @db.Text
+  metadata           Json?
+  createdAt          DateTime                @default(now())
+  distributorClaim   DistributorClaim        @relation(fields: [distributorClaimId], references: [id], onDelete: Cascade)
+  actor              User?                   @relation("DistributorClaimEventActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([distributorClaimId, createdAt])
+}
+
+model DistributorRecovery {
+  id                   String            @id @default(uuid()) @db.Uuid
+  distributorClaimId   String            @db.Uuid
+  recordedById         String            @db.Uuid
+  type                 String
+  amount               Decimal           @db.Decimal(19, 4)
+  reference            String
+  receivedAt           DateTime
+  notes                String?           @db.Text
+  supportingDocumentId String?           @unique @db.Uuid
+  createdAt            DateTime          @default(now())
+  distributorClaim     DistributorClaim  @relation(fields: [distributorClaimId], references: [id], onDelete: Restrict)
+  recordedBy           User              @relation("DistributorRecoveryRecorder", fields: [recordedById], references: [id], onDelete: Restrict)
+  supportingDocument   UploadedDocument? @relation(fields: [supportingDocumentId], references: [id], onDelete: Restrict)
+
+  @@index([distributorClaimId, receivedAt])
+  @@index([reference])
 }
 
 model DistributorClaimDocument {

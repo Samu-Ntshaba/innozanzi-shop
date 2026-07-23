@@ -1,0 +1,13 @@
+ALTER TABLE "ReturnReplacement" ADD COLUMN "estimatedCost" DECIMAL(19,4) NOT NULL DEFAULT 0;
+ALTER TABLE "ReturnReplacement" ADD COLUMN "actualCost" DECIMAL(19,4) NOT NULL DEFAULT 0;
+CREATE TABLE "DistributorClaimEvent" ("id" UUID NOT NULL,"distributorClaimId" UUID NOT NULL,"actorId" UUID,"fromStatus" "DistributorClaimStatus","toStatus" "DistributorClaimStatus" NOT NULL,"publicNote" TEXT,"internalNote" TEXT,"metadata" JSONB,"createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,CONSTRAINT "DistributorClaimEvent_pkey" PRIMARY KEY ("id"));
+CREATE INDEX "DistributorClaimEvent_distributorClaimId_createdAt_idx" ON "DistributorClaimEvent"("distributorClaimId","createdAt");
+CREATE TABLE "DistributorRecovery" ("id" UUID NOT NULL,"distributorClaimId" UUID NOT NULL,"recordedById" UUID NOT NULL,"type" TEXT NOT NULL,"amount" DECIMAL(19,4) NOT NULL,"reference" TEXT NOT NULL,"receivedAt" TIMESTAMP(3) NOT NULL,"notes" TEXT,"supportingDocumentId" UUID,"createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,CONSTRAINT "DistributorRecovery_pkey" PRIMARY KEY ("id"));
+CREATE UNIQUE INDEX "DistributorRecovery_supportingDocumentId_key" ON "DistributorRecovery"("supportingDocumentId");
+CREATE INDEX "DistributorRecovery_distributorClaimId_receivedAt_idx" ON "DistributorRecovery"("distributorClaimId","receivedAt");
+CREATE INDEX "DistributorRecovery_reference_idx" ON "DistributorRecovery"("reference");
+ALTER TABLE "DistributorClaimEvent" ADD CONSTRAINT "DistributorClaimEvent_distributorClaimId_fkey" FOREIGN KEY ("distributorClaimId") REFERENCES "DistributorClaim"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "DistributorClaimEvent" ADD CONSTRAINT "DistributorClaimEvent_actorId_fkey" FOREIGN KEY ("actorId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "DistributorRecovery" ADD CONSTRAINT "DistributorRecovery_distributorClaimId_fkey" FOREIGN KEY ("distributorClaimId") REFERENCES "DistributorClaim"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "DistributorRecovery" ADD CONSTRAINT "DistributorRecovery_recordedById_fkey" FOREIGN KEY ("recordedById") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "DistributorRecovery" ADD CONSTRAINT "DistributorRecovery_supportingDocumentId_fkey" FOREIGN KEY ("supportingDocumentId") REFERENCES "UploadedDocument"("id") ON DELETE RESTRICT ON UPDATE CASCADE;

@@ -1,0 +1,2 @@
+export type ReturnFinancialInput={itemValue:number;refundPaid:number;inspectionCost:number;repairCost:number;replacementCost:number;transportCost:number;distributorRecovery:number;resaleRecovery:number};
+export function calculateReturnFinancials(x:ReturnFinancialInput){const directCost=x.refundPaid+x.inspectionCost+x.repairCost+x.replacementCost+x.transportCost,totalRecovery=x.distributorRecovery+x.resaleRecovery,netLoss=directCost-totalRecovery;return{...x,directCost,totalRecovery,netLoss,retainedValue:x.itemValue-netLoss}}
