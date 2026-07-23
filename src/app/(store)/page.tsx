@@ -34,8 +34,8 @@ const fallbackCategories = [
 const trustItems = [
   { icon: Truck, title: "Nationwide delivery", body: "Tracked fulfilment across South Africa" },
   { icon: ShieldCheck, title: "Warranty support", body: "Trusted products from recognised brands" },
-  { icon: BadgePercent, title: "Business pricing", body: "Volume quotations for organisations" },
-  { icon: Headphones, title: "Local assistance", body: "Pre-sales and after-sales support" },
+  { icon: BadgePercent, title: "Fast quotations", body: "Provisional pricing in seconds, then human verification" },
+  { icon: Headphones, title: "A team that stays", body: "Advice, installation and after-sales support" },
 ];
 
 export default async function HomePage() {
@@ -55,11 +55,11 @@ export default async function HomePage() {
             <div className="absolute -right-24 -top-32 size-96 rounded-full bg-sky-500/20 blur-2xl" />
             <div className="relative max-w-2xl">
               <span className="inline-flex rounded-full bg-amber-400 px-3 py-1 text-xs font-black uppercase tracking-wide text-slate-950">Business technology, delivered</span>
-              <h1 className="mt-5 text-3xl font-black tracking-tight min-[420px]:text-4xl sm:text-5xl">Upgrade your tech. Get more done.</h1>
-              <p className="mt-4 max-w-xl text-base leading-7 text-sky-100 sm:text-lg">Shop dependable laptops, power, networking and office technology with local support and VAT-inclusive pricing.</p>
+              <h1 className="mt-5 text-3xl font-black tracking-tight min-[420px]:text-4xl sm:text-5xl">Business technology made simple.</h1>
+              <p className="mt-4 max-w-xl text-base leading-7 text-sky-100 sm:text-lg">Build your solution, receive provisional pricing in seconds, and rely on one expert team through verification, delivery, installation and ongoing support.</p>
               <div className="mt-7 grid gap-3 min-[420px]:flex min-[420px]:flex-wrap">
-                <Link className={cn(buttonVariants({ size: "lg" }), "bg-sky-500 hover:bg-sky-400")} href="/shop">Shop all deals <ArrowRight className="ml-2 size-4" /></Link>
-                <Link className={cn(buttonVariants({ variant: "outline", size: "lg" }), "border-white/40 bg-white/10 text-white hover:bg-white/20")} href="/quotations/request">Get bulk pricing</Link>
+                <Link className={cn(buttonVariants({ size: "lg" }), "bg-sky-500 hover:bg-sky-400")} href="/shop">Build your solution <ArrowRight className="ml-2 size-4" /></Link>
+                <Link className={cn(buttonVariants({ variant: "outline", size: "lg" }), "border-white/40 bg-white/10 text-white hover:bg-white/20")} href="/contact">Talk to an expert</Link>
               </div>
             </div>
           </div>
@@ -106,8 +106,8 @@ export default async function HomePage() {
 
       <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         <div className="grid overflow-hidden rounded-2xl bg-[#071b33] text-white md:grid-cols-[1fr_0.8fr]">
-          <div className="p-8 sm:p-10"><div className="flex items-center gap-2 text-amber-400"><Building2 className="size-6" /><span className="text-sm font-black uppercase tracking-wider">Business procurement</span></div><h2 className="mt-4 text-3xl font-black">One device or one hundred—we can help.</h2><p className="mt-3 max-w-xl leading-7 text-sky-100">Get tailored pricing, sourcing, configuration and delivery for your business, school or public-sector organisation.</p><Link className="mt-6 inline-flex items-center rounded-lg bg-amber-400 px-5 py-3 font-bold text-slate-950 hover:bg-amber-300" href="/quotations/request">Request a quotation <ArrowRight className="ml-2 size-4" /></Link></div>
-          <div className="grid content-center gap-3 bg-sky-950/60 p-8">{["Dedicated sales assistance", "Volume and project pricing", "Multiple products per quotation", "Nationwide delivery planning"].map((item) => <p key={item} className="flex items-center gap-3 text-sm font-semibold"><CheckCircle2 className="size-5 text-amber-400" />{item}</p>)}</div>
+          <div className="p-8 sm:p-10"><div className="flex items-center gap-2 text-amber-400"><Building2 className="size-6" /><span className="text-sm font-black uppercase tracking-wider">One trusted technology partner</span></div><h2 className="mt-4 text-3xl font-black">One device or one hundred—we make procurement easier.</h2><p className="mt-3 max-w-xl leading-7 text-sky-100">Get fast provisional pricing, human-verified recommendations and one accountable team for sourcing, configuration, delivery and support.</p><Link className="mt-6 inline-flex items-center rounded-lg bg-amber-400 px-5 py-3 font-bold text-slate-950 hover:bg-amber-300" href="/quotations/request">Request a quotation <ArrowRight className="ml-2 size-4" /></Link></div>
+          <div className="grid content-center gap-3 bg-sky-950/60 p-8">{["Provisional quotation in approximately 30 seconds", "Human review before the final quotation", "Delivery and installation planning", "Ongoing support after fulfilment"].map((item) => <p key={item} className="flex items-center gap-3 text-sm font-semibold"><CheckCircle2 className="size-5 text-amber-400" />{item}</p>)}</div>
         </div>
       </section>
 

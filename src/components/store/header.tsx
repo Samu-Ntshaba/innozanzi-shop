@@ -31,7 +31,7 @@ export async function StoreHeader() {
   return (
     <>
       <div className="bg-[#071b33] px-4 py-2 text-center text-xs text-sky-50">
-        Free delivery on qualifying orders · Business pricing available nationwide
+        Fast provisional quotations · Expert advice · Delivery, installation and ongoing support
       </div>
       <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 shadow-sm backdrop-blur">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-3 px-3 py-3 sm:gap-5 sm:px-6 lg:flex-nowrap lg:px-8">
