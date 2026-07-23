@@ -22,6 +22,14 @@ function value(formData: FormData, key: string) {
   return typeof field === "string" ? field : "";
 }
 
+async function defaultLandingPage(userId: string) {
+  const staffGrant = await prisma.userRole.findFirst({
+    where: { userId, role: { permissions: { some: { effect: "ALLOW" } } } },
+    select: { userId: true },
+  });
+  return staffGrant ? "/admin" : "/account";
+}
+
 export async function loginAction(formData: FormData) {
   const parsed = loginSchema.safeParse({ email: value(formData, "email"), password: value(formData, "password") });
   if (!parsed.success) redirect("/sign-in?error=invalid");
@@ -46,7 +54,7 @@ export async function loginAction(formData: FormData) {
   clearAuthAttempts(rateLimitKey);
   await createSession(user.id);
   if (user.status === "INVITED") redirect(`/activate-account?email=${encodeURIComponent(user.email)}`);
-  const returnTo=(await cookies()).get("innozanzi-return-to")?.value;(await cookies()).delete("innozanzi-return-to");redirect(returnTo?.startsWith("/")&&!returnTo.startsWith("//")?returnTo:"/account");
+  const returnTo=(await cookies()).get("innozanzi-return-to")?.value;(await cookies()).delete("innozanzi-return-to");redirect(returnTo?.startsWith("/")&&!returnTo.startsWith("//")?returnTo:await defaultLandingPage(user.id));
 }
 
 export async function registerAction(formData: FormData) {
