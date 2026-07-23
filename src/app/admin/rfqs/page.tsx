@@ -1,37 +1,149 @@
 import Link from "next/link";
+import type { Prisma } from "@/generated/prisma/client";
+import type { RfqStatus } from "@/generated/prisma/enums";
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/domain/auth/session";
 import { createRfq } from "@/domain/rfq/actions";
-import { AdminPage, Panel, StatusBadge, buttonClass, inputClass, tableClass } from "@/components/admin/admin-ui";
+import {
+  AdminPage,
+  EmptyState,
+  MetricCard,
+  Pagination,
+  Panel,
+  StatusBadge,
+  buttonClass,
+  inputClass,
+  secondaryButtonClass,
+  tableClass,
+} from "@/components/admin/admin-ui";
 
-export default async function RfqsPage() {
+const PAGE_SIZE = 25;
+const statuses: RfqStatus[] = [
+  "DRAFT",
+  "READY_FOR_REVIEW",
+  "UNDER_REVIEW",
+  "PRICING_IN_PROGRESS",
+  "AWAITING_APPROVAL",
+  "APPROVED",
+  "SUBMITTED",
+  "WON",
+  "LOST",
+  "CANCELLED",
+  "EXPIRED",
+  "COMPLETED",
+];
+
+export default async function RfqsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string; status?: string; page?: string }>;
+}) {
   const context = await requirePermission("rfq.view");
-  const scope = !context.isSuperAdministrator && context.user.companyId ? { companyId: context.user.companyId } : {};
-  const rfqs = await prisma.rfqOpportunity.findMany({ where: scope, orderBy: { updatedAt: "desc" }, take: 100 });
-  const stats = [
-    ["Open", rfqs.filter((rfq) => !["LOST", "CANCELLED", "EXPIRED", "COMPLETED"].includes(rfq.status)).length],
-    ["Awaiting approval", rfqs.filter((rfq) => rfq.status === "AWAITING_APPROVAL").length],
-    ["Submitted", rfqs.filter((rfq) => rfq.status === "SUBMITTED").length],
-    ["Won", rfqs.filter((rfq) => rfq.status === "WON" || rfq.status === "COMPLETED").length],
-  ] as const;
-  return <AdminPage title="RFQs & tenders" description="Capture opportunities, review AI extraction, build pricing and control approvals.">
-    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{stats.map(([label, value], index) => <div className="relative overflow-hidden border border-slate-300 bg-white p-4 shadow-sm" key={label}><div className={`absolute inset-x-0 top-0 h-1 ${index === 1 ? "bg-amber-400" : index === 2 ? "bg-sky-500" : index === 3 ? "bg-emerald-500" : "bg-slate-700"}`} /><p className="text-[11px] font-bold uppercase tracking-[.14em] text-slate-500">{label}</p><p className="mt-2 text-3xl font-semibold tracking-tight text-slate-900">{value}</p><p className="mt-1 text-xs text-slate-500">Current pipeline</p></div>)}</div>
-    <Panel className="overflow-hidden p-0">
-      <div className="border-b border-slate-700 bg-[#172b3a] px-5 py-5 text-white sm:px-6"><p className="text-[11px] font-bold uppercase tracking-[.16em] text-sky-300">New opportunity</p><div className="mt-1 flex flex-wrap items-end justify-between gap-3"><div><h2 className="text-xl font-semibold tracking-tight">Capture an RFQ or tender</h2><p className="mt-1 max-w-2xl text-sm text-slate-300">Start with the commercial facts. You can add source documents and run extraction after the opportunity is created.</p></div><span className="border border-white/20 px-3 py-1.5 text-xs font-semibold text-slate-200">Step 1 of 3</span></div></div>
-      <form action={createRfq} className="grid gap-x-5 gap-y-4 p-5 sm:p-6 md:grid-cols-2">
-        <div className="md:col-span-2"><p className="text-xs font-bold uppercase tracking-[.14em] text-slate-500">Opportunity details</p><p className="mt-1 text-sm text-slate-600">Required fields are marked with <span className="text-rose-600">*</span>.</p></div>
-        <label className="text-sm font-semibold text-slate-800 md:col-span-2">Opportunity title <span className="text-rose-600">*</span><input className={`${inputClass} mt-1.5 w-full`} name="title" placeholder="e.g. Office furniture supply and installation" required /></label>
-        <label className="text-sm font-semibold text-slate-800">Issuing organisation <span className="text-rose-600">*</span><input className={`${inputClass} mt-1.5 w-full`} name="issuingOrganisation" placeholder="e.g. Department of Public Works" required /></label>
-        <label className="text-sm font-semibold text-slate-800">Opportunity type <select className={`${inputClass} mt-1.5 w-full`} name="type">{["RFQ","TENDER","RFP","RFI","OTHER"].map((type) => <option key={type}>{type}</option>)}</select></label>
-        <label className="text-sm font-semibold text-slate-800">External reference <span className="font-normal text-slate-500">(optional)</span><input className={`${inputClass} mt-1.5 w-full`} name="externalReference" placeholder="Client or portal reference" /></label>
-        <label className="text-sm font-semibold text-slate-800">Closing date <span className="font-normal text-slate-500">(optional)</span><input className={`${inputClass} mt-1.5 w-full`} name="closingAt" type="datetime-local" /></label>
-        <label className="text-sm font-semibold text-slate-800 md:col-span-2">Brief description <span className="font-normal text-slate-500">(optional)</span><textarea className={`${inputClass} mt-1.5 min-h-28 w-full resize-y`} name="description" placeholder="What is the client asking you to supply or deliver?" /></label>
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-5 md:col-span-2"><p className="text-xs text-slate-500">You can enrich this record with documents, links, requirements and pricing next.</p><button className={`${buttonClass} inline-flex items-center gap-2 px-5 py-2.5`}><span aria-hidden="true">+</span> Create opportunity</button></div>
-      </form>
-    </Panel>
-    <Panel className="overflow-hidden p-0"><div className="flex flex-wrap items-end justify-between gap-3 border-b border-slate-200 px-5 py-4"><div><p className="text-[11px] font-bold uppercase tracking-[.14em] text-sky-700">Opportunity register</p><h2 className="mt-1 text-lg font-semibold text-slate-900">Recent RFQs and tenders</h2></div><p className="text-xs text-slate-500">Showing the 100 most recently updated</p></div><table className={tableClass}><thead><tr><th>Reference</th><th>Opportunity</th><th>Organisation</th><th>Closing</th><th>Status</th><th>Total</th></tr></thead><tbody>
-      {rfqs.map((rfq) => <tr key={rfq.id}><td><Link className="font-semibold text-sky-700" href={`/admin/rfqs/${rfq.id}`}>{rfq.referenceNumber}</Link></td><td>{rfq.title}<br/><span className="text-xs text-slate-500">{rfq.type}</span></td><td>{rfq.issuingOrganisation}</td><td>{rfq.closingAt?.toLocaleString("en-ZA") ?? "Not set"}</td><td><StatusBadge value={rfq.status}/></td><td>R {Number(rfq.sellingIncludingVat).toLocaleString("en-ZA", { minimumFractionDigits: 2 })}</td></tr>)}
-      {!rfqs.length ? <tr><td colSpan={6} className="text-center text-slate-500">No RFQs have been created.</td></tr> : null}
-    </tbody></table></Panel>
-  </AdminPage>;
+  const parameters = await searchParams;
+  const query = parameters.q?.trim().slice(0, 120) ?? "";
+  const status = statuses.includes(parameters.status as RfqStatus) ? (parameters.status as RfqStatus) : undefined;
+  const requestedPage = Math.max(1, Number.parseInt(parameters.page ?? "1", 10) || 1);
+  const scope: Prisma.RfqOpportunityWhereInput =
+    !context.isSuperAdministrator && context.user.companyId ? { companyId: context.user.companyId } : {};
+  const where: Prisma.RfqOpportunityWhereInput = {
+    ...scope,
+    ...(status ? { status } : {}),
+    ...(query
+      ? {
+          OR: [
+            { referenceNumber: { contains: query, mode: "insensitive" } },
+            { externalReference: { contains: query, mode: "insensitive" } },
+            { title: { contains: query, mode: "insensitive" } },
+            { issuingOrganisation: { contains: query, mode: "insensitive" } },
+          ],
+        }
+      : {}),
+  };
+  const [total, pipelineStats] = await Promise.all([
+    prisma.rfqOpportunity.count({ where }),
+    prisma.rfqOpportunity.groupBy({ by: ["status"], where: scope, _count: { _all: true } }),
+  ]);
+  const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const page = Math.min(requestedPage, pageCount);
+  const rfqs = await prisma.rfqOpportunity.findMany({
+    where,
+    include: { assignedUser: { select: { name: true, email: true } } },
+    orderBy: [{ closingAt: "asc" }, { updatedAt: "desc" }],
+    skip: (page - 1) * PAGE_SIZE,
+    take: PAGE_SIZE,
+  });
+  const count = (matching: RfqStatus[]) =>
+    pipelineStats.filter((item) => matching.includes(item.status)).reduce((sum, item) => sum + item._count._all, 0);
+  const activeFilters = Boolean(query || status);
+
+  return (
+    <AdminPage
+      title="RFQs & tenders"
+      description="Capture opportunities, review source evidence, prepare pricing and manage approvals."
+      actions={<a className={buttonClass} href="#new-rfq">Create RFQ</a>}
+    >
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <MetricCard label="Open pipeline" value={count(statuses.filter((item) => !["LOST", "CANCELLED", "EXPIRED", "COMPLETED"].includes(item)))} detail="Active opportunities" />
+        <MetricCard label="Awaiting approval" value={count(["AWAITING_APPROVAL"])} detail="Decision required" />
+        <MetricCard label="Submitted" value={count(["SUBMITTED"])} detail="Awaiting client outcome" />
+        <MetricCard label="Won or completed" value={count(["WON", "COMPLETED"])} detail="Successful opportunities" />
+      </div>
+
+      <Panel title="Opportunity register" description="Search by reference, title or issuing organisation.">
+        <form className="flex flex-wrap items-end gap-3" method="get">
+          <label className="min-w-[16rem] flex-1 text-xs font-semibold text-slate-700">
+            Search RFQs
+            <input className={`${inputClass} mt-1 w-full`} defaultValue={query} name="q" placeholder="Reference, title or organisation" />
+          </label>
+          <label className="min-w-52 text-xs font-semibold text-slate-700">
+            Status
+            <select className={`${inputClass} mt-1 w-full`} defaultValue={status ?? ""} name="status">
+              <option value="">All statuses</option>
+              {statuses.map((item) => <option key={item} value={item}>{item.replaceAll("_", " ")}</option>)}
+            </select>
+          </label>
+          <button className={buttonClass}>Apply filters</button>
+          {activeFilters ? <Link className={secondaryButtonClass} href="/admin/rfqs">Clear</Link> : null}
+        </form>
+
+        <div className="-mx-4 mt-4 overflow-x-auto border-y border-slate-200">
+          {rfqs.length ? (
+            <table className={tableClass}>
+              <thead><tr><th>Reference</th><th>Opportunity</th><th>Closing</th><th>Owner</th><th>Status</th><th className="text-right">Value</th><th><span className="sr-only">Action</span></th></tr></thead>
+              <tbody>
+                {rfqs.map((rfq) => (
+                  <tr key={rfq.id}>
+                    <td><strong>{rfq.referenceNumber}</strong>{rfq.externalReference ? <><br /><span className="text-xs text-slate-500">{rfq.externalReference}</span></> : null}</td>
+                    <td><span className="font-medium text-slate-900">{rfq.title}</span><br /><span className="text-xs text-slate-500">{rfq.issuingOrganisation} · {rfq.type}</span></td>
+                    <td>{rfq.closingAt?.toLocaleDateString("en-ZA") ?? "Not set"}</td>
+                    <td>{rfq.assignedUser?.name ?? rfq.assignedUser?.email ?? "Unassigned"}</td>
+                    <td><StatusBadge value={rfq.status} /></td>
+                    <td className="text-right tabular-nums">R {Number(rfq.sellingIncludingVat).toLocaleString("en-ZA", { minimumFractionDigits: 2 })}</td>
+                    <td><Link className="whitespace-nowrap font-semibold text-sky-700 hover:underline" href={`/admin/rfqs/${rfq.id}`}>View</Link></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : <EmptyState title="No RFQs found" description={activeFilters ? "No opportunities match the current search and filters. Clear them to see the full register." : "Create the first RFQ or tender opportunity to start the workflow."} />}
+        </div>
+        <div className="pt-4"><Pagination page={page} pageCount={pageCount} total={total} query={{ q: query, status }} /></div>
+      </Panel>
+
+      <details id="new-rfq" className="scroll-mt-20 border border-slate-300 bg-white shadow-sm">
+        <summary className="cursor-pointer list-none px-4 py-3 font-semibold text-slate-900 hover:bg-slate-50 [&::-webkit-details-marker]:hidden">
+          <span className="flex items-center justify-between">Create a new RFQ or tender <span aria-hidden="true" className="text-sky-700">＋</span></span>
+        </summary>
+        <form action={createRfq} className="grid gap-4 border-t border-slate-200 p-4 md:grid-cols-2">
+          <p className="text-sm text-slate-600 md:col-span-2">Capture the core opportunity first. Source documents, analysis and pricing are managed in its workspace.</p>
+          <label className="text-sm font-semibold text-slate-800 md:col-span-2">Opportunity title <span className="text-rose-600">*</span><input className={`${inputClass} mt-1 w-full`} name="title" placeholder="Office furniture supply and installation" required /></label>
+          <label className="text-sm font-semibold text-slate-800">Issuing organisation <span className="text-rose-600">*</span><input className={`${inputClass} mt-1 w-full`} name="issuingOrganisation" placeholder="Organisation name" required /></label>
+          <label className="text-sm font-semibold text-slate-800">Opportunity type<select className={`${inputClass} mt-1 w-full`} name="type">{["RFQ", "TENDER", "RFP", "RFI", "OTHER"].map((type) => <option key={type}>{type}</option>)}</select></label>
+          <label className="text-sm font-semibold text-slate-800">External reference <span className="font-normal text-slate-500">(optional)</span><input className={`${inputClass} mt-1 w-full`} name="externalReference" placeholder="Client or portal reference" /></label>
+          <label className="text-sm font-semibold text-slate-800">Closing date <span className="font-normal text-slate-500">(optional)</span><input className={`${inputClass} mt-1 w-full`} name="closingAt" type="datetime-local" /></label>
+          <label className="text-sm font-semibold text-slate-800 md:col-span-2">Brief description <span className="font-normal text-slate-500">(optional)</span><textarea className={`${inputClass} mt-1 min-h-24 w-full resize-y`} name="description" placeholder="What is the client asking you to supply or deliver?" /></label>
+          <div className="flex justify-end border-t border-slate-200 pt-4 md:col-span-2"><button className={buttonClass}>Create opportunity</button></div>
+        </form>
+      </details>
+    </AdminPage>
+  );
 }

@@ -4,6 +4,10 @@ Administrators with `users.manage` can invite users from `/admin/access-control`
 
 RFQ and tender work is available at `/admin/rfqs`. Access is controlled by the `rfq.*` permissions and scoped to the signed-in user's company unless the user is a Super Administrator. The workflow records every state change and approval decision.
 
+The RFQ register follows the shared admin design system and supports partial reference, title and organisation search, status filtering, filter clearing, 25-row server pagination and compact empty states. The opportunity workspace shows the current status, closing date and recommended next action. AI output is collapsed until requested so source intake, pricing and approval actions remain the primary focus.
+
+All admin pages inherit the shared compact page header, breadcrumbs, panels, controls, status badges, table treatment, focus states and responsive navigation. The admin route also provides structural loading and recoverable error states. Access-control permissions are grouped by business area to avoid an uncontrolled permission matrix.
+
 AI analysis is advisory. Staff paste source text or import readable website content, run analysis, review the structured output and explicitly confirm it. The system does not create confirmed requirements or pricing lines without that human action. Configure `OPENAI_API_KEY` and optionally `OPENAI_MODEL`.
 
 Pricing uses fixed-point Decimal arithmetic. Markup and margin are distinct calculations, cost and selling totals are stored separately, and only users with financial permissions can enter or review pricing. Each approval submission creates an immutable pricing snapshot and a pending approval record.

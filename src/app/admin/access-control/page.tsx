@@ -5,6 +5,14 @@ import { requirePermission } from "@/domain/auth/session";
 import { inviteUser } from "@/domain/auth/invitations";
 import { prisma } from "@/lib/prisma";
 
+const permissionGroups = [
+  ["Catalogue", PERMISSIONS.filter((permission) => permission.startsWith("products.") || permission.startsWith("inventory."))],
+  ["Sales and fulfilment", PERMISSIONS.filter((permission) => ["orders.", "payments.", "quotations.", "customers."].some((prefix) => permission.startsWith(prefix)))],
+  ["RFQs and tenders", PERMISSIONS.filter((permission) => permission.startsWith("rfq."))],
+  ["Partnerships", PERMISSIONS.filter((permission) => permission.startsWith("partnership."))],
+  ["Reporting and system", PERMISSIONS.filter((permission) => ["reports.", "users.", "settings."].some((prefix) => permission.startsWith(prefix)))],
+] as const;
+
 export default async function AccessControlPage() {
   const context = await requirePermission("users.manage");
   const [roles, users, companies, departments] = await Promise.all([
@@ -23,7 +31,7 @@ export default async function AccessControlPage() {
       const configured = new Map(role.permissions.map((item) => [item.permission.key, item.effect]));
       const locked = role.slug === "super-administrator";
       return <Panel key={role.id}><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="font-semibold">{role.name}</h2><p className="text-sm text-slate-500">{role.description || role.slug} · {role._count.users} user(s){role.isSystem ? " · System role" : ""}</p></div>{!role.isSystem && <form action={deleteRole}><input type="hidden" name="roleId" value={role.id} /><button className="text-sm text-red-700 underline">Delete role</button></form>}</div>
-        {locked ? <p className="mt-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">Super Administrators always have every permission and cannot be restricted.</p> : <form action={saveRoleRules} className="mt-4"><input type="hidden" name="roleId" value={role.id} /><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{PERMISSIONS.map((permission) => <label className="grid gap-1 text-sm" key={permission}><span className="font-medium">{permission}</span><select className={inputClass} name={`permission:${permission}`} defaultValue={configured.get(permission) ?? "NONE"}><option value="NONE">Not granted</option><option value="ALLOW">Allow</option><option value="DENY">Deny</option></select></label>)}</div><button className={`${buttonClass} mt-4`}>Save rules</button></form>}
+        {locked ? <p className="mt-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">Super Administrators always have every permission and cannot be restricted.</p> : <form action={saveRoleRules} className="mt-4"><input type="hidden" name="roleId" value={role.id} /><div className="space-y-2">{permissionGroups.map(([group, permissions], index) => <details className="border border-slate-300" key={group} open={index === 0}><summary className="flex cursor-pointer list-none items-center justify-between bg-slate-50 px-3 py-2 text-sm font-semibold [&::-webkit-details-marker]:hidden"><span>{group}</span><span className="text-xs font-normal text-slate-500">{permissions.filter((permission) => configured.has(permission)).length} configured · expand</span></summary><div className="grid gap-3 border-t border-slate-200 p-3 sm:grid-cols-2 lg:grid-cols-3">{permissions.map((permission) => <label className="grid gap-1 text-sm" key={permission}><span className="font-medium">{permission.replaceAll(".", " · ").replaceAll("_", " ")}</span><select className={inputClass} name={`permission:${permission}`} defaultValue={configured.get(permission) ?? "NONE"}><option value="NONE">Not granted</option><option value="ALLOW">Allow</option><option value="DENY">Deny</option></select></label>)}</div></details>)}</div><div className="sticky bottom-0 mt-4 flex justify-end border-t border-slate-200 bg-white py-3"><button className={buttonClass}>Save role permissions</button></div></form>}
       </Panel>;
     })}</div>
 
