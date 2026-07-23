@@ -1,0 +1,32 @@
+import type { TransportStatus } from "@/generated/prisma/enums";
+
+const TRANSITIONS: Record<TransportStatus, readonly TransportStatus[]> = {
+  DRAFT: ["REQUESTED", "CANCELLED"],
+  REQUESTED: ["AWAITING_QUOTATION", "QUOTATION_RECEIVED", "AWAITING_APPROVAL", "CANCELLED"],
+  AWAITING_QUOTATION: ["QUOTATION_RECEIVED", "CANCELLED"],
+  QUOTATION_RECEIVED: ["AWAITING_APPROVAL", "CANCELLED"],
+  AWAITING_APPROVAL: ["APPROVED", "SCHEDULED", "CANCELLED"],
+  APPROVED: ["SCHEDULED", "DRIVER_ASSIGNED", "CANCELLED"],
+  SCHEDULED: ["DRIVER_ASSIGNED", "COLLECTION_PENDING", "CANCELLED"],
+  DRIVER_ASSIGNED: ["COLLECTION_PENDING", "COLLECTED", "CANCELLED"],
+  COLLECTION_PENDING: ["COLLECTED", "FAILED_DELIVERY", "CANCELLED"],
+  COLLECTED: ["IN_TRANSIT", "RETURNED"],
+  IN_TRANSIT: ["DELIVERY_ATTEMPTED", "DELIVERED", "FAILED_DELIVERY", "RETURNED"],
+  DELIVERY_ATTEMPTED: ["IN_TRANSIT", "DELIVERED", "FAILED_DELIVERY", "RETURNED"],
+  FAILED_DELIVERY: ["SCHEDULED", "DRIVER_ASSIGNED", "RETURNED", "CANCELLED"],
+  DELIVERED: ["COMPLETED"],
+  RETURNED: ["COMPLETED"],
+  CANCELLED: [],
+  COMPLETED: [],
+};
+
+export function allowedTransportTransitions(status: TransportStatus) {
+  return [...TRANSITIONS[status]];
+}
+
+export function assertTransportTransition(from: TransportStatus, to: TransportStatus) {
+  if (!TRANSITIONS[from].includes(to)) {
+    throw new Error(`Transport cannot move from ${from} to ${to}.`);
+  }
+}
+

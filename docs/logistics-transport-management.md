@@ -16,6 +16,9 @@ records.
   signed downloads.
 - Every lifecycle and financial change appends a transport event; approvals and
   payments also write the global audit log.
+- Operational states use a shared forward-transition map enforced by the server.
+  Completed and cancelled records are terminal; a failed delivery can only be
+  rescheduled, reassigned, returned or cancelled.
 
 ## Relationships
 

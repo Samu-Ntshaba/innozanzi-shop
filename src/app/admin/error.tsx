@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { buttonClass, secondaryButtonClass } from "@/components/admin/admin-ui";
 
 export default function AdminError({ reset }: { reset: () => void }) {
@@ -10,7 +11,7 @@ export default function AdminError({ reset }: { reset: () => void }) {
       <p className="mt-2 max-w-2xl text-sm text-slate-600">The request may have been interrupted. Retry once; if the problem continues, return to the operations dashboard and contact support.</p>
       <div className="mt-5 flex flex-wrap gap-2">
         <button className={buttonClass} onClick={reset}>Try again</button>
-        <a className={secondaryButtonClass} href="/admin">Return to dashboard</a>
+        <Link className={secondaryButtonClass} href="/admin">Return to dashboard</Link>
       </div>
     </section>
   );

@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requirePermission } from "@/domain/auth/session";
+import { assertTransportTransition } from "@/domain/logistics/lifecycle";
 import { prisma } from "@/lib/prisma";
 import { createSupabaseAdmin } from "@/lib/supabase";
 
@@ -69,6 +70,7 @@ export async function updateTransportStatus(formData:FormData){
   const ctx=await requirePermission(formData.get("status")==="DELIVERED"?"transport.delivery.confirm":formData.get("status")==="COLLECTED"?"transport.collection.confirm":"transport.edit");
   const data=z.object({id:z.string().uuid(),status:z.enum(nextStatuses),publicNote:z.string().trim().max(2000).optional(),internalNote:z.string().trim().max(2000).optional(),recipientName:z.string().trim().max(160).optional(),failureReason:z.string().trim().max(2000).optional()}).parse(Object.fromEntries(formData));const row=await prisma.transportRecord.findUniqueOrThrow({where:{id:data.id}});
   if(data.status==="FAILED_DELIVERY"&&!data.failureReason)throw new Error("A failed-delivery reason is required.");
+  assertTransportTransition(row.status,data.status);
   const proofFile=await upload(formData.get("proof"),`${row.referenceNumber}/proof`);
   try{await prisma.$transaction(async tx=>{const now=new Date();await tx.transportRecord.update({where:{id:row.id},data:{status:data.status,collectedAt:data.status==="COLLECTED"?now:undefined,deliveredAt:data.status==="DELIVERED"?now:undefined,completedAt:data.status==="COMPLETED"?now:undefined,failureReason:data.failureReason||undefined}});if(["COLLECTED","DELIVERED","FAILED_DELIVERY"].includes(data.status)){const proof=await tx.transportProof.create({data:{transportId:row.id,type:data.status==="COLLECTED"?"COLLECTION":data.status==="DELIVERED"?"DELIVERY":"FAILED_DELIVERY",recipientName:data.recipientName||null,occurredAt:now,quantityConfirmed:formData.get("quantityConfirmed")==="on",notes:data.publicNote||null}});if(proofFile){const doc=await tx.uploadedDocument.create({data:{bucket:proofFile.bucket,path:proofFile.path,originalName:proofFile.file.name,mimeType:proofFile.file.type,size:proofFile.file.size,isPrivate:true}});await tx.transportProofDocument.create({data:{proofId:proof.id,documentId:doc.id,type:"EVIDENCE"}})}}await tx.transportEvent.create({data:{transportId:row.id,actorId:ctx.user.id,action:`STATUS_${data.status}`,fromStatus:row.status,toStatus:data.status,publicNote:data.publicNote||null,internalNote:data.internalNote||null}})})}catch(error){if(proofFile)await createSupabaseAdmin().storage.from(proofFile.bucket).remove([proofFile.path]);throw error}revalidatePath(`/admin/logistics/${row.id}`);
 }
