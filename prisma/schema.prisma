@@ -269,10 +269,31 @@ enum PaymentSubmissionStatus {
 enum InvoiceStatus {
   DRAFT
   ISSUED
+  SENT
   PARTIALLY_PAID
   PAID
   OVERDUE
+  CANCELLED
+  CREDITED
   VOID
+}
+
+enum DocumentOrigin {
+  WEBSITE
+  ADMIN
+  MANUAL
+  AUTOMATED
+  API
+  IMPORTED
+}
+
+enum DeliveryNoteStatus {
+  DRAFT
+  READY_FOR_DELIVERY
+  PARTIALLY_DELIVERED
+  DELIVERED
+  ACKNOWLEDGED
+  CANCELLED
 }
 
 enum HelpDeskStatus {
@@ -418,6 +439,7 @@ model User {
   passwordChangedAt               DateTime?
   lastLoginAt                     DateTime?
   deletedAt                       DateTime?
+  isTestData                      Boolean                          @default(false)
   createdAt                       DateTime                         @default(now())
   updatedAt                       DateTime                         @updatedAt
   accounts                        Account[]
@@ -470,6 +492,12 @@ model User {
   assignedServiceTasks            ServiceTask[]                    @relation("ServiceTaskAssignee")
   createdServiceTasks             ServiceTask[]                    @relation("ServiceTaskCreator")
   helpDeskActivities              HelpDeskActivity[]               @relation("HelpDeskActivityActor")
+  createdInvoices                 Invoice[]                        @relation("InvoiceCreator")
+  updatedInvoices                 Invoice[]                        @relation("InvoiceUpdater")
+  createdDeliveryNotes            DeliveryNote[]                   @relation("DeliveryNoteCreator")
+  updatedDeliveryNotes            DeliveryNote[]                   @relation("DeliveryNoteUpdater")
+  responsibleDeliveryNotes        DeliveryNote[]                   @relation("DeliveryNoteResponsible")
+  confirmedDeliveryNotes          DeliveryNote[]                   @relation("DeliveryNoteConfirmer")
 
   @@index([status, createdAt])
   @@index([deletedAt])
@@ -728,6 +756,7 @@ model Product {
   metaDescription       String?
   publishedAt           DateTime?
   deletedAt             DateTime?
+  isTestData            Boolean                @default(false)
   createdAt             DateTime               @default(now())
   updatedAt             DateTime               @updatedAt
   category              Category               @relation(fields: [categoryId], references: [id], onDelete: Restrict)
@@ -1023,6 +1052,7 @@ model Order {
   placedAt             DateTime?
   cancelledAt          DateTime?
   completedAt          DateTime?
+  isTestData           Boolean                 @default(false)
   createdAt            DateTime                @default(now())
   updatedAt            DateTime                @updatedAt
   user                 User?                   @relation(fields: [userId], references: [id], onDelete: SetNull)
@@ -1035,6 +1065,8 @@ model Order {
   convertedQuotation   Quotation?              @relation("ConvertedOrder")
   paymentSubmissions   PaymentSubmission[]
   deliveryEvents       DeliveryTrackingEvent[]
+  invoices             Invoice[]
+  deliveryNotes        DeliveryNote[]
 
   @@index([userId, createdAt])
   @@index([status, createdAt])
@@ -1113,6 +1145,7 @@ model Payment {
   providerMetadata  Json?
   failureReason     String?
   paidAt            DateTime?
+  isTestData        Boolean         @default(false)
   createdAt         DateTime        @default(now())
   updatedAt         DateTime        @updatedAt
   order             Order           @relation(fields: [orderId], references: [id], onDelete: Restrict)
@@ -1252,6 +1285,7 @@ model QuotationRequest {
   requirements       String?                      @db.Text
   customerNotes      String?                      @db.Text
   markupPercent      Decimal                      @default(0) @db.Decimal(7, 4)
+  isTestData         Boolean                      @default(false)
   createdAt          DateTime                     @default(now())
   updatedAt          DateTime                     @updatedAt
   user               User?                        @relation(fields: [userId], references: [id], onDelete: SetNull)
@@ -1327,6 +1361,7 @@ model Quotation {
   finalApprovedAt    DateTime?
   paymentReference   String?
   bankDetails        String?                  @db.Text
+  isTestData         Boolean                  @default(false)
   createdAt          DateTime                 @default(now())
   updatedAt          DateTime                 @updatedAt
   quotationRequest   QuotationRequest?        @relation(fields: [quotationRequestId], references: [id], onDelete: SetNull)
@@ -1338,6 +1373,7 @@ model Quotation {
   invoices           Invoice[]
   versions           QuotationVersion[]
   paymentSubmissions PaymentSubmission[]
+  deliveryNotes      DeliveryNote[]
 
   @@unique([quotationRequestId, version])
   @@index([status, createdAt])
@@ -1346,28 +1382,173 @@ model Quotation {
 }
 
 model Invoice {
-  id            String        @id @default(uuid()) @db.Uuid
-  invoiceNumber String        @unique
-  quotationId   String?       @db.Uuid
-  status        InvoiceStatus @default(DRAFT)
-  customerName  String
-  customerEmail String
-  companyName   String?
-  currency      String        @default("ZAR") @db.Char(3)
-  subtotal      Decimal       @db.Decimal(19, 4)
-  vatTotal      Decimal       @default(0) @db.Decimal(19, 4)
-  grandTotal    Decimal       @db.Decimal(19, 4)
-  issuedAt      DateTime?
-  dueAt         DateTime
-  paidAt        DateTime?
-  notes         String?       @db.Text
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-  quotation     Quotation?    @relation(fields: [quotationId], references: [id], onDelete: SetNull)
+  id             String           @id @default(uuid()) @db.Uuid
+  invoiceNumber  String           @unique
+  quotationId    String?          @db.Uuid
+  orderId        String?          @db.Uuid
+  createdById    String?          @db.Uuid
+  updatedById    String?          @db.Uuid
+  origin         DocumentOrigin   @default(AUTOMATED)
+  status         InvoiceStatus    @default(DRAFT)
+  customerName   String
+  customerEmail  String
+  companyName    String?
+  billingAddress String?          @db.Text
+  currency       String           @default("ZAR") @db.Char(3)
+  subtotal       Decimal          @db.Decimal(19, 4)
+  discountTotal  Decimal          @default(0) @db.Decimal(19, 4)
+  vatTotal       Decimal          @default(0) @db.Decimal(19, 4)
+  grandTotal     Decimal          @db.Decimal(19, 4)
+  amountPaid     Decimal          @default(0) @db.Decimal(19, 4)
+  balanceDue     Decimal          @default(0) @db.Decimal(19, 4)
+  issuedAt       DateTime?
+  sentAt         DateTime?
+  dueAt          DateTime
+  paidAt         DateTime?
+  paymentTerms   String?          @db.Text
+  bankDetails    String?          @db.Text
+  notes          String?          @db.Text
+  isTestData     Boolean          @default(false)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  quotation      Quotation?       @relation(fields: [quotationId], references: [id], onDelete: SetNull)
+  order          Order?           @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  createdBy      User?            @relation("InvoiceCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy      User?            @relation("InvoiceUpdater", fields: [updatedById], references: [id], onDelete: SetNull)
+  items          InvoiceItem[]
+  payments       InvoicePayment[]
+  deliveryNotes  DeliveryNote[]
 
   @@index([status, dueAt])
   @@index([customerEmail, createdAt])
   @@index([quotationId])
+  @@index([orderId])
+  @@index([origin, createdAt])
+}
+
+model InvoiceItem {
+  id            String   @id @default(uuid()) @db.Uuid
+  invoiceId     String   @db.Uuid
+  description   String
+  quantity      Int
+  unitPrice     Decimal  @db.Decimal(19, 4)
+  discountTotal Decimal  @default(0) @db.Decimal(19, 4)
+  vatRate       Decimal  @default(15) @db.Decimal(7, 4)
+  vatTotal      Decimal  @db.Decimal(19, 4)
+  lineTotal     Decimal  @db.Decimal(19, 4)
+  sortOrder     Int      @default(0)
+  isTestData    Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  invoice       Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId, sortOrder])
+}
+
+model InvoicePayment {
+  id           String          @id @default(uuid()) @db.Uuid
+  invoiceId    String          @db.Uuid
+  amount       Decimal         @db.Decimal(19, 4)
+  method       PaymentProvider @default(EFT)
+  reference    String?
+  note         String?         @db.Text
+  paidAt       DateTime
+  recordedById String?         @db.Uuid
+  isTestData   Boolean         @default(false)
+  createdAt    DateTime        @default(now())
+  invoice      Invoice         @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId, paidAt])
+}
+
+model DeliveryNote {
+  id                  String                   @id @default(uuid()) @db.Uuid
+  deliveryNoteNumber  String                   @unique
+  orderId             String?                  @db.Uuid
+  quotationId         String?                  @db.Uuid
+  invoiceId           String?                  @db.Uuid
+  createdById         String?                  @db.Uuid
+  updatedById         String?                  @db.Uuid
+  responsibleStaffId  String?                  @db.Uuid
+  confirmedById       String?                  @db.Uuid
+  origin              DocumentOrigin           @default(AUTOMATED)
+  status              DeliveryNoteStatus       @default(DRAFT)
+  customerName        String
+  customerEmail       String?
+  customerPhone       String?
+  companyName         String?
+  deliveryAddress     String                   @db.Text
+  deliveryDate        DateTime?
+  deliveryMethod      String?
+  reference           String?
+  instructions        String?                  @db.Text
+  customerNote        String?                  @db.Text
+  internalNote        String?                  @db.Text
+  confirmationName    String?
+  confirmationNote    String?                  @db.Text
+  customerConfirmedAt DateTime?
+  deliveredAt         DateTime?
+  cancelledAt         DateTime?
+  isTestData          Boolean                  @default(false)
+  createdAt           DateTime                 @default(now())
+  updatedAt           DateTime                 @updatedAt
+  order               Order?                   @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  quotation           Quotation?               @relation(fields: [quotationId], references: [id], onDelete: SetNull)
+  invoice             Invoice?                 @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  createdBy           User?                    @relation("DeliveryNoteCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy           User?                    @relation("DeliveryNoteUpdater", fields: [updatedById], references: [id], onDelete: SetNull)
+  responsibleStaff    User?                    @relation("DeliveryNoteResponsible", fields: [responsibleStaffId], references: [id], onDelete: SetNull)
+  confirmedBy         User?                    @relation("DeliveryNoteConfirmer", fields: [confirmedById], references: [id], onDelete: SetNull)
+  items               DeliveryNoteItem[]
+  attachments         DeliveryNoteAttachment[]
+  history             DeliveryNoteHistory[]
+
+  @@index([status, deliveryDate])
+  @@index([orderId])
+  @@index([origin, createdAt])
+}
+
+model DeliveryNoteItem {
+  id             String       @id @default(uuid()) @db.Uuid
+  deliveryNoteId String       @db.Uuid
+  description    String
+  quantity       Int
+  deliveredQty   Int          @default(0)
+  condition      String?
+  note           String?
+  sortOrder      Int          @default(0)
+  isTestData     Boolean      @default(false)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  deliveryNote   DeliveryNote @relation(fields: [deliveryNoteId], references: [id], onDelete: Cascade)
+
+  @@index([deliveryNoteId, sortOrder])
+}
+
+model DeliveryNoteAttachment {
+  id             String           @id @default(uuid()) @db.Uuid
+  deliveryNoteId String           @db.Uuid
+  documentId     String           @unique @db.Uuid
+  type           String
+  isTestData     Boolean          @default(false)
+  createdAt      DateTime         @default(now())
+  deliveryNote   DeliveryNote     @relation(fields: [deliveryNoteId], references: [id], onDelete: Cascade)
+  document       UploadedDocument @relation(fields: [documentId], references: [id], onDelete: Restrict)
+
+  @@index([deliveryNoteId, type])
+}
+
+model DeliveryNoteHistory {
+  id             String              @id @default(uuid()) @db.Uuid
+  deliveryNoteId String              @db.Uuid
+  fromStatus     DeliveryNoteStatus?
+  toStatus       DeliveryNoteStatus
+  actorId        String?             @db.Uuid
+  note           String?             @db.Text
+  createdAt      DateTime            @default(now())
+  deliveryNote   DeliveryNote        @relation(fields: [deliveryNoteId], references: [id], onDelete: Cascade)
+
+  @@index([deliveryNoteId, createdAt])
 }
 
 model QuotationItem {
@@ -1417,12 +1598,30 @@ model UploadedDocument {
   mimeType                 String
   size                     Int
   isPrivate                Boolean                         @default(true)
+  isTestData               Boolean                         @default(false)
   createdAt                DateTime                        @default(now())
   paymentSubmission        PaymentSubmission?
   partnershipDocument      PartnershipApplicationDocument?
   partnerRequestAttachment PartnerRequestAttachment?
   rfqSource                RfqSource?
   rfqAdditionalCost        RfqAdditionalCost?
+  deliveryNoteAttachment   DeliveryNoteAttachment?
+}
+
+model TestAsset {
+  id         String   @id @default(uuid()) @db.Uuid
+  key        String   @unique
+  type       String
+  bucket     String
+  path       String
+  publicUrl  String
+  mimeType   String
+  size       Int
+  isTestData Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([type, createdAt])
 }
 
 model PartnershipType {

@@ -7,7 +7,7 @@ export const adminNavGroups = [
   ["CRM", [["Overview", "/admin"], ["Ticketing centre", "/admin/help-desk"], ["Operations calendar", "/admin/calendar"], ["Customers", "/admin/customers"], ["Quote pipeline", "/admin/quotations"], ["RFQs & tenders", "/admin/rfqs"], ["Invoices", "/admin/invoices"]]],
   ["Partnerships", [["Dashboard", "/admin/partnerships"], ["Applications", "/admin/partnerships/applications"], ["Approved partners", "/admin/partnerships/partners"], ["Partner requests", "/admin/partnerships/requests"]]],
   ["Marketing", [["Email marketing", "/admin/email-marketing"]]],
-  ["Operations", [["Orders", "/admin/orders"], ["Payments", "/admin/payments"], ["Inventory", "/admin/inventory"], ["Suppliers", "/admin/suppliers"]]],
+  ["Operations", [["Orders", "/admin/orders"], ["Delivery notes", "/admin/delivery-notes"], ["Payments", "/admin/payments"], ["Inventory", "/admin/inventory"], ["Suppliers", "/admin/suppliers"]]],
   ["Catalogue", [["Products", "/admin/products"], ["Categories", "/admin/categories"], ["Brands", "/admin/brands"], ["Promotions", "/admin/promotions"]]],
   ["Intelligence", [["Reports", "/admin/reports"], ["Syntech AI Sync", "/admin/syntech"]]],
   ["System", [["Content", "/admin/content"], ["Reviews", "/admin/reviews"], ["Test Mode", "/admin/test-mode"], ["Access control", "/admin/access-control"], ["Audit log", "/admin/audit-log"]]],
