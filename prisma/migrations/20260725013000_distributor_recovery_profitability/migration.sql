@@ -6,6 +6,7 @@ CREATE TABLE "DistributorRecovery" ("id" UUID NOT NULL,"distributorClaimId" UUID
 CREATE UNIQUE INDEX "DistributorRecovery_supportingDocumentId_key" ON "DistributorRecovery"("supportingDocumentId");
 CREATE INDEX "DistributorRecovery_distributorClaimId_receivedAt_idx" ON "DistributorRecovery"("distributorClaimId","receivedAt");
 CREATE INDEX "DistributorRecovery_reference_idx" ON "DistributorRecovery"("reference");
+CREATE UNIQUE INDEX "DistributorRecovery_distributorClaimId_reference_key" ON "DistributorRecovery"("distributorClaimId","reference");
 ALTER TABLE "DistributorClaimEvent" ADD CONSTRAINT "DistributorClaimEvent_distributorClaimId_fkey" FOREIGN KEY ("distributorClaimId") REFERENCES "DistributorClaim"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 ALTER TABLE "DistributorClaimEvent" ADD CONSTRAINT "DistributorClaimEvent_actorId_fkey" FOREIGN KEY ("actorId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 ALTER TABLE "DistributorRecovery" ADD CONSTRAINT "DistributorRecovery_distributorClaimId_fkey" FOREIGN KEY ("distributorClaimId") REFERENCES "DistributorClaim"("id") ON DELETE RESTRICT ON UPDATE CASCADE;

@@ -2394,6 +2394,7 @@ model DistributorRecovery {
   recordedBy           User              @relation("DistributorRecoveryRecorder", fields: [recordedById], references: [id], onDelete: Restrict)
   supportingDocument   UploadedDocument? @relation(fields: [supportingDocumentId], references: [id], onDelete: Restrict)
 
+  @@unique([distributorClaimId, reference])
   @@index([distributorClaimId, receivedAt])
   @@index([reference])
 }
