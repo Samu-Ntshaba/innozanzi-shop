@@ -19,10 +19,10 @@ export async function getHomepageCatalogue() {
   try {
     const [categories, featured, newest, specials, popular, brands] = await Promise.all([
       prisma.category.findMany({ where: { isActive: true }, orderBy: { displayOrder: "asc" }, take: 8, select: { id: true, name: true, slug: true, description: true, imagePath: true } }),
-      prisma.product.findMany({ where: { status: "PUBLISHED", deletedAt: null, isFeatured: true }, take: 8, orderBy: { updatedAt: "desc" }, select: productCardSelect }),
-      prisma.product.findMany({ where: { status: "PUBLISHED", deletedAt: null, isNew: true }, take: 8, orderBy: { publishedAt: "desc" }, select: productCardSelect }),
-      prisma.product.findMany({ where: { status: "PUBLISHED", deletedAt: null, isSpecial: true }, take: 8, orderBy: { updatedAt: "desc" }, select: productCardSelect }),
-      prisma.product.findMany({ where: { status: "PUBLISHED", deletedAt: null, isPopular: true }, take: 8, orderBy: { updatedAt: "desc" }, select: productCardSelect }),
+      prisma.product.findMany({ where: { status: "PUBLISHED", deletedAt: null,isTestData:false, isFeatured: true }, take: 8, orderBy: { updatedAt: "desc" }, select: productCardSelect }),
+      prisma.product.findMany({ where: { status: "PUBLISHED", deletedAt: null,isTestData:false, isNew: true }, take: 8, orderBy: { publishedAt: "desc" }, select: productCardSelect }),
+      prisma.product.findMany({ where: { status: "PUBLISHED", deletedAt: null,isTestData:false, isSpecial: true }, take: 8, orderBy: { updatedAt: "desc" }, select: productCardSelect }),
+      prisma.product.findMany({ where: { status: "PUBLISHED", deletedAt: null,isTestData:false, isPopular: true }, take: 8, orderBy: { updatedAt: "desc" }, select: productCardSelect }),
       prisma.brand.findMany({ where: { isActive: true }, orderBy: { name: "asc" }, take: 12, select: { id: true, name: true, slug: true, logoPath: true } }),
     ]);
     return { categories, featured, newest, specials, popular, brands };
@@ -38,6 +38,7 @@ export async function getCatalogue(input: { search?: string; category?: string; 
   const where = {
     status: "PUBLISHED" as const,
     deletedAt: null,
+    isTestData:false,
     ...(input.search ? { OR: [{ name: { contains: input.search, mode: "insensitive" as const } }, { sku: { contains: input.search, mode: "insensitive" as const } }] } : {}),
     ...(input.category ? { category: { slug: input.category } } : {}),
     ...(input.brand ? { brand: { slug: input.brand } } : {}),
@@ -60,7 +61,7 @@ export async function getCatalogue(input: { search?: string; category?: string; 
 
 export async function getProductBySlug(slug: string) {
   return prisma.product.findFirst({
-    where: { slug, status: "PUBLISHED", deletedAt: null },
+    where: { slug, status: "PUBLISHED", deletedAt: null,isTestData:false },
     include: {
       brand: true,
       category: true,

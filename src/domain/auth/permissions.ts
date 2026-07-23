@@ -39,6 +39,17 @@ export const PERMISSIONS = [
   "rfq.export",
   "rfq.financials.view",
   "rfq.commission.manage",
+  "marketing.dashboard.view",
+  "marketing.seo.view",
+  "marketing.seo.edit",
+  "marketing.seo.publish",
+  "marketing.content.view",
+  "marketing.content.edit",
+  "marketing.content.publish",
+  "marketing.content.delete",
+  "marketing.media.manage",
+  "marketing.redirects.manage",
+  "marketing.analytics.view",
 ] as const;
 
 export type PermissionKey = (typeof PERMISSIONS)[number];

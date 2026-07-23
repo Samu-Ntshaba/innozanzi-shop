@@ -2,6 +2,8 @@ import { Clock3, Mail, MessageCircle, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { submitHelpDeskTicket } from "@/domain/communications/actions";
 import { supportEmail, whatsappUrl } from "@/lib/support";
+import type { Metadata } from "next";
+export const metadata:Metadata={title:"Contact our business technology support team",description:"Contact Innozanzi for technology quotations, procurement advice, delivery, installation and ongoing support in South Africa.",alternates:{canonical:"/contact"}};
 
 const input = "mt-1 min-h-12 w-full rounded-lg border border-slate-300 bg-white px-3 text-base outline-none focus:border-sky-600 focus:ring-2 focus:ring-sky-100";
 

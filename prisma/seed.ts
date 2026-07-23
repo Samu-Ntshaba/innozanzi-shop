@@ -3,8 +3,9 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { PERMISSIONS } from "../src/domain/auth/permissions";
 import { hashPassword } from "../src/domain/auth/password";
+import { testDatabaseUrl } from "../src/lib/test-mode";
 
-const connectionString = process.env.DATABASE_PUBLIC_URL ?? process.env.DATABASE_URL;
+const connectionString = testDatabaseUrl(process.env.DATABASE_PUBLIC_URL ?? process.env.DATABASE_URL ?? "");
 if (!connectionString) throw new Error("A database URL is required to seed.");
 
 const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString }) });
@@ -15,6 +16,7 @@ const roles = [
   ["Finance", "finance"],
   ["Inventory Manager", "inventory-manager"],
   ["Content Manager", "content-manager"],
+  ["Marketing", "marketing"],
   ["Support Agent", "support-agent"],
   ["Procurement Officer", "procurement-officer"],
   ["Customer", "customer"],
@@ -27,6 +29,7 @@ const rolePermissions: Record<string, readonly (typeof PERMISSIONS)[number][]> =
   finance: ["orders.view", "payments.approve", "reports.view", "rfq.view", "rfq.price", "rfq.approve", "rfq.reject", "rfq.financials.view", "rfq.commission.manage"],
   "inventory-manager": ["products.view", "products.update", "inventory.manage"],
   "content-manager": ["products.view", "products.update"],
+  marketing: ["products.view","marketing.dashboard.view","marketing.seo.view","marketing.seo.edit","marketing.seo.publish","marketing.content.view","marketing.content.edit","marketing.content.publish","marketing.content.delete","marketing.media.manage","marketing.redirects.manage","marketing.analytics.view"],
   "support-agent": ["orders.view", "customers.manage", "partnership.view", "partnership.request.view"],
   "procurement-officer": ["products.view", "orders.view", "orders.update", "quotations.manage", "inventory.manage", "customers.manage", "rfq.view", "rfq.create", "rfq.update", "rfq.price", "rfq.submit", "rfq.assign", "rfq.financials.view"],
   customer: [],

@@ -25,6 +25,9 @@ export async function clearTestDatabaseBusinessData(){
     await tx.review.deleteMany();
     await tx.couponRedemption.deleteMany();
     await tx.invoice.deleteMany();
+    await tx.marketingBlock.deleteMany({where:{isTestData:true}});
+    await tx.seoRecord.deleteMany({where:{isTestData:true}});
+    await tx.mediaAsset.deleteMany({where:{isTestData:true}});
     await tx.testAsset.deleteMany();
     await tx.paymentSubmission.deleteMany();
     await tx.uploadedDocument.deleteMany();

@@ -3,20 +3,9 @@ import "./globals.css";
 import { SystemFeedback } from "@/components/system-feedback";
 import { TestModeBanner } from "@/components/test-mode-banner";
 import { isTestModeEnvironment } from "@/lib/test-mode";
+import { globalSeoSettings,organisationJsonLd,safeJsonLd } from "@/domain/marketing/seo";
 
-export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "https://shop.innozanzi.co.za"),
-  title: "Innozanzi Shop",
-  description: "ICT products, procurement and technology solutions for South Africa.",
-  icons: { icon: "/icon.png", apple: "/icon.png" },
-  openGraph: {
-    title: "Innozanzi Shop",
-    description: "ICT products, procurement and technology solutions for South Africa.",
-    type: "website",
-  },
-  alternates: { canonical: "/" },
-  robots: isTestModeEnvironment() ? { index: false, follow: false } : { index: true, follow: true },
-};
+export async function generateMetadata():Promise<Metadata>{const s=await globalSeoSettings();return{metadataBase:new URL(s.siteUrl),title:{default:s.siteTitle,template:s.titleTemplate},description:s.description,applicationName:s.businessName,icons:{icon:"/icon.png",apple:"/icon.png"},verification:{google:s.googleVerification||undefined,other:s.bingVerification?{"msvalidate.01":[s.bingVerification]}:undefined},openGraph:{title:s.siteTitle,description:s.description,type:"website",siteName:s.businessName,url:s.siteUrl,images:s.defaultImage?[{url:s.defaultImage,alt:s.businessName}]:undefined},twitter:{card:"summary_large_image",site:s.twitter||undefined,title:s.siteTitle,description:s.description,images:s.defaultImage?[s.defaultImage]:undefined},robots:isTestModeEnvironment()?{index:false,follow:false,noarchive:true}:{index:true,follow:true}}}
 
 export default function RootLayout({
   children,
@@ -25,7 +14,8 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning className="h-full antialiased">
-      <body className="min-h-full"><TestModeBanner/>{children}<SystemFeedback /></body>
+      <body className="min-h-full"><OrganizationSchema/><TestModeBanner/>{children}<SystemFeedback /></body>
     </html>
   );
 }
+async function OrganizationSchema(){return <script type="application/ld+json" dangerouslySetInnerHTML={{__html:safeJsonLd(await organisationJsonLd())}}/>}

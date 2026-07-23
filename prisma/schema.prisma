@@ -421,6 +421,21 @@ enum PageStatus {
   ARCHIVED
 }
 
+enum MarketingContentStatus {
+  DRAFT
+  IN_REVIEW
+  APPROVED
+  SCHEDULED
+  PUBLISHED
+  EXPIRED
+  ARCHIVED
+}
+
+enum RedirectType {
+  PERMANENT
+  TEMPORARY
+}
+
 model User {
   id                              String                           @id @default(uuid()) @db.Uuid
   email                           String                           @unique
@@ -1622,6 +1637,128 @@ model TestAsset {
   updatedAt  DateTime @updatedAt
 
   @@index([type, createdAt])
+}
+
+model MarketingSetting {
+  id          String   @id @default(uuid()) @db.Uuid
+  key         String   @unique
+  value       Json
+  description String?
+  updatedById String?  @db.Uuid
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([updatedAt])
+}
+
+model SeoRecord {
+  id                   String   @id @default(uuid()) @db.Uuid
+  entityType           String
+  entityId             String
+  path                 String?
+  title                String?
+  description          String?  @db.Text
+  canonicalUrl         String?
+  openGraphTitle       String?
+  openGraphDescription String?  @db.Text
+  openGraphImage       String?
+  twitterTitle         String?
+  twitterDescription   String?  @db.Text
+  twitterImage         String?
+  primaryKeyword       String?
+  secondaryKeywords    String[]
+  indexable            Boolean  @default(true)
+  followLinks          Boolean  @default(true)
+  includeInSitemap     Boolean  @default(true)
+  sitemapPriority      Decimal  @default(0.5) @db.Decimal(2, 1)
+  structuredDataType   String?
+  isTestData           Boolean  @default(false)
+  createdById          String?  @db.Uuid
+  updatedById          String?  @db.Uuid
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@unique([entityType, entityId])
+  @@index([path])
+  @@index([indexable, includeInSitemap])
+}
+
+model RedirectRule {
+  id          String       @id @default(uuid()) @db.Uuid
+  sourcePath  String       @unique
+  targetPath  String
+  type        RedirectType @default(PERMANENT)
+  isActive    Boolean      @default(true)
+  isAutomatic Boolean      @default(false)
+  hitCount    Int          @default(0)
+  lastHitAt   DateTime?
+  createdById String?      @db.Uuid
+  updatedById String?      @db.Uuid
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@index([isActive, sourcePath])
+}
+
+model MarketingBlock {
+  id           String                  @id @default(uuid()) @db.Uuid
+  key          String                  @unique
+  location     String
+  type         String
+  title        String?
+  content      Json
+  status       MarketingContentStatus  @default(DRAFT)
+  displayOrder Int                     @default(0)
+  startsAt     DateTime?
+  endsAt       DateTime?
+  publishedAt  DateTime?
+  createdById  String?                 @db.Uuid
+  updatedById  String?                 @db.Uuid
+  approvedById String?                 @db.Uuid
+  isTestData   Boolean                 @default(false)
+  createdAt    DateTime                @default(now())
+  updatedAt    DateTime                @updatedAt
+  versions     MarketingBlockVersion[]
+
+  @@index([location, status, displayOrder])
+  @@index([startsAt, endsAt])
+}
+
+model MarketingBlockVersion {
+  id               String         @id @default(uuid()) @db.Uuid
+  marketingBlockId String         @db.Uuid
+  version          Int
+  snapshot         Json
+  createdById      String?        @db.Uuid
+  createdAt        DateTime       @default(now())
+  marketingBlock   MarketingBlock @relation(fields: [marketingBlockId], references: [id], onDelete: Cascade)
+
+  @@unique([marketingBlockId, version])
+  @@index([marketingBlockId, createdAt])
+}
+
+model MediaAsset {
+  id            String   @id @default(uuid()) @db.Uuid
+  bucket        String
+  path          String   @unique
+  publicUrl     String
+  title         String?
+  altText       String
+  caption       String?
+  description   String?  @db.Text
+  mimeType      String
+  size          Int
+  width         Int?
+  height        Int?
+  focalPointX   Decimal? @db.Decimal(5, 2)
+  focalPointY   Decimal? @db.Decimal(5, 2)
+  isSocialImage Boolean  @default(false)
+  isTestData    Boolean  @default(false)
+  createdById   String?  @db.Uuid
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([isSocialImage, createdAt])
 }
 
 model PartnershipType {

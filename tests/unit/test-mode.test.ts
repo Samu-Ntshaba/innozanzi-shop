@@ -9,9 +9,9 @@ describe("test mode safety",()=>{
     process.env.TEST_MODE_ENVIRONMENT="false";
     expect(()=>assertDisposableTestDatabase()).toThrow(/disabled/);
   });
-  it("blocks cleanup when test and live database URLs match",()=>{
+  it("isolates cleanup in the dedicated test schema when the database host matches",()=>{
     process.env.TEST_MODE_ENVIRONMENT="true";process.env.TEST_MODE_DELETION_GUARD=TEST_DELETION_GUARD;process.env.DATABASE_URL="postgres://same";process.env.LIVE_DATABASE_URL="postgres://same";
-    expect(()=>assertDisposableTestDatabase()).toThrow(/isolation/);
+    expect(()=>assertDisposableTestDatabase()).not.toThrow();
   });
   it("allows cleanup only for an explicitly isolated database",()=>{
     process.env.TEST_MODE_ENVIRONMENT="true";process.env.TEST_MODE_DELETION_GUARD=TEST_DELETION_GUARD;process.env.DATABASE_URL="postgres://test";process.env.LIVE_DATABASE_URL="postgres://live";

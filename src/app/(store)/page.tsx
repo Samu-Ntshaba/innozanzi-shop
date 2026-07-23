@@ -19,8 +19,12 @@ import { buttonVariants } from "@/components/ui/button";
 import { getHomepageCatalogue } from "@/domain/catalogue/queries";
 import { subscribeNewsletter } from "@/domain/communications/actions";
 import { cn } from "@/lib/utils";
+import { MarketingBlocks } from "@/components/store/marketing-blocks";
+import { entityMetadata } from "@/domain/marketing/seo";
+import type { Metadata } from "next";
 
 export const dynamic = "force-dynamic";
+export async function generateMetadata():Promise<Metadata>{return entityMetadata({entityType:"STATIC_PAGE",entityId:"homepage",path:"/",title:"Business technology made simple",description:"Receive fast technology quotations, expert advice, delivery, installation and ongoing support from one trusted South African technology partner."})}
 
 const fallbackCategories = [
   { id: "laptops", name: "Laptops", slug: "laptops", description: "Work, study and business notebooks", icon: Laptop },
@@ -49,6 +53,8 @@ export default async function HomePage() {
 
   return (
     <main className="bg-slate-50">
+      <MarketingBlocks location="ANNOUNCEMENT"/>
+      <MarketingBlocks location="HOMEPAGE_TOP"/>
       <section className="border-b border-slate-200 bg-white">
         <div className="mx-auto grid max-w-7xl gap-4 px-4 py-5 sm:px-6 lg:grid-cols-[1fr_310px] lg:px-8">
           <div className="relative overflow-hidden rounded-2xl bg-[#071b33] px-5 py-8 text-white sm:px-10 sm:py-14">
@@ -113,6 +119,7 @@ export default async function HomePage() {
 
       <ProductSection eyebrow="Limited-time value" title="Special offers" products={catalogue.specials} />
       <ProductSection eyebrow="Customer favourites" title="Popular products" products={catalogue.popular} />
+      <MarketingBlocks location="HOMEPAGE_CONTENT"/>
 
       <section className="border-y border-slate-200 bg-white">
         <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8"><p className="text-center text-xs font-bold uppercase tracking-[0.2em] text-slate-400">Trusted technology brands</p><div className="mt-6 flex flex-wrap items-center justify-center gap-x-10 gap-y-5">{brandNames.map((brand) => <span key={brand} className="text-lg font-black text-slate-400 grayscale transition hover:text-slate-700">{brand}</span>)}</div></div>

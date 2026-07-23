@@ -1,5 +1,6 @@
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@/generated/prisma/client";
+import { testDatabaseUrl } from "@/lib/test-mode";
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
@@ -12,7 +13,7 @@ const globalForPrisma = globalThis as unknown as {
 const PRISMA_SCHEMA_VERSION = "2026-07-23-ticket-department-routing";
 
 const connectionString =
-  process.env.NODE_ENV === "production"
+  process.env.RAILWAY_ENVIRONMENT
     ? process.env.DATABASE_URL
     : (process.env.DATABASE_PUBLIC_URL ?? process.env.DATABASE_URL);
 
@@ -20,7 +21,7 @@ if (!connectionString) {
   throw new Error("DATABASE_URL or DATABASE_PUBLIC_URL must be configured");
 }
 
-const adapter = new PrismaPg({ connectionString });
+const adapter = new PrismaPg({ connectionString:testDatabaseUrl(connectionString) });
 
 const cachedPrisma = globalForPrisma.prismaSchemaVersion === PRISMA_SCHEMA_VERSION
   ? globalForPrisma.prisma

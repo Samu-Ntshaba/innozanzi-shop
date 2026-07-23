@@ -2,6 +2,7 @@
 // npm install --save-dev prisma dotenv
 import "dotenv/config";
 import { defineConfig } from "prisma/config";
+function databaseUrl(){const value=process.env["DATABASE_PUBLIC_URL"]??process.env["DATABASE_URL"];if(!value||process.env.TEST_MODE_ENVIRONMENT!=="true")return value;const url=new URL(value);url.searchParams.set("schema","innozanzi_test");url.searchParams.set("options","-c search_path=innozanzi_test");return url.toString()}
 
 export default defineConfig({
   schema: "prisma/schema.prisma",
@@ -10,6 +11,6 @@ export default defineConfig({
     seed: "tsx prisma/seed.ts",
   },
   datasource: {
-    url: process.env["DATABASE_PUBLIC_URL"] ?? process.env["DATABASE_URL"],
+    url: databaseUrl(),
   },
 });
