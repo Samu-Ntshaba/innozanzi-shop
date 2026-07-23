@@ -10,6 +10,7 @@ A production-oriented quotation, payment-verification and fulfilment platform fo
 - [Delivery plan, assumptions and risks](docs/delivery-plan.md)
 - [Quotation-to-delivery implementation progress](docs/quotation-lifecycle-progress.md)
 - [Final production-readiness audit](docs/system-audit-2026-07-23.md)
+- [Isolated production Test Mode](docs/test-mode-runbook.md)
 
 The current implementation includes authentication/RBAC, catalogue and inventory, quotation-to-delivery operations, CRM communications, reporting and partnership management. Historical phase documents are retained for decision context; the final audit describes the current system.
 

@@ -16,12 +16,12 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     </header>
     <details className="border-b border-slate-800 bg-[#172b3a] text-slate-200 lg:hidden">
       <summary className="cursor-pointer list-none px-4 py-3 text-sm font-semibold [&::-webkit-details-marker]:hidden">Admin navigation <span aria-hidden="true" className="float-right">☰</span></summary>
-      <AdminNav canViewRfqs={canViewRfqs} canManageUsers={canManageUsers} />
+      <AdminNav canViewRfqs={canViewRfqs} canManageUsers={canManageUsers} isSuperAdministrator={context.isSuperAdministrator} />
     </details>
     <div className="grid min-h-[calc(100vh-3.5rem)] lg:grid-cols-[250px_minmax(0,1fr)]">
       <aside className="hidden border-r border-slate-800 bg-[#172b3a] text-slate-200 lg:sticky lg:top-14 lg:block lg:h-[calc(100vh-3.5rem)] lg:self-start lg:overflow-y-auto lg:overscroll-contain">
         <div className="sticky top-0 z-10 border-b border-white/10 bg-[#172b3a] px-5 py-4"><p className="text-xs uppercase tracking-widest text-slate-400">Sales workspace</p><p className="mt-1 text-sm font-semibold text-white">CRM & Operations</p></div>
-        <AdminNav canViewRfqs={canViewRfqs} canManageUsers={canManageUsers} />
+        <AdminNav canViewRfqs={canViewRfqs} canManageUsers={canManageUsers} isSuperAdministrator={context.isSuperAdministrator} />
       </aside>
       <main className="min-w-0 p-4 sm:p-5 lg:p-6">{children}</main>
     </div>

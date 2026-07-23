@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { SystemFeedback } from "@/components/system-feedback";
+import { TestModeBanner } from "@/components/test-mode-banner";
+import { isTestModeEnvironment } from "@/lib/test-mode";
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "https://shop.innozanzi.co.za"),
@@ -13,7 +15,7 @@ export const metadata: Metadata = {
     type: "website",
   },
   alternates: { canonical: "/" },
-  robots: { index: true, follow: true },
+  robots: isTestModeEnvironment() ? { index: false, follow: false } : { index: true, follow: true },
 };
 
 export default function RootLayout({
@@ -23,7 +25,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning className="h-full antialiased">
-      <body className="min-h-full">{children}<SystemFeedback /></body>
+      <body className="min-h-full"><TestModeBanner/>{children}<SystemFeedback /></body>
     </html>
   );
 }

@@ -11,6 +11,7 @@
 | `/contact`, `/how-to`, `/policies/[slug]` | Support and managed content |
 | `/newsletter/thank-you`, `/unsubscribe` | Subscription lifecycle |
 | `/register`, `/sign-in`, `/verify-email`, `/forgot-password`, `/reset-password` | Customer identity lifecycle |
+| `/test-mode` | Redirect to the separately deployed, database-isolated Test Mode |
 
 ## Customer account
 
@@ -43,6 +44,7 @@ All reads and mutations repeat server-side permissions; navigation visibility is
 | promotions/content | `settings.manage` |
 | reviews | `products.update` |
 | access control/audit | `users.manage` |
+| `/admin/test-mode` and `/api/admin/test-mode` | super administrator only; destructive operations additionally require isolated-environment guards |
 | partnership dashboard/applications/partners/requests | dedicated `partnership.*` permissions |
 
 ## Route handlers
