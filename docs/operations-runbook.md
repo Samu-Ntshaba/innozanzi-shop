@@ -17,6 +17,11 @@ Monitor `/api/health` and Railway deployment/runtime logs. A `503` means the app
 
 Redeploy the last known-good Railway deployment. Schema changes must remain backward compatible; if they are not, restore the matching database backup. Never run `prisma migrate reset` in production.
 
+Whenever a Prisma migration is added, also advance `PRISMA_SCHEMA_VERSION` in
+`src/lib/prisma.ts`. This source-level key forces Next.js and Railway to rebuild
+the server bundle with the newly generated Prisma runtime. Do not merge a
+migration without updating the key.
+
 ## Routine checks
 
 Review failed payments/webhooks, email outbox failures, audit activity, low stock, quotation backlog, backup status, response latency, and expiring provider credentials.
