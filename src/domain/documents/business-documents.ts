@@ -4,12 +4,13 @@ import { quotationPdf } from "@/domain/quotations/pdf";
 import type { Prisma } from "@/generated/prisma/client";
 import { hasPermission,type PermissionGrant,type PermissionKey } from "@/domain/auth/permissions";
 import { prisma } from "@/lib/prisma";
+import { describeReturnDocument } from "@/domain/documents/return-documents";
 
-export const businessDocumentTypes=["QUOTATION","INVOICE","DELIVERY_NOTE","RFQ","ORDER"] as const;
+export const businessDocumentTypes=["QUOTATION","INVOICE","DELIVERY_NOTE","RFQ","ORDER","RETURN_CASE","INSPECTION_REPORT","RESOLUTION_NOTICE","CREDIT_NOTE","REFUND_CONFIRMATION"] as const;
 export type BusinessDocumentType=(typeof businessDocumentTypes)[number];
 
 export async function assertBusinessDocumentAccess(context:{grants:readonly PermissionGrant[];isSuperAdministrator:boolean;user:{companyId?:string|null}},type:BusinessDocumentType,recordId:string){
-  const permission:PermissionKey=type==="RFQ"?"rfq.view":type==="QUOTATION"||type==="INVOICE"?"quotations.manage":"orders.view";
+  const permission:PermissionKey=type==="RFQ"?"rfq.view":type==="QUOTATION"||type==="INVOICE"?"quotations.manage":["RETURN_CASE","INSPECTION_REPORT","RESOLUTION_NOTICE","CREDIT_NOTE","REFUND_CONFIRMATION"].includes(type)?"returns.view":"orders.view";
   if(!hasPermission(context.grants,permission,context.isSuperAdministrator))throw new Error("You do not have access to the source record.");
   if(type==="RFQ"&&!context.isSuperAdministrator&&context.user.companyId){const record=await prisma.rfqOpportunity.findUnique({where:{id:recordId},select:{companyId:true}});if(!record||record.companyId!==context.user.companyId)throw new Error("You do not have access to this RFQ.")}
 }
@@ -53,6 +54,7 @@ export async function describeBusinessDocument(type:BusinessDocumentType,recordI
     const pdf=commercialPdf({title:"CUSTOMER ORDER CONFIRMATION",number:row.orderNumber,customer:name,email:row.email,issueDate:row.placedAt??row.createdAt,reference:row.purchaseOrderNumber??undefined,lines:row.items.map(item=>({description:item.productName,quantity:item.quantity,unitPrice:zar(item.unitPrice),total:zar(item.lineTotal)})),subtotal:zar(row.subtotal),vat:zar(row.vatTotal),total:zar(row.grandTotal),notes:[address?`Delivery address: ${[address.line1,address.line2,address.suburb,address.city,address.province,address.postalCode].filter(Boolean).join(", ")}`:null,row.customerNotes,`Payment status: ${row.paymentStatus.replaceAll("_"," ")}`,`Fulfilment status: ${row.status.replaceAll("_"," ")}`].filter(Boolean).join("\n")},branding);
     return {type,recordId,number:row.orderNumber,version:1,state:row.status==="CANCELLED"?"VOID":"ISSUED",label:"Order confirmation",recipientName:name,recipientEmail:row.email,filename:`Order-${safe(row.orderNumber)}-${safe(name)}.pdf`,subject:`Order ${row.orderNumber} confirmation from Innozanzi`,message:`Hello ${name},\n\nPlease find the confirmation for order ${row.orderNumber} attached. The agreed total is ${zar(row.grandTotal)}.\n\nYou can continue to follow fulfilment updates from your Innozanzi account.`,pdf,snapshot:snapshot(row),isTestData:row.isTestData};
   }
+  if(["RETURN_CASE","INSPECTION_REPORT","RESOLUTION_NOTICE","CREDIT_NOTE","REFUND_CONFIRMATION"].includes(type))return describeReturnDocument(type as "RETURN_CASE"|"INSPECTION_REPORT"|"RESOLUTION_NOTICE"|"CREDIT_NOTE"|"REFUND_CONFIRMATION",recordId);
   const row=await prisma.rfqOpportunity.findUnique({where:{id:recordId},include:{lineItems:true,createdBy:{select:{name:true,email:true}},_count:{select:{pricingRevisions:true}}}});
   if(!row)throw new Error("RFQ not found.");
   const issued=["APPROVED","SUBMITTED","WON","LOST","COMPLETED"].includes(row.status);const name=row.issuingOrganisation;

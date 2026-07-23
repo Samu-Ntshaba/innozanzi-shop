@@ -56,3 +56,19 @@ complaint.
 Return lifecycle records inherit the source order's test-data status. Test-mode
 cleanup removes dependent refund, claim, inventory, inspection, evidence and case
 records before deleting their uploaded-document records.
+# Repair and replacement fulfilment
+
+An approved repair, replacement or exchange no longer closes the case. Approval
+creates a linked operational record and moves resolution status to `IN_PROGRESS`.
+Repair stages preserve diagnosis, parts, work, quality control, cost and customer
+return. Replacement stages preserve sourcing, allocation, serial numbers, dispatch
+and delivery. Only the final controlled completion stage closes the case.
+
+# Return documents
+
+The shared document service generates and stores branded case records, technical
+inspection reports, resolution notices, credit notes and refund payment
+confirmations. Authorised staff can download, review/edit the email, send, resend
+and inspect send history. Customers can download only documents belonging to their
+own case. Credit notes are linked adjustments and never rewrite the original invoice
+or payment history.

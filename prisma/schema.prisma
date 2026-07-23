@@ -456,6 +456,11 @@ enum BusinessDocumentType {
   DELIVERY_NOTE
   RFQ
   ORDER
+  RETURN_CASE
+  INSPECTION_REPORT
+  RESOLUTION_NOTICE
+  CREDIT_NOTE
+  REFUND_CONFIRMATION
 }
 
 enum BusinessDocumentState {
@@ -630,6 +635,33 @@ enum ReturnRefundStatus {
   CANCELLED
 }
 
+enum ReturnRepairStatus {
+  APPROVED
+  AWAITING_PRODUCT
+  DIAGNOSING
+  AWAITING_PARTS
+  REPAIR_IN_PROGRESS
+  QUALITY_CHECK
+  READY_FOR_RETURN
+  RETURNED_TO_CUSTOMER
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum ReturnReplacementStatus {
+  APPROVED
+  SOURCING
+  ALLOCATED
+  PACKING
+  READY_FOR_DELIVERY
+  DISPATCHED
+  DELIVERED
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
 enum DistributorClaimStatus {
   NOT_REQUIRED
   DRAFT
@@ -784,6 +816,10 @@ model User {
   returnDecisions                 ReturnResolution[]               @relation("ReturnDecisionMaker")
   returnRefundApprovals           ReturnRefund[]                   @relation("ReturnRefundApprover")
   returnRefundPayments            ReturnRefundPayment[]            @relation("ReturnRefundProcessor")
+  assignedReturnRepairs           ReturnRepair[]                   @relation("ReturnRepairAssignee")
+  completedReturnRepairs          ReturnRepair[]                   @relation("ReturnRepairCompleter")
+  assignedReturnReplacements      ReturnReplacement[]              @relation("ReturnReplacementAssignee")
+  completedReturnReplacements     ReturnReplacement[]              @relation("ReturnReplacementCompleter")
   requestedTransports             TransportRecord[]                @relation("TransportRequester")
   responsibleTransports           TransportRecord[]                @relation("TransportResponsibleUser")
   drivenTransports                TransportRecord[]                @relation("TransportDriver")
@@ -1089,6 +1125,7 @@ model Product {
   resaleReturnedUnit    ReturnedInventoryUnit?    @relation("ReturnedResaleProduct")
   transportItems        TransportItem[]
   transportAllocations  TransportCostAllocation[]
+  returnReplacements    ReturnReplacement[]
 
   @@index([status, publishedAt])
   @@index([categoryId, status, createdAt])
@@ -2094,12 +2131,74 @@ model ReturnCase {
   returnedUnits                ReturnedInventoryUnit[]
   events                       ReturnCaseEvent[]
   transports                   TransportRecord[]
+  repairs                      ReturnRepair[]
+  replacements                 ReturnReplacement[]
 
   @@index([customerId, createdAt])
   @@index([status, priority, createdAt])
   @@index([assignedTechnicianId, assessmentStatus])
   @@index([orderId, orderItemId])
   @@index([refundStatus, createdAt])
+}
+
+model ReturnRepair {
+  id                   String             @id @default(uuid()) @db.Uuid
+  repairNumber         String             @unique
+  returnCaseId         String             @db.Uuid
+  resolutionId         String             @unique @db.Uuid
+  status               ReturnRepairStatus @default(APPROVED)
+  assignedToId         String?            @db.Uuid
+  completedById        String?            @db.Uuid
+  diagnosis            String?            @db.Text
+  workPerformed        String?            @db.Text
+  partsUsed            String?            @db.Text
+  supplierReference    String?
+  estimatedCost        Decimal            @default(0) @db.Decimal(19, 4)
+  actualCost           Decimal            @default(0) @db.Decimal(19, 4)
+  expectedCompletionAt DateTime?
+  completedAt          DateTime?
+  customerNote         String?            @db.Text
+  internalNote         String?            @db.Text
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+  returnCase           ReturnCase         @relation(fields: [returnCaseId], references: [id], onDelete: Restrict)
+  resolution           ReturnResolution   @relation(fields: [resolutionId], references: [id], onDelete: Restrict)
+  assignedTo           User?              @relation("ReturnRepairAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+  completedBy          User?              @relation("ReturnRepairCompleter", fields: [completedById], references: [id], onDelete: SetNull)
+
+  @@index([status, expectedCompletionAt])
+  @@index([returnCaseId, createdAt])
+}
+
+model ReturnReplacement {
+  id                   String                  @id @default(uuid()) @db.Uuid
+  replacementNumber    String                  @unique
+  returnCaseId         String                  @db.Uuid
+  resolutionId         String                  @unique @db.Uuid
+  status               ReturnReplacementStatus @default(APPROVED)
+  assignedToId         String?                 @db.Uuid
+  completedById        String?                 @db.Uuid
+  replacementProductId String?                 @db.Uuid
+  productNameSnapshot  String
+  quantity             Int
+  serialNumbers        String[]
+  supplierReference    String?
+  deliveryReference    String?
+  expectedDeliveryAt   DateTime?
+  deliveredAt          DateTime?
+  completedAt          DateTime?
+  customerNote         String?                 @db.Text
+  internalNote         String?                 @db.Text
+  createdAt            DateTime                @default(now())
+  updatedAt            DateTime                @updatedAt
+  returnCase           ReturnCase              @relation(fields: [returnCaseId], references: [id], onDelete: Restrict)
+  resolution           ReturnResolution        @relation(fields: [resolutionId], references: [id], onDelete: Restrict)
+  replacementProduct   Product?                @relation(fields: [replacementProductId], references: [id], onDelete: SetNull)
+  assignedTo           User?                   @relation("ReturnReplacementAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+  completedBy          User?                   @relation("ReturnReplacementCompleter", fields: [completedById], references: [id], onDelete: SetNull)
+
+  @@index([status, expectedDeliveryAt])
+  @@index([returnCaseId, createdAt])
 }
 
 model ReturnEvidence {
@@ -2170,6 +2269,8 @@ model ReturnResolution {
   inspection          ReturnInspection?      @relation(fields: [inspectionId], references: [id], onDelete: SetNull)
   decidedBy           User                   @relation("ReturnDecisionMaker", fields: [decidedById], references: [id], onDelete: Restrict)
   refund              ReturnRefund?
+  repair              ReturnRepair?
+  replacement         ReturnReplacement?
 
   @@index([returnCaseId, decidedAt])
 }
