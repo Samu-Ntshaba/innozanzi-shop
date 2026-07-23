@@ -2,6 +2,7 @@
 
 import Decimal from "decimal.js";
 import { randomUUID } from "node:crypto";
+import { extractText, getDocumentProxy } from "unpdf";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -68,6 +69,16 @@ export async function uploadRfqPdf(formData: FormData) {
     throw new Error("Upload a PDF smaller than 20 MB.");
   }
 
+  let extractedText: string | null = null;
+  try {
+    const pdf = await getDocumentProxy(new Uint8Array(await file.arrayBuffer()));
+    const extracted = await extractText(pdf, { mergePages: true });
+    const normalized = extracted.text.replace(/\s+/g, " ").trim().slice(0, 200000);
+    extractedText = normalized || null;
+  } catch (error) {
+    throw new Error(`The PDF could not be read: ${error instanceof Error ? error.message : "invalid document"}`);
+  }
+
   const bucket = process.env.SUPABASE_PRIVATE_BUCKET ?? "private-documents";
   const supabase = createSupabaseAdmin();
   const bucketDetails = await supabase.storage.getBucket(bucket);
@@ -83,7 +94,7 @@ export async function uploadRfqPdf(formData: FormData) {
   try {
     await prisma.$transaction(async (tx) => {
       const document = await tx.uploadedDocument.create({ data: { bucket, path, originalName: file.name, mimeType: file.type, size: file.size, isPrivate: true } });
-      await tx.rfqSource.create({ data: { rfqId: data.rfqId, documentId: document.id, type: "PDF", label: data.label, originalFilename: file.name, mimeType: file.type, size: file.size, uploadedById: context.user.id } });
+      await tx.rfqSource.create({ data: { rfqId: data.rfqId, documentId: document.id, type: "PDF", label: data.label, originalFilename: file.name, mimeType: file.type, size: file.size, extractedText, analysisError: extractedText ? null : "This PDF has no selectable text. Upload a text-based PDF or use OCR before analysing." , uploadedById: context.user.id } });
       await tx.auditLog.create({ data: { actorId: context.user.id, action: "rfq.source.upload", entityType: "RfqOpportunity", entityId: data.rfqId, after: { originalName: file.name, size: file.size } } });
     });
   } catch (error) {

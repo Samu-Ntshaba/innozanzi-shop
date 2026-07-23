@@ -25,6 +25,12 @@ export async function inviteUser(formData: FormData) {
   if (await prisma.user.findUnique({ where: { email: data.email } })) throw new Error("An account already exists for this email.");
 
   const role = await prisma.role.findUniqueOrThrow({ where: { id: data.roleId } });
+  const administratorRole = data.accountType === "INTERNAL_EMPLOYEE"
+    ? await prisma.role.findUnique({ where: { slug: "administrator" } })
+    : null;
+  if (data.accountType === "INTERNAL_EMPLOYEE" && !administratorRole) {
+    throw new Error("The Administrator role is not configured. Run the database seed before inviting employees.");
+  }
   if (role.slug === "super-administrator" && !actor.isSuperAdministrator) throw new Error("Only a Super Administrator may assign that role.");
   const [company, department] = await Promise.all([
     data.companyId ? prisma.companyProfile.findUnique({ where: { id: data.companyId } }) : null,
@@ -48,6 +54,9 @@ export async function inviteUser(formData: FormData) {
       customerProfile: data.accountType === "CUSTOMER" ? { create: {} } : undefined,
     } });
     await tx.userRole.create({ data: { userId: user.id, roleId: role.id, assignedBy: actor.user.id } });
+    if (administratorRole && administratorRole.id !== role.id) {
+      await tx.userRole.create({ data: { userId: user.id, roleId: administratorRole.id, assignedBy: actor.user.id } });
+    }
     await tx.userInvitation.create({ data: {
       userId: user.id, invitedById: actor.user.id, roleId: role.id,
       companyId: data.companyId || null, departmentId: data.departmentId || null,
