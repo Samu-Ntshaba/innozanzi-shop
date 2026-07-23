@@ -1,10 +1,12 @@
 "use server";
 
 import Decimal from "decimal.js";
+import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
+import { createSupabaseAdmin } from "@/lib/supabase";
 import { getOpenAIClient } from "@/lib/openai";
 import { requirePermission } from "@/domain/auth/session";
 import { consumeRateLimit } from "@/domain/auth/rate-limit";
@@ -13,6 +15,7 @@ import { rfqAnalysisSchema } from "./analysis-schema";
 import { assertRfqTransition } from "./rules";
 
 const idSchema = z.string().uuid();
+const MAX_RFQ_PDF_SIZE = 20 * 1024 * 1024;
 
 async function scopedRfq(id: string, context: Awaited<ReturnType<typeof requirePermission>>) {
   const rfq = await prisma.rfqOpportunity.findUniqueOrThrow({ where: { id } });
@@ -39,7 +42,7 @@ export async function createRfq(formData: FormData) {
       type: data.type, externalReference: data.externalReference || null,
       closingAt: data.closingAt ? new Date(data.closingAt) : null,
       description: data.description || null, companyId: context.user.companyId,
-      departmentId: context.user.departmentId, createdById: context.user.id,
+      departmentId: context.user.departmentId, createdById: context.user.id, tags: [],
     } });
     await tx.rfqStatusHistory.create({ data: { rfqId: rfq.id, toStatus: "DRAFT", actorId: context.user.id, note: "RFQ created" } });
     await tx.auditLog.create({ data: { actorId: context.user.id, action: "rfq.create", entityType: "RfqOpportunity", entityId: rfq.id, after: { referenceNumber, type: data.type } } });
@@ -53,6 +56,40 @@ export async function addRfqTextSource(formData: FormData) {
   const data = z.object({ rfqId: idSchema, label: z.string().trim().min(2).max(160), text: z.string().trim().min(20).max(200000) }).parse(Object.fromEntries(formData));
   await scopedRfq(data.rfqId, context);
   await prisma.rfqSource.create({ data: { rfqId: data.rfqId, type: "MANUAL", label: data.label, extractedText: data.text, uploadedById: context.user.id } });
+  revalidatePath(`/admin/rfqs/${data.rfqId}`);
+}
+
+export async function uploadRfqPdf(formData: FormData) {
+  const context = await requirePermission("rfq.update");
+  const data = z.object({ rfqId: idSchema, label: z.string().trim().min(2).max(160) }).parse(Object.fromEntries(formData));
+  await scopedRfq(data.rfqId, context);
+  const file = formData.get("file");
+  if (!(file instanceof File) || !file.size || file.size > MAX_RFQ_PDF_SIZE || file.type !== "application/pdf") {
+    throw new Error("Upload a PDF smaller than 20 MB.");
+  }
+
+  const bucket = process.env.SUPABASE_PRIVATE_BUCKET ?? "private-documents";
+  const supabase = createSupabaseAdmin();
+  const bucketDetails = await supabase.storage.getBucket(bucket);
+  if (!bucketDetails.data) {
+    const created = await supabase.storage.createBucket(bucket, { public: false, fileSizeLimit: MAX_RFQ_PDF_SIZE });
+    if (created.error) throw created.error;
+  }
+  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "-");
+  const path = `rfqs/${data.rfqId}/${randomUUID()}-${safeName || "source.pdf"}`;
+  const uploaded = await supabase.storage.from(bucket).upload(path, file, { contentType: "application/pdf", upsert: false });
+  if (uploaded.error) throw uploaded.error;
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      const document = await tx.uploadedDocument.create({ data: { bucket, path, originalName: file.name, mimeType: file.type, size: file.size, isPrivate: true } });
+      await tx.rfqSource.create({ data: { rfqId: data.rfqId, documentId: document.id, type: "PDF", label: data.label, originalFilename: file.name, mimeType: file.type, size: file.size, uploadedById: context.user.id } });
+      await tx.auditLog.create({ data: { actorId: context.user.id, action: "rfq.source.upload", entityType: "RfqOpportunity", entityId: data.rfqId, after: { originalName: file.name, size: file.size } } });
+    });
+  } catch (error) {
+    await supabase.storage.from(bucket).remove([path]);
+    throw error;
+  }
   revalidatePath(`/admin/rfqs/${data.rfqId}`);
 }
 
