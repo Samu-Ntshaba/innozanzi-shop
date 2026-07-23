@@ -5,6 +5,7 @@ import { requirePermission } from "@/domain/auth/session";
 import { analyseRfqSource, confirmRfqAnalysis, decideRfqApproval, saveRfqLineItem, submitRfqForApproval } from "@/domain/rfq/actions";
 import { AdminPage, Panel, StatusBadge, buttonClass, inputClass, tableClass } from "@/components/admin/admin-ui";
 import { RfqSourcePicker } from "@/components/admin/rfq-source-picker";
+import { DocumentActions } from "@/components/admin/document-actions";
 
 export default async function RfqDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const context = await requirePermission("rfq.view");
@@ -14,7 +15,7 @@ export default async function RfqDetailPage({ params }: { params: Promise<{ id: 
   const latestAnalysis = rfq.analyses[0];
   const latestApproval = rfq.approvals[0];
   const nextAction = rfq.status === "DRAFT" ? "Attach and analyse the client source" : rfq.status === "AWAITING_APPROVAL" ? "Review the pricing decision" : rfq.status === "PRICING_IN_PROGRESS" ? "Complete pricing and submit it for approval" : rfq.status === "SUBMITTED" ? "Record the client outcome when received" : "Review the workspace and complete the next valid action";
-  return <AdminPage title={rfq.title} description={`${rfq.referenceNumber} · ${rfq.issuingOrganisation}`} actions={<><Link className="text-sm font-semibold text-sky-700 hover:underline" href="/admin/rfqs">Back to RFQs</Link><StatusBadge value={rfq.status}/></>}>
+  return <AdminPage title={rfq.title} description={`${rfq.referenceNumber} · ${rfq.issuingOrganisation}`} actions={<><Link className="text-sm font-semibold text-sky-700 hover:underline" href="/admin/rfqs">Back to RFQs</Link><DocumentActions type="RFQ" id={rfq.id} label={rfq.type}/><StatusBadge value={rfq.status}/></>}>
     <div className="grid gap-3 border border-slate-300 bg-white px-4 py-3 shadow-sm sm:grid-cols-[1fr_auto] sm:items-center"><div><p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Next action</p><p className="mt-1 text-sm font-semibold text-slate-900">{nextAction}</p></div><span className="text-xs text-slate-600">Closing: {rfq.closingAt?.toLocaleString("en-ZA") ?? "No date set"}</span></div>
     <div className="grid gap-4 xl:grid-cols-[1.15fr_.85fr]">
       <Panel title="Source documents" description="Choose how the client supplied the opportunity. Only one compact intake form opens at a time."><RfqSourcePicker rfqId={rfq.id}/>

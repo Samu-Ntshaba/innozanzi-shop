@@ -10,6 +10,8 @@ const now=()=>new Date();
 export async function clearTestDatabaseBusinessData(){
   assertDisposableTestDatabase();
   await prisma.$transaction(async tx=>{
+    await tx.documentDispatch.deleteMany();
+    await tx.businessDocument.deleteMany();
     await tx.notification.deleteMany();
     await tx.auditLog.deleteMany();
     await tx.partnerMessage.deleteMany();

@@ -5,13 +5,14 @@ import { setOrderStatus } from "@/domain/admin/actions";
 import { allowedOrderTransitions } from "@/domain/orders/lifecycle";
 import { AdminPage, Panel, StatusBadge, inputClass, tableClass } from "@/components/admin/admin-ui";
 import { OrderProgress } from "@/components/orders/order-progress";
+import { DocumentActions } from "@/components/admin/document-actions";
 
 export default async function AdminOrderDetail({ params }: { params: Promise<{ id: string }> }) {
   await requirePermission("orders.view");
   const order = await prisma.order.findUnique({ where: { id: (await params).id }, include: { items: true, payments: true, shipments: { orderBy: { createdAt: "desc" } }, statusHistory: { orderBy: { createdAt: "desc" }, include: { actor: { select: { name: true, email: true } } } }, deliveryEvents: { orderBy: { occurredAt: "desc" } }, convertedQuotation: { select: { quotationNumber: true } } } });
   if (!order) notFound();
   const transitions = allowedOrderTransitions(order.status);
-  return <AdminPage title={order.orderNumber} description={`${order.companyName ?? order.email} · paid order fulfilment`} actions={<><a className="font-semibold text-sky-700" href={`/admin/orders/${order.id}/delivery`}>Plan delivery</a><a className="font-semibold text-sky-700" href={`/api/orders/${order.orderNumber}/delivery-note`} target="_blank">Delivery note</a><StatusBadge value={order.status}/></>}>
+  return <AdminPage title={order.orderNumber} description={`${order.companyName ?? order.email} · paid order fulfilment`} actions={<><a className="font-semibold text-sky-700" href={`/admin/orders/${order.id}/delivery`}>Plan delivery</a><DocumentActions type="ORDER" id={order.id} label="order confirmation"/><a className="font-semibold text-sky-700" href={`/api/orders/${order.orderNumber}/delivery-note`} target="_blank">Delivery note</a><StatusBadge value={order.status}/></>}>
     <Panel title="End-to-end order tracking" description="Move the order through the valid next status below. Every published change appears in the customer account and sends an email."><OrderProgress status={order.status}/></Panel>
     <div className="grid gap-4 xl:grid-cols-[1.4fr_.8fr]"><div className="space-y-4">
       <Panel><div className="flex flex-wrap justify-between gap-4"><div><h2 className="font-bold">Customer and payment</h2><p className="mt-2 text-sm">{order.email}<br/>{order.phone ?? "No phone supplied"}{order.convertedQuotation ? <><br/>Quotation {order.convertedQuotation.quotationNumber}</> : null}</p></div><div className="text-right"><StatusBadge value={order.paymentStatus}/><p className="mt-2 text-2xl font-bold">R {Number(order.grandTotal).toLocaleString("en-ZA", { minimumFractionDigits: 2 })}</p></div></div></Panel>

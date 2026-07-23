@@ -10,15 +10,15 @@ export const adminNavGroups = [
   ["Operations", [["Orders", "/admin/orders"], ["Delivery notes", "/admin/delivery-notes"], ["Payments", "/admin/payments"], ["Inventory", "/admin/inventory"], ["Suppliers", "/admin/suppliers"]]],
   ["Catalogue", [["Products", "/admin/products"], ["Categories", "/admin/categories"], ["Brands", "/admin/brands"], ["Promotions", "/admin/promotions"]]],
   ["Intelligence", [["Reports", "/admin/reports"], ["Syntech AI Sync", "/admin/syntech"]]],
-  ["System", [["Content", "/admin/content"], ["Reviews", "/admin/reviews"], ["Test Mode", "/admin/test-mode"], ["Access control", "/admin/access-control"], ["Audit log", "/admin/audit-log"]]],
+  ["System", [["Document centre", "/admin/documents"],["Content", "/admin/content"], ["Reviews", "/admin/reviews"], ["Test Mode", "/admin/test-mode"], ["Access control", "/admin/access-control"], ["Audit log", "/admin/audit-log"]]],
 ] as const;
 
-export function AdminNav({ canViewRfqs = false, canViewMarketing=false, canManageUsers = false, isSuperAdministrator = false }: { canViewRfqs?: boolean;canViewMarketing?:boolean; canManageUsers?: boolean; isSuperAdministrator?:boolean }) {
+export function AdminNav({ canViewRfqs = false, canViewMarketing=false,canViewDocuments=false, canManageUsers = false, isSuperAdministrator = false }: { canViewRfqs?: boolean;canViewMarketing?:boolean;canViewDocuments?:boolean; canManageUsers?: boolean; isSuperAdministrator?:boolean }) {
   const pathname = usePathname();
   const isActive = (href: string) => href === "/admin" ? pathname === href : pathname.startsWith(href);
   return <nav aria-label="Administration" className="p-3">
     {adminNavGroups.map(([group, links]) => {
-      const visibleLinks = links.filter(([, href]) => href.startsWith("/admin/marketing")||href==="/admin/email-marketing"?canViewMarketing:href === "/admin/rfqs" ? canViewRfqs : href === "/admin/test-mode" ? isSuperAdministrator : href !== "/admin/access-control" || canManageUsers);
+      const visibleLinks = links.filter(([, href]) => href.startsWith("/admin/marketing")||href==="/admin/email-marketing"?canViewMarketing:href.startsWith("/admin/documents")?canViewDocuments:href === "/admin/rfqs" ? canViewRfqs : href === "/admin/test-mode" ? isSuperAdministrator : href !== "/admin/access-control" || canManageUsers);
       if (!visibleLinks.length) return null;
       const containsActivePage = visibleLinks.some(([, href]) => isActive(href));
       return <details className="group mb-2 border-b border-white/10 pb-2" open={containsActivePage || undefined} key={group}>

@@ -1,3 +1,4 @@
+import { defaultDocumentBranding,type DocumentBranding } from "@/domain/documents/branding";
 type Money = { toString(): string };
 type PdfQuote = {
   quotationNumber: string; validUntil: Date; grandTotal: Money; subtotal?: Money; vatTotal?: Money;
@@ -11,14 +12,13 @@ type PdfQuote = {
 const escapePdf = (value: string) => value.replace(/([\\()])/g, "\\$1").replace(/[^\x20-\x7E]/g, "?");
 const money = (value?: Money) => `R ${Number(value?.toString() ?? 0).toLocaleString("en-ZA", { minimumFractionDigits: 2 })}`;
 
-export function quotationPdf(quote: PdfQuote) {
+export function quotationPdf(quote: PdfQuote,branding:DocumentBranding=defaultDocumentBranding) {
   const final = quote.kind === "FINAL";
   const customer = quote.quotationRequest;
   const lines = [
-    "INNOZANZI", "BUSINESS TECHNOLOGY MADE SIMPLE",
-    "Innozanzi (Pty) Ltd | support@innozanzi.co.za | 071 238 4185",
-    "Ground Floor, Waterstone Building, Stonemill Office Park",
-    "300 Acacia Rd, Darrenwood, Randburg, Johannesburg, 2195", "",
+    branding.companyName.toUpperCase(),branding.tagline.toUpperCase(),
+    [branding.companyName,branding.registration,branding.email,branding.phone].filter(Boolean).join(" | "),
+    branding.address,branding.website, "",
     final ? "FINAL QUOTATION" : "PROVISIONAL QUOTATION - SUBJECT TO REVIEW",
     `Quotation: ${quote.quotationNumber}`, `Issue date: ${new Date().toISOString().slice(0, 10)}`,
     `Expiry date: ${quote.validUntil.toISOString().slice(0, 10)}`,

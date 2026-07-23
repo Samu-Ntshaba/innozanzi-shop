@@ -1,0 +1,1 @@
+ALTER TYPE "BusinessDocumentType" ADD VALUE IF NOT EXISTS 'ORDER';

@@ -436,6 +436,26 @@ enum RedirectType {
   TEMPORARY
 }
 
+enum BusinessDocumentType {
+  QUOTATION
+  INVOICE
+  DELIVERY_NOTE
+  RFQ
+  ORDER
+}
+
+enum BusinessDocumentState {
+  DRAFT
+  ISSUED
+  VOID
+}
+
+enum DocumentDeliveryStatus {
+  PREPARING
+  SENT
+  FAILED
+}
+
 model User {
   id                              String                           @id @default(uuid()) @db.Uuid
   email                           String                           @unique
@@ -513,6 +533,8 @@ model User {
   updatedDeliveryNotes            DeliveryNote[]                   @relation("DeliveryNoteUpdater")
   responsibleDeliveryNotes        DeliveryNote[]                   @relation("DeliveryNoteResponsible")
   confirmedDeliveryNotes          DeliveryNote[]                   @relation("DeliveryNoteConfirmer")
+  generatedBusinessDocuments      BusinessDocument[]               @relation("BusinessDocumentGenerator")
+  sentBusinessDocuments           DocumentDispatch[]               @relation("DocumentDispatchSender")
 
   @@index([status, createdAt])
   @@index([deletedAt])
@@ -1621,6 +1643,63 @@ model UploadedDocument {
   rfqSource                RfqSource?
   rfqAdditionalCost        RfqAdditionalCost?
   deliveryNoteAttachment   DeliveryNoteAttachment?
+}
+
+model BusinessDocument {
+  id             String                @id @default(uuid()) @db.Uuid
+  type           BusinessDocumentType
+  recordId       String                @db.Uuid
+  documentNumber String
+  version        Int                   @default(1)
+  state          BusinessDocumentState @default(DRAFT)
+  filename       String
+  mimeType       String                @default("application/pdf")
+  content        Bytes
+  size           Int
+  snapshot       Json
+  issuedAt       DateTime?
+  generatedById  String?               @db.Uuid
+  isTestData     Boolean               @default(false)
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+  generatedBy    User?                 @relation("BusinessDocumentGenerator", fields: [generatedById], references: [id], onDelete: SetNull)
+  dispatches     DocumentDispatch[]
+
+  @@unique([type, recordId, version])
+  @@index([type, documentNumber])
+  @@index([recordId, createdAt])
+}
+
+model DocumentDispatch {
+  id               String                 @id @default(uuid()) @db.Uuid
+  businessDocumentId String                @db.Uuid
+  sentById         String?                 @db.Uuid
+  toRecipients     String[]
+  ccRecipients     String[]
+  subject          String
+  message          String                 @db.Text
+  attachmentNames  String[]
+  status           DocumentDeliveryStatus @default(PREPARING)
+  providerMessageId String?
+  providerResponse String?                @db.Text
+  failureReason    String?                @db.Text
+  sentAt           DateTime?
+  isResend         Boolean                @default(false)
+  isTestData       Boolean                @default(false)
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
+  businessDocument BusinessDocument       @relation(fields: [businessDocumentId], references: [id], onDelete: Restrict)
+  sentBy           User?                  @relation("DocumentDispatchSender", fields: [sentById], references: [id], onDelete: SetNull)
+
+  @@index([businessDocumentId, createdAt])
+  @@index([status, createdAt])
+}
+
+model DocumentBrandingSetting {
+  key         String   @id
+  value       String   @db.Text
+  updatedById String?  @db.Uuid
+  updatedAt   DateTime @updatedAt
 }
 
 model TestAsset {

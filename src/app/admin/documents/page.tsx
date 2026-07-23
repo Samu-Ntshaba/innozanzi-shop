@@ -1,0 +1,14 @@
+import { AdminPage,Panel,StatusBadge,buttonClass,inputClass,tableClass } from "@/components/admin/admin-ui";
+import { requirePermission } from "@/domain/auth/session";
+import { getDocumentBranding } from "@/domain/documents/branding";
+import { saveDocumentBranding } from "@/domain/documents/branding-actions";
+import { prisma } from "@/lib/prisma";
+
+export default async function DocumentCentrePage(){
+  await requirePermission("documents.history.view");
+  const [branding,dispatches,artifacts]=await Promise.all([getDocumentBranding(),prisma.documentDispatch.findMany({include:{businessDocument:true,sentBy:{select:{name:true,email:true}}},orderBy:{createdAt:"desc"},take:50}),prisma.businessDocument.count()]);
+  return <AdminPage title="Document centre" description="Govern branded business PDFs, issued snapshots, downloads and controlled email delivery.">
+    <div className="grid gap-4 xl:grid-cols-[1fr_.75fr]"><Panel title="Recent document sends">{dispatches.length?<div className="overflow-x-auto"><table className={tableClass}><thead><tr><th>Document</th><th>Recipient</th><th>Sent by</th><th>Status</th><th>Date</th></tr></thead><tbody>{dispatches.map(item=><tr key={item.id}><td>{item.businessDocument.documentNumber}<small className="block">{item.businessDocument.filename}{item.isResend?" · Resent":""}</small></td><td>{item.toRecipients.join(", ")}</td><td>{item.sentBy?.name??item.sentBy?.email??"System"}</td><td><StatusBadge value={item.status}/></td><td>{item.createdAt.toLocaleString("en-ZA")}</td></tr>)}</tbody></table></div>:<p className="text-sm text-slate-500">No documents have been sent through the shared workflow yet. {artifacts} stored document snapshots exist.</p>}</Panel>
+    <Panel title="Approved document branding" description="These central details are used by newly generated document snapshots. Existing issued snapshots never change."><form action={saveDocumentBranding} className="space-y-3">{([["companyName","Company name"],["tagline","Tagline"],["registration","Registration information"],["email","Email"],["phone","Telephone / WhatsApp"],["website","Website"]] as const).map(([key,label])=><label className="block text-sm font-semibold" key={key}>{label}<input className={`${inputClass} mt-1 w-full`} name={key} type={key==="email"?"email":key==="website"?"url":"text"} defaultValue={branding[key]} required={["companyName","email","website"].includes(key)}/></label>)}<label className="block text-sm font-semibold">Business address<textarea className={`${inputClass} mt-1 min-h-24 w-full`} name="address" defaultValue={branding.address} required/></label><label className="block text-sm font-semibold">Approved footer<textarea className={`${inputClass} mt-1 min-h-20 w-full`} name="footer" defaultValue={branding.footer}/></label><button className={buttonClass}>Save document branding</button></form></Panel></div>
+  </AdminPage>;
+}

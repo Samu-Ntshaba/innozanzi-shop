@@ -25,13 +25,13 @@ const roles = [
 const rolePermissions: Record<string, readonly (typeof PERMISSIONS)[number][]> = {
   "super-administrator": PERMISSIONS,
   administrator: PERMISSIONS.filter((key) => key !== "users.manage" && key !== "rfq.approve" && key !== "rfq.commission.manage"),
-  sales: ["products.view", "orders.view", "orders.update", "quotations.manage", "customers.manage", "partnership.view", "partnership.application.review", "partnership.request.view", "partnership.request.manage", "rfq.view", "rfq.create", "rfq.update", "rfq.analyse", "rfq.price", "rfq.submit", "rfq.assign", "rfq.financials.view"],
-  finance: ["orders.view", "payments.approve", "reports.view", "rfq.view", "rfq.price", "rfq.approve", "rfq.reject", "rfq.financials.view", "rfq.commission.manage"],
+  sales: ["products.view", "orders.view", "orders.update", "quotations.manage", "customers.manage", "partnership.view", "partnership.application.review", "partnership.request.view", "partnership.request.manage", "rfq.view", "rfq.create", "rfq.update", "rfq.analyse", "rfq.price", "rfq.submit", "rfq.assign", "rfq.financials.view","documents.download","documents.send","documents.history.view","documents.resend"],
+  finance: ["orders.view", "payments.approve", "reports.view", "rfq.view", "rfq.price", "rfq.approve", "rfq.reject", "rfq.financials.view", "rfq.commission.manage","documents.download","documents.send","documents.history.view","documents.resend"],
   "inventory-manager": ["products.view", "products.update", "inventory.manage"],
   "content-manager": ["products.view", "products.update"],
   marketing: ["products.view","marketing.dashboard.view","marketing.seo.view","marketing.seo.edit","marketing.seo.publish","marketing.content.view","marketing.content.edit","marketing.content.publish","marketing.content.delete","marketing.media.manage","marketing.redirects.manage","marketing.analytics.view"],
   "support-agent": ["orders.view", "customers.manage", "partnership.view", "partnership.request.view"],
-  "procurement-officer": ["products.view", "orders.view", "orders.update", "quotations.manage", "inventory.manage", "customers.manage", "rfq.view", "rfq.create", "rfq.update", "rfq.price", "rfq.submit", "rfq.assign", "rfq.financials.view"],
+  "procurement-officer": ["products.view", "orders.view", "orders.update", "quotations.manage", "inventory.manage", "customers.manage", "rfq.view", "rfq.create", "rfq.update", "rfq.price", "rfq.submit", "rfq.assign", "rfq.financials.view","documents.download","documents.send","documents.history.view","documents.resend"],
   customer: [],
 };
 

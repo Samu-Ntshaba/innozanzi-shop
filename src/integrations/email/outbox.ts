@@ -20,7 +20,7 @@ export async function enqueueEmail(message: EmailMessage, userId?: string) {
   try {
     result = await getEmailProvider().send(message);
   } catch (error) {
-    const failureData = { to: message.to, text: message.text, idempotencyKey: message.idempotencyKey, deliveryMode };
+    const failureData = { to: message.to, cc: message.cc, text: message.text, idempotencyKey: message.idempotencyKey, deliveryMode };
     const failure = error instanceof Error ? error.message.slice(0, 2_000) : "Email provider rejected the message.";
     if (existing) {
       await prisma.notification.update({ where: { id: existing.id }, data: { userId: userId ?? existing.userId, subject: message.subject, body: message.html, data: failureData, status: "FAILED", sentAt: null, error: failure } });
@@ -29,7 +29,7 @@ export async function enqueueEmail(message: EmailMessage, userId?: string) {
     }
     throw error;
   }
-  const data = { to: message.to, text: message.text, idempotencyKey: message.idempotencyKey, messageId: result.messageId, deliveryMode };
+  const data = { to: message.to, cc: message.cc, text: message.text, idempotencyKey: message.idempotencyKey, messageId: result.messageId, deliveryMode };
 
   if (existing) {
     return prisma.notification.update({ where: { id: existing.id }, data: { userId: userId ?? existing.userId, subject: message.subject, body: message.html, data, status: "SENT", sentAt: new Date(), error: null } });

@@ -50,6 +50,12 @@ export const PERMISSIONS = [
   "marketing.media.manage",
   "marketing.redirects.manage",
   "marketing.analytics.view",
+  "documents.download",
+  "documents.send",
+  "documents.history.view",
+  "documents.resend",
+  "documents.bulk.download",
+  "documents.templates.manage",
 ] as const;
 
 export type PermissionKey = (typeof PERMISSIONS)[number];
