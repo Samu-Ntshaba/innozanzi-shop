@@ -75,3 +75,41 @@ export async function deleteRole(formData: FormData) {
   await recordAudit(context.user.id, "role.delete", "Role", roleId, { name: role.name, slug: role.slug }, undefined);
   revalidatePath("/admin/access-control");
 }
+
+export async function deleteUser(formData: FormData) {
+  const context = await requirePermission("users.manage");
+  if (!context.isSuperAdministrator) throw new Error("Only a Super Administrator can delete user accounts.");
+  const userId = uuid.parse(formData.get("userId"));
+  if (userId === context.user.id) throw new Error("You cannot delete your own signed-in account.");
+  const user = await prisma.user.findUniqueOrThrow({ where: { id: userId }, include: { roles: { include: { role: true } } } });
+  if (user.deletedAt) throw new Error("This user has already been deleted.");
+  const isSuper = user.roles.some(({ role }) => role.slug === "super-administrator");
+  if (isSuper) {
+    const activeSuperAdministrators = await prisma.user.count({ where: { deletedAt: null, status: "ACTIVE", roles: { some: { role: { slug: "super-administrator" } } } } });
+    if (activeSuperAdministrators <= 1) throw new Error("The last active Super Administrator cannot be deleted.");
+  }
+  await prisma.$transaction(async (tx) => {
+    await tx.session.deleteMany({ where: { userId } });
+    await tx.account.deleteMany({ where: { userId } });
+    await tx.userRole.deleteMany({ where: { userId } });
+    await tx.verificationToken.deleteMany({ where: { identifier: user.email } });
+    await tx.user.update({ where: { id: userId }, data: { status: "DISABLED", deletedAt: new Date(), passwordHash: null, mustChangePassword: false, temporaryPasswordExpiresAt: null } });
+    await tx.auditLog.create({ data: { actorId: context.user.id, action: "user.delete", entityType: "User", entityId: userId, before: { email: user.email, name: user.name, status: user.status, roles: user.roles.map(({ role }) => role.slug) }, after: { status: "DISABLED", accessRevoked: true, historyRetained: true } } });
+  });
+  revalidatePath("/admin/access-control");
+  revalidatePath("/admin/customers");
+}
+
+export async function restoreUser(formData: FormData) {
+  const context = await requirePermission("users.manage");
+  if (!context.isSuperAdministrator) throw new Error("Only a Super Administrator can restore user accounts.");
+  const userId = uuid.parse(formData.get("userId"));
+  const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
+  if (!user.deletedAt) throw new Error("This user is already active.");
+  await prisma.$transaction([
+    prisma.user.update({ where: { id: userId }, data: { status: "PENDING_VERIFICATION", deletedAt: null } }),
+    prisma.auditLog.create({ data: { actorId: context.user.id, action: "user.restore", entityType: "User", entityId: userId, before: { status: user.status, deletedAt: user.deletedAt.toISOString() }, after: { status: "PENDING_VERIFICATION" } } }),
+  ]);
+  revalidatePath("/admin/access-control");
+  revalidatePath("/admin/customers");
+}
