@@ -54,7 +54,21 @@ export async function subscribeNewsletter(formData: FormData) {
   const existing = await prisma.newsletterSubscriber.findUnique({
     where: { email: data.email },
   });
-  if (existing?.isActive) redirect("/newsletter/thank-you?delivery=already");
+  if (existing?.isActive) {
+    try {
+      await enqueueEmail(
+        emailTemplates.newsletterWelcome(
+          data.email,
+          data.name || existing.name || "there",
+          randomUUID(),
+        ),
+      );
+    } catch (error) {
+      console.error("Duplicate subscriber confirmation could not be delivered", error);
+      redirect("/newsletter/thank-you?delivery=failed");
+    }
+    redirect("/newsletter/thank-you?delivery=already");
+  }
   try {
     await enqueueEmail(
       emailTemplates.newsletterWelcome(
