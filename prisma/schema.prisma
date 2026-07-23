@@ -596,17 +596,18 @@ model CompanyProfile {
 }
 
 model Department {
-  id          String           @id @default(uuid()) @db.Uuid
-  companyId   String?          @db.Uuid
-  name        String
-  description String?
-  isActive    Boolean          @default(true)
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
-  company     CompanyProfile?  @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  users       User[]
-  invitations UserInvitation[]
-  rfqs        RfqOpportunity[]
+  id              String           @id @default(uuid()) @db.Uuid
+  companyId       String?          @db.Uuid
+  name            String
+  description     String?
+  isActive        Boolean          @default(true)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  company         CompanyProfile?  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  users           User[]
+  invitations     UserInvitation[]
+  rfqs            RfqOpportunity[]
+  helpDeskTickets HelpDeskTicket[]
 
   @@unique([companyId, name])
   @@index([companyId, isActive])
@@ -1923,34 +1924,38 @@ model EmailCampaign {
 }
 
 model HelpDeskTicket {
-  id           String             @id @default(uuid()) @db.Uuid
-  ticketNumber String             @unique
-  name         String
-  email        String
-  phone        String?
-  companyName  String?
-  category     String
-  subject      String
-  message      String             @db.Text
-  status       HelpDeskStatus     @default(OPEN)
-  priority     String             @default("NORMAL")
-  assignedTo   String?
-  customerId   String?            @db.Uuid
-  assignedToId String?            @db.Uuid
-  dueAt        DateTime?
-  resolution   String?            @db.Text
-  resolvedAt   DateTime?
-  createdAt    DateTime           @default(now())
-  updatedAt    DateTime           @updatedAt
-  customer     User?              @relation("HelpDeskCustomer", fields: [customerId], references: [id], onDelete: SetNull)
-  assignee     User?              @relation("HelpDeskAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
-  tasks        ServiceTask[]
-  activities   HelpDeskActivity[]
+  id            String             @id @default(uuid()) @db.Uuid
+  ticketNumber  String             @unique
+  name          String
+  email         String
+  phone         String?
+  companyName   String?
+  category      String
+  subject       String
+  message       String             @db.Text
+  status        HelpDeskStatus     @default(OPEN)
+  priority      String             @default("NORMAL")
+  assignedTo    String?
+  customerId    String?            @db.Uuid
+  assignedToId  String?            @db.Uuid
+  departmentId  String?            @db.Uuid
+  sourceChannel String             @default("WEB")
+  dueAt         DateTime?
+  resolution    String?            @db.Text
+  resolvedAt    DateTime?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  customer      User?              @relation("HelpDeskCustomer", fields: [customerId], references: [id], onDelete: SetNull)
+  assignee      User?              @relation("HelpDeskAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+  department    Department?        @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  tasks         ServiceTask[]
+  activities    HelpDeskActivity[]
 
   @@index([status, priority, createdAt])
   @@index([email, createdAt])
   @@index([customerId, createdAt])
   @@index([assignedToId, status, dueAt])
+  @@index([departmentId, status, createdAt])
 }
 
 model ServiceTask {

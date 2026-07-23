@@ -4,6 +4,7 @@ import { requirePermission } from "@/domain/auth/session";
 import { setOrderStatus } from "@/domain/admin/actions";
 import { allowedOrderTransitions } from "@/domain/orders/lifecycle";
 import { AdminPage, Panel, StatusBadge, inputClass, tableClass } from "@/components/admin/admin-ui";
+import { OrderProgress } from "@/components/orders/order-progress";
 
 export default async function AdminOrderDetail({ params }: { params: Promise<{ id: string }> }) {
   await requirePermission("orders.view");
@@ -11,6 +12,7 @@ export default async function AdminOrderDetail({ params }: { params: Promise<{ i
   if (!order) notFound();
   const transitions = allowedOrderTransitions(order.status);
   return <AdminPage title={order.orderNumber} description={`${order.companyName ?? order.email} · paid order fulfilment`} actions={<><a className="font-semibold text-sky-700" href={`/admin/orders/${order.id}/delivery`}>Plan delivery</a><a className="font-semibold text-sky-700" href={`/api/orders/${order.orderNumber}/delivery-note`} target="_blank">Delivery note</a><StatusBadge value={order.status}/></>}>
+    <Panel title="End-to-end order tracking" description="Move the order through the valid next status below. Every published change appears in the customer account and sends an email."><OrderProgress status={order.status}/></Panel>
     <div className="grid gap-4 xl:grid-cols-[1.4fr_.8fr]"><div className="space-y-4">
       <Panel><div className="flex flex-wrap justify-between gap-4"><div><h2 className="font-bold">Customer and payment</h2><p className="mt-2 text-sm">{order.email}<br/>{order.phone ?? "No phone supplied"}{order.convertedQuotation ? <><br/>Quotation {order.convertedQuotation.quotationNumber}</> : null}</p></div><div className="text-right"><StatusBadge value={order.paymentStatus}/><p className="mt-2 text-2xl font-bold">R {Number(order.grandTotal).toLocaleString("en-ZA", { minimumFractionDigits: 2 })}</p></div></div></Panel>
       <Panel><h2 className="font-bold">Immutable order snapshot</h2><table className={`${tableClass} mt-4`}><thead><tr><th>Product</th><th>SKU</th><th>Quantity</th><th>Unit</th><th>Total</th></tr></thead><tbody>{order.items.map((item) => <tr key={item.id}><td>{item.productName}</td><td>{item.sku}</td><td>{item.quantity}</td><td>R {item.unitPrice.toString()}</td><td>R {item.lineTotal.toString()}</td></tr>)}</tbody></table></Panel>

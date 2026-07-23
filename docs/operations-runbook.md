@@ -26,12 +26,22 @@ migration without updating the key.
 
 Review failed payments/webhooks, email outbox failures, audit activity, low stock, quotation backlog, backup status, response latency, and expiring provider credentials.
 
-Admin → Service workspace is the operational source of truth for customer
-support. Assign every active ticket an owner and due date, create the required
-to-dos, keep supplier/private context in internal notes, and use customer
-messages for updates that must be emailed and shown in the account timeline.
+Admin → Ticketing centre is the operational source of truth for customer
+support. Web requests are routed by category to Sales & Quotations, Order
+Operations, Finance, Technical Support or Customer Care. Staff must also
+capture phone, email, WhatsApp, walk-in and internal requests from the same
+screen. Department members, `support@innozanzi.co.za` and super administrators
+are notified. Assign every active ticket an owner and due date, create the
+required to-dos, keep supplier/private context in internal notes, and use
+customer messages for updates that must be emailed and shown in the account
+timeline. Customers can reply inside the existing account ticket.
 Admin → Operations calendar combines ticket and task deadlines with quotation
 expiry, invoice due dates, planned deliveries, RFQ closings and partnership commitments.
+
+Admin → Orders is the paid-order control point. Open an order and publish only
+the next permitted status. The visual lifecycle and event timeline are shared
+with the ownership-protected customer tracking page; each major update sends a
+customer email. Record the delivery company and planned date before dispatch.
 
 Procurement officers use Admin → Quotations → Create manual quotation for
 off-platform enquiries. Save the quotation before review so it receives a
