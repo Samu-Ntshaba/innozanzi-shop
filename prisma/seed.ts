@@ -19,19 +19,23 @@ const roles = [
   ["Marketing", "marketing"],
   ["Support Agent", "support-agent"],
   ["Procurement Officer", "procurement-officer"],
+  ["Returns Manager", "returns-manager"],
+  ["Technician", "technician"],
   ["Customer", "customer"],
 ] as const;
 
 const rolePermissions: Record<string, readonly (typeof PERMISSIONS)[number][]> = {
   "super-administrator": PERMISSIONS,
-  administrator: PERMISSIONS.filter((key) => key !== "users.manage" && key !== "rfq.approve" && key !== "rfq.commission.manage"),
+  administrator: PERMISSIONS.filter((key) => key !== "users.manage" && key !== "rfq.approve" && key !== "rfq.commission.manage" && key !== "returns.refund.approve" && key !== "returns.refund.confirm"),
   sales: ["products.view", "orders.view", "orders.update", "quotations.manage", "customers.manage", "partnership.view", "partnership.application.review", "partnership.request.view", "partnership.request.manage", "rfq.view", "rfq.create", "rfq.update", "rfq.analyse", "rfq.price", "rfq.submit", "rfq.assign", "rfq.financials.view","documents.download","documents.send","documents.history.view","documents.resend"],
-  finance: ["orders.view", "payments.approve", "reports.view", "rfq.view", "rfq.price", "rfq.approve", "rfq.reject", "rfq.financials.view", "rfq.commission.manage","documents.download","documents.send","documents.history.view","documents.resend"],
+  finance: ["orders.view", "payments.approve", "reports.view", "rfq.view", "rfq.price", "rfq.approve", "rfq.reject", "rfq.financials.view", "rfq.commission.manage","documents.download","documents.send","documents.history.view","documents.resend","returns.view","returns.refund.pay","returns.refund.confirm","returns.financial.view"],
   "inventory-manager": ["products.view", "products.update", "inventory.manage"],
   "content-manager": ["products.view", "products.update"],
   marketing: ["products.view","marketing.dashboard.view","marketing.seo.view","marketing.seo.edit","marketing.seo.publish","marketing.content.view","marketing.content.edit","marketing.content.publish","marketing.content.delete","marketing.media.manage","marketing.redirects.manage","marketing.analytics.view"],
   "support-agent": ["orders.view", "customers.manage", "partnership.view", "partnership.request.view"],
   "procurement-officer": ["products.view", "orders.view", "orders.update", "quotations.manage", "inventory.manage", "customers.manage", "rfq.view", "rfq.create", "rfq.update", "rfq.price", "rfq.submit", "rfq.assign", "rfq.financials.view","documents.download","documents.send","documents.history.view","documents.resend"],
+  "returns-manager": ["orders.view","customers.manage","inventory.manage","returns.view","returns.create","returns.review","returns.request-information","returns.assign-technician","returns.inspections.review","returns.repair.approve","returns.replacement.approve","returns.refund.approve","returns.reject","returns.claims.manage","returns.inventory.classify","returns.resale.create","returns.resale.approve","returns.policy.manage","returns.reasons.manage","returns.financial.view","returns.documents.download","returns.documents.send"],
+  technician: ["returns.view","returns.inspections.assigned","returns.inspections.perform"],
   customer: [],
 };
 

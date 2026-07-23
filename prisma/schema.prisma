@@ -456,6 +456,139 @@ enum DocumentDeliveryStatus {
   FAILED
 }
 
+enum ReturnCaseSource {
+  CUSTOMER_PORTAL
+  ADMIN_MANUAL
+  EMAIL
+  WHATSAPP
+  TELEPHONE
+  IMPORTED
+  API
+}
+
+enum ReturnCaseStatus {
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  INFORMATION_REQUIRED
+  AWAITING_ASSESSMENT
+  ASSESSMENT_IN_PROGRESS
+  DECISION_PENDING
+  RESOLVED
+  REJECTED
+  CLOSED
+}
+
+enum ReturnAssessmentStatus {
+  NOT_REQUIRED
+  AWAITING_ASSIGNMENT
+  ASSIGNED
+  APPOINTMENT_SCHEDULED
+  IN_PROGRESS
+  SUBMITTED
+  FURTHER_TESTING_REQUIRED
+  COMPLETED
+}
+
+enum ReturnResolutionType {
+  PENDING
+  GUIDANCE
+  REPAIR
+  REPLACEMENT
+  EXCHANGE
+  FULL_REFUND
+  PARTIAL_REFUND
+  STORE_CREDIT
+  REJECTED
+  RETURN_TO_CUSTOMER
+  ESCALATE_TO_DISTRIBUTOR
+}
+
+enum ReturnResolutionStatus {
+  PENDING
+  APPROVED
+  IN_PROGRESS
+  COMPLETED
+  REJECTED
+}
+
+enum ReturnRefundStatus {
+  NOT_REQUIRED
+  AWAITING_APPROVAL
+  APPROVED
+  AWAITING_PAYMENT
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum DistributorClaimStatus {
+  NOT_REQUIRED
+  DRAFT
+  READY_TO_SUBMIT
+  SUBMITTED
+  AWAITING_RESPONSE
+  MORE_INFORMATION_REQUIRED
+  RETURN_AUTHORISED
+  PRODUCT_SENT
+  UNDER_ASSESSMENT
+  APPROVED
+  PARTIALLY_APPROVED
+  DECLINED
+  CREDIT_NOTE_RECEIVED
+  REFUND_RECEIVED
+  REPLACEMENT_RECEIVED
+  REPAIR_COMPLETED
+  CLOSED
+}
+
+enum ReturnedInventoryCondition {
+  AWAITING_ASSESSMENT
+  NEW_UNOPENED
+  OPEN_BOX
+  CUSTOMER_RETURN
+  TESTED_WORKING
+  REFURBISHED
+  REPAIRED
+  USED
+  COSMETIC_DAMAGE
+  FUNCTIONAL_DAMAGE
+  PARTIALLY_WORKING
+  NON_FUNCTIONAL
+  SPARE_PARTS
+  SCRAP
+}
+
+enum ReturnedInventoryOutcome {
+  PENDING
+  RETURN_TO_CUSTOMER
+  RETURN_TO_DISTRIBUTOR
+  REPAIR
+  REPLACEMENT_RECEIVED
+  OPEN_BOX
+  REFURBISHED
+  USED
+  DAMAGED_STOCK
+  SPARE_PARTS
+  WRITE_OFF
+  DISPOSED
+  RESALE
+}
+
+enum ReturnedUnitStatus {
+  AWAITING_CONDITION_REVIEW
+  CONDITION_CONFIRMED
+  RESALE_APPROVED
+  LISTING_PREPARED
+  LISTING_REVIEWED
+  PUBLISHED
+  RESERVED
+  SOLD
+  WRITTEN_OFF
+  DISPOSED
+}
+
 model User {
   id                              String                           @id @default(uuid()) @db.Uuid
   email                           String                           @unique
@@ -535,6 +668,15 @@ model User {
   confirmedDeliveryNotes          DeliveryNote[]                   @relation("DeliveryNoteConfirmer")
   generatedBusinessDocuments      BusinessDocument[]               @relation("BusinessDocumentGenerator")
   sentBusinessDocuments           DocumentDispatch[]               @relation("DocumentDispatchSender")
+  returnCases                     ReturnCase[]                     @relation("ReturnCustomer")
+  createdReturnCases              ReturnCase[]                     @relation("ReturnCreator")
+  assignedReturnCases             ReturnCase[]                     @relation("ReturnReviewer")
+  technicianReturnCases           ReturnCase[]                     @relation("ReturnTechnician")
+  returnCaseEvents                ReturnCaseEvent[]                @relation("ReturnEventActor")
+  returnInspections               ReturnInspection[]               @relation("ReturnInspector")
+  returnDecisions                 ReturnResolution[]               @relation("ReturnDecisionMaker")
+  returnRefundApprovals           ReturnRefund[]                   @relation("ReturnRefundApprover")
+  returnRefundPayments            ReturnRefundPayment[]            @relation("ReturnRefundProcessor")
 
   @@index([status, createdAt])
   @@index([deletedAt])
@@ -765,39 +907,45 @@ model Brand {
 }
 
 model Product {
-  id                    String                 @id @default(uuid()) @db.Uuid
-  categoryId            String                 @db.Uuid
-  brandId               String?                @db.Uuid
+  id                    String                  @id @default(uuid()) @db.Uuid
+  categoryId            String                  @db.Uuid
+  brandId               String?                 @db.Uuid
   name                  String
-  slug                  String                 @unique
-  sku                   String                 @unique
+  slug                  String                  @unique
+  sku                   String                  @unique
   barcode               String?
   shortDescription      String?
-  description           String?                @db.Text
-  regularPrice          Decimal                @db.Decimal(19, 4)
-  salePrice             Decimal?               @db.Decimal(19, 4)
+  description           String?                 @db.Text
+  regularPrice          Decimal                 @db.Decimal(19, 4)
+  salePrice             Decimal?                @db.Decimal(19, 4)
   saleStartsAt          DateTime?
   saleEndsAt            DateTime?
-  costPrice             Decimal?               @db.Decimal(19, 4)
-  currency              String                 @default("ZAR") @db.Char(3)
-  vatStatus             VatStatus              @default(TAXABLE)
-  status                ProductStatus          @default(DRAFT)
-  stockStatus           StockStatus            @default(OUT_OF_STOCK)
+  costPrice             Decimal?                @db.Decimal(19, 4)
+  currency              String                  @default("ZAR") @db.Char(3)
+  vatStatus             VatStatus               @default(TAXABLE)
+  status                ProductStatus           @default(DRAFT)
+  stockStatus           StockStatus             @default(OUT_OF_STOCK)
   warranty              String?
+  conditionLabel        String?
+  conditionDisclosure   String?                 @db.Text
+  functionalStatus      String?
+  includedAccessories   String[]                @default([])
+  missingAccessories    String[]                @default([])
+  isReturnedResale      Boolean                 @default(false)
   deliveryEstimate      String?
-  isFeatured            Boolean                @default(false)
-  isNew                 Boolean                @default(false)
-  isSpecial             Boolean                @default(false)
-  isPopular             Boolean                @default(false)
+  isFeatured            Boolean                 @default(false)
+  isNew                 Boolean                 @default(false)
+  isSpecial             Boolean                 @default(false)
+  isPopular             Boolean                 @default(false)
   metaTitle             String?
   metaDescription       String?
   publishedAt           DateTime?
   deletedAt             DateTime?
-  isTestData            Boolean                @default(false)
-  createdAt             DateTime               @default(now())
-  updatedAt             DateTime               @updatedAt
-  category              Category               @relation(fields: [categoryId], references: [id], onDelete: Restrict)
-  brand                 Brand?                 @relation(fields: [brandId], references: [id], onDelete: SetNull)
+  isTestData            Boolean                 @default(false)
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime                @updatedAt
+  category              Category                @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  brand                 Brand?                  @relation(fields: [brandId], references: [id], onDelete: SetNull)
   images                ProductImage[]
   variants              ProductVariant[]
   specifications        ProductSpecification[]
@@ -813,6 +961,9 @@ model Product {
   couponProducts        CouponProduct[]
   rfqLineItems          RfqLineItem[]
   partnerRequestItems   PartnerRequestItem[]
+  returnCases           ReturnCase[]
+  returnedUnits         ReturnedInventoryUnit[] @relation("ReturnedOriginalProduct")
+  resaleReturnedUnit    ReturnedInventoryUnit?  @relation("ReturnedResaleProduct")
 
   @@index([status, publishedAt])
   @@index([categoryId, status, createdAt])
@@ -929,23 +1080,24 @@ model ProductDocument {
 }
 
 model Supplier {
-  id            String            @id @default(uuid()) @db.Uuid
-  companyName   String
-  contactPerson String?
-  email         String?
-  phone         String?
-  accountNumber String?
-  resellerId    String?
-  paymentTerms  String?
-  creditLimit   Decimal?          @db.Decimal(19, 4)
-  website       String?
-  notes         String?           @db.Text
-  isActive      Boolean           @default(true)
-  deletedAt     DateTime?
-  createdAt     DateTime          @default(now())
-  updatedAt     DateTime          @updatedAt
-  products      SupplierProduct[]
-  rfqLineItems  RfqLineItem[]
+  id                String             @id @default(uuid()) @db.Uuid
+  companyName       String
+  contactPerson     String?
+  email             String?
+  phone             String?
+  accountNumber     String?
+  resellerId        String?
+  paymentTerms      String?
+  creditLimit       Decimal?           @db.Decimal(19, 4)
+  website           String?
+  notes             String?            @db.Text
+  isActive          Boolean            @default(true)
+  deletedAt         DateTime?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  products          SupplierProduct[]
+  rfqLineItems      RfqLineItem[]
+  distributorClaims DistributorClaim[]
 
   @@index([isActive, companyName])
   @@index([deletedAt])
@@ -1104,6 +1256,7 @@ model Order {
   deliveryEvents       DeliveryTrackingEvent[]
   invoices             Invoice[]
   deliveryNotes        DeliveryNote[]
+  returnCases          ReturnCase[]
 
   @@index([userId, createdAt])
   @@index([status, createdAt])
@@ -1131,6 +1284,7 @@ model OrderItem {
   order         Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
   product       Product?        @relation(fields: [productId], references: [id], onDelete: SetNull)
   variant       ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
+  returnCases   ReturnCase[]
 
   @@index([orderId])
   @@index([productId])
@@ -1187,6 +1341,7 @@ model Payment {
   updatedAt         DateTime        @updatedAt
   order             Order           @relation(fields: [orderId], references: [id], onDelete: Restrict)
   proofs            PaymentProof[]
+  returnRefunds     ReturnRefund[]
 
   @@unique([provider, externalReference])
   @@index([orderId, status])
@@ -1643,6 +1798,9 @@ model UploadedDocument {
   rfqSource                RfqSource?
   rfqAdditionalCost        RfqAdditionalCost?
   deliveryNoteAttachment   DeliveryNoteAttachment?
+  returnEvidence           ReturnEvidence?
+  refundPaymentProof       ReturnRefundPayment?
+  distributorClaimDocument DistributorClaimDocument?
 }
 
 model BusinessDocument {
@@ -1671,25 +1829,25 @@ model BusinessDocument {
 }
 
 model DocumentDispatch {
-  id               String                 @id @default(uuid()) @db.Uuid
-  businessDocumentId String                @db.Uuid
-  sentById         String?                 @db.Uuid
-  toRecipients     String[]
-  ccRecipients     String[]
-  subject          String
-  message          String                 @db.Text
-  attachmentNames  String[]
-  status           DocumentDeliveryStatus @default(PREPARING)
-  providerMessageId String?
-  providerResponse String?                @db.Text
-  failureReason    String?                @db.Text
-  sentAt           DateTime?
-  isResend         Boolean                @default(false)
-  isTestData       Boolean                @default(false)
-  createdAt        DateTime               @default(now())
-  updatedAt        DateTime               @updatedAt
-  businessDocument BusinessDocument       @relation(fields: [businessDocumentId], references: [id], onDelete: Restrict)
-  sentBy           User?                  @relation("DocumentDispatchSender", fields: [sentById], references: [id], onDelete: SetNull)
+  id                 String                 @id @default(uuid()) @db.Uuid
+  businessDocumentId String                 @db.Uuid
+  sentById           String?                @db.Uuid
+  toRecipients       String[]
+  ccRecipients       String[]
+  subject            String
+  message            String                 @db.Text
+  attachmentNames    String[]
+  status             DocumentDeliveryStatus @default(PREPARING)
+  providerMessageId  String?
+  providerResponse   String?                @db.Text
+  failureReason      String?                @db.Text
+  sentAt             DateTime?
+  isResend           Boolean                @default(false)
+  isTestData         Boolean                @default(false)
+  createdAt          DateTime               @default(now())
+  updatedAt          DateTime               @updatedAt
+  businessDocument   BusinessDocument       @relation(fields: [businessDocumentId], references: [id], onDelete: Restrict)
+  sentBy             User?                  @relation("DocumentDispatchSender", fields: [sentById], references: [id], onDelete: SetNull)
 
   @@index([businessDocumentId, createdAt])
   @@index([status, createdAt])
@@ -1700,6 +1858,324 @@ model DocumentBrandingSetting {
   value       String   @db.Text
   updatedById String?  @db.Uuid
   updatedAt   DateTime @updatedAt
+}
+
+model ComplaintReason {
+  id                     String       @id @default(uuid()) @db.Uuid
+  name                   String       @unique
+  description            String?
+  requiresInspection     Boolean      @default(true)
+  requiresProductPhoto   Boolean      @default(true)
+  requiresSerialPhoto    Boolean      @default(false)
+  requiresPackagingPhoto Boolean      @default(false)
+  standardWindowDays     Int?
+  isActive               Boolean      @default(true)
+  displayOrder           Int          @default(0)
+  createdAt              DateTime     @default(now())
+  updatedAt              DateTime     @updatedAt
+  cases                  ReturnCase[]
+
+  @@index([isActive, displayOrder])
+}
+
+model ReturnPolicyVersion {
+  id                 String       @id @default(uuid()) @db.Uuid
+  version            Int          @unique
+  title              String
+  content            String       @db.Text
+  standardReturnDays Int          @default(7)
+  deliveryDamageDays Int          @default(2)
+  effectiveAt        DateTime
+  publishedAt        DateTime?
+  approvedById       String?      @db.Uuid
+  isCurrent          Boolean      @default(false)
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+  cases              ReturnCase[]
+
+  @@index([isCurrent, effectiveAt])
+}
+
+model ReturnCase {
+  id                           String                   @id @default(uuid()) @db.Uuid
+  referenceNumber              String                   @unique
+  customerId                   String?                  @db.Uuid
+  orderId                      String                   @db.Uuid
+  orderItemId                  String                   @db.Uuid
+  productId                    String?                  @db.Uuid
+  reasonId                     String                   @db.Uuid
+  policyVersionId              String?                  @db.Uuid
+  createdById                  String?                  @db.Uuid
+  assignedReviewerId           String?                  @db.Uuid
+  assignedTechnicianId         String?                  @db.Uuid
+  source                       ReturnCaseSource
+  status                       ReturnCaseStatus         @default(DRAFT)
+  assessmentStatus             ReturnAssessmentStatus   @default(AWAITING_ASSIGNMENT)
+  resolutionType               ReturnResolutionType     @default(PENDING)
+  resolutionStatus             ReturnResolutionStatus   @default(PENDING)
+  refundStatus                 ReturnRefundStatus       @default(NOT_REQUIRED)
+  distributorClaimStatus       DistributorClaimStatus   @default(NOT_REQUIRED)
+  inventoryOutcome             ReturnedInventoryOutcome @default(PENDING)
+  quantityAffected             Int
+  productNameSnapshot          String
+  skuSnapshot                  String?
+  unitPriceSnapshot            Decimal                  @db.Decimal(19, 4)
+  warrantySnapshot             String?
+  serialNumber                 String?
+  customerDescription          String                   @db.Text
+  problemStartedAt             DateTime?
+  usageDescription             String?                  @db.Text
+  troubleshooting              String?                  @db.Text
+  preferredResolution          ReturnResolutionType
+  priority                     String                   @default("NORMAL")
+  dueAt                        DateTime?
+  customerNote                 String?                  @db.Text
+  internalNote                 String?                  @db.Text
+  suspectedMisuse              Boolean                  @default(false)
+  suspectedDeliveryDamage      Boolean                  @default(false)
+  suspectedManufacturingDefect Boolean                  @default(false)
+  submittedAt                  DateTime?
+  resolvedAt                   DateTime?
+  closedAt                     DateTime?
+  isTestData                   Boolean                  @default(false)
+  createdAt                    DateTime                 @default(now())
+  updatedAt                    DateTime                 @updatedAt
+  customer                     User?                    @relation("ReturnCustomer", fields: [customerId], references: [id], onDelete: SetNull)
+  order                        Order                    @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  orderItem                    OrderItem                @relation(fields: [orderItemId], references: [id], onDelete: Restrict)
+  product                      Product?                 @relation(fields: [productId], references: [id], onDelete: SetNull)
+  reason                       ComplaintReason          @relation(fields: [reasonId], references: [id], onDelete: Restrict)
+  policyVersion                ReturnPolicyVersion?     @relation(fields: [policyVersionId], references: [id], onDelete: SetNull)
+  createdBy                    User?                    @relation("ReturnCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  assignedReviewer             User?                    @relation("ReturnReviewer", fields: [assignedReviewerId], references: [id], onDelete: SetNull)
+  assignedTechnician           User?                    @relation("ReturnTechnician", fields: [assignedTechnicianId], references: [id], onDelete: SetNull)
+  evidence                     ReturnEvidence[]
+  inspections                  ReturnInspection[]
+  resolutions                  ReturnResolution[]
+  refunds                      ReturnRefund[]
+  distributorClaims            DistributorClaim[]
+  returnedUnits                ReturnedInventoryUnit[]
+  events                       ReturnCaseEvent[]
+
+  @@index([customerId, createdAt])
+  @@index([status, priority, createdAt])
+  @@index([assignedTechnicianId, assessmentStatus])
+  @@index([orderId, orderItemId])
+  @@index([refundStatus, createdAt])
+}
+
+model ReturnEvidence {
+  id              String            @id @default(uuid()) @db.Uuid
+  returnCaseId    String            @db.Uuid
+  inspectionId    String?           @db.Uuid
+  documentId      String            @unique @db.Uuid
+  type            String
+  caption         String?
+  uploadedById    String?           @db.Uuid
+  customerVisible Boolean           @default(true)
+  createdAt       DateTime          @default(now())
+  returnCase      ReturnCase        @relation(fields: [returnCaseId], references: [id], onDelete: Cascade)
+  inspection      ReturnInspection? @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  document        UploadedDocument  @relation(fields: [documentId], references: [id], onDelete: Restrict)
+
+  @@index([returnCaseId, type])
+  @@index([inspectionId])
+}
+
+model ReturnInspection {
+  id                    String                 @id @default(uuid()) @db.Uuid
+  returnCaseId          String                 @db.Uuid
+  technicianId          String?                @db.Uuid
+  status                ReturnAssessmentStatus @default(ASSIGNED)
+  appointmentAt         DateTime?
+  expectedCompletionAt  DateTime?
+  location              String?
+  instructions          String?                @db.Text
+  serialNumberConfirmed String?
+  barcode               String?
+  checklist             Json?
+  testResults           String?                @db.Text
+  finding               String?
+  findingExplanation    String?                @db.Text
+  recommendation        ReturnResolutionType?
+  technicianCost        Decimal                @default(0) @db.Decimal(19, 4)
+  submittedAt           DateTime?
+  completedAt           DateTime?
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  returnCase            ReturnCase             @relation(fields: [returnCaseId], references: [id], onDelete: Cascade)
+  technician            User?                  @relation("ReturnInspector", fields: [technicianId], references: [id], onDelete: SetNull)
+  evidence              ReturnEvidence[]
+  resolutions           ReturnResolution[]
+
+  @@index([technicianId, status, appointmentAt])
+  @@index([returnCaseId, createdAt])
+}
+
+model ReturnResolution {
+  id                  String                 @id @default(uuid()) @db.Uuid
+  returnCaseId        String                 @db.Uuid
+  inspectionId        String?                @db.Uuid
+  decidedById         String                 @db.Uuid
+  type                ReturnResolutionType
+  status              ReturnResolutionStatus @default(APPROVED)
+  customerExplanation String                 @db.Text
+  internalExplanation String?                @db.Text
+  rejectionReason     String?
+  approvedAmount      Decimal?               @db.Decimal(19, 4)
+  deductionAmount     Decimal?               @db.Decimal(19, 4)
+  deductionReason     String?
+  decidedAt           DateTime               @default(now())
+  completedAt         DateTime?
+  createdAt           DateTime               @default(now())
+  returnCase          ReturnCase             @relation(fields: [returnCaseId], references: [id], onDelete: Cascade)
+  inspection          ReturnInspection?      @relation(fields: [inspectionId], references: [id], onDelete: SetNull)
+  decidedBy           User                   @relation("ReturnDecisionMaker", fields: [decidedById], references: [id], onDelete: Restrict)
+  refund              ReturnRefund?
+
+  @@index([returnCaseId, decidedAt])
+}
+
+model ReturnRefund {
+  id                String                @id @default(uuid()) @db.Uuid
+  refundNumber      String                @unique
+  returnCaseId      String                @db.Uuid
+  resolutionId      String                @unique @db.Uuid
+  originalPaymentId String?               @db.Uuid
+  approvedById      String                @db.Uuid
+  status            ReturnRefundStatus    @default(AWAITING_PAYMENT)
+  originalAmount    Decimal               @db.Decimal(19, 4)
+  refundableAmount  Decimal               @db.Decimal(19, 4)
+  approvedAmount    Decimal               @db.Decimal(19, 4)
+  deductions        Decimal               @default(0) @db.Decimal(19, 4)
+  deductionReason   String?
+  method            String
+  approvedAt        DateTime              @default(now())
+  completedAt       DateTime?
+  isTestData        Boolean               @default(false)
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+  returnCase        ReturnCase            @relation(fields: [returnCaseId], references: [id], onDelete: Restrict)
+  resolution        ReturnResolution      @relation(fields: [resolutionId], references: [id], onDelete: Restrict)
+  originalPayment   Payment?              @relation(fields: [originalPaymentId], references: [id], onDelete: SetNull)
+  approvedBy        User                  @relation("ReturnRefundApprover", fields: [approvedById], references: [id], onDelete: Restrict)
+  payments          ReturnRefundPayment[]
+
+  @@index([status, createdAt])
+  @@index([returnCaseId])
+}
+
+model ReturnRefundPayment {
+  id                   String            @id @default(uuid()) @db.Uuid
+  refundId             String            @db.Uuid
+  processedById        String            @db.Uuid
+  proofDocumentId      String?           @unique @db.Uuid
+  amount               Decimal           @db.Decimal(19, 4)
+  method               String
+  bankReference        String?
+  transactionReference String
+  paidAt               DateTime
+  notes                String?           @db.Text
+  createdAt            DateTime          @default(now())
+  refund               ReturnRefund      @relation(fields: [refundId], references: [id], onDelete: Restrict)
+  processedBy          User              @relation("ReturnRefundProcessor", fields: [processedById], references: [id], onDelete: Restrict)
+  proofDocument        UploadedDocument? @relation(fields: [proofDocumentId], references: [id], onDelete: SetNull)
+
+  @@index([refundId, paidAt])
+}
+
+model DistributorClaim {
+  id                  String                     @id @default(uuid()) @db.Uuid
+  claimNumber         String                     @unique
+  returnCaseId        String                     @db.Uuid
+  supplierId          String?                    @db.Uuid
+  status              DistributorClaimStatus     @default(DRAFT)
+  supplierReference   String?
+  productName         String
+  productCode         String?
+  serialNumber        String?
+  faultDescription    String                     @db.Text
+  technicianFinding   String?                    @db.Text
+  requestedResolution String
+  claimAmount         Decimal                    @default(0) @db.Decimal(19, 4)
+  approvedAmount      Decimal                    @default(0) @db.Decimal(19, 4)
+  receivedAmount      Decimal                    @default(0) @db.Decimal(19, 4)
+  creditNoteNumber    String?
+  responseNote        String?                    @db.Text
+  submittedAt         DateTime?
+  followUpAt          DateTime?
+  receivedAt          DateTime?
+  closedAt            DateTime?
+  createdAt           DateTime                   @default(now())
+  updatedAt           DateTime                   @updatedAt
+  returnCase          ReturnCase                 @relation(fields: [returnCaseId], references: [id], onDelete: Restrict)
+  supplier            Supplier?                  @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  documents           DistributorClaimDocument[]
+
+  @@index([status, followUpAt])
+  @@index([supplierId, createdAt])
+}
+
+model DistributorClaimDocument {
+  id                 String           @id @default(uuid()) @db.Uuid
+  distributorClaimId String           @db.Uuid
+  documentId         String           @unique @db.Uuid
+  type               String
+  createdAt          DateTime         @default(now())
+  distributorClaim   DistributorClaim @relation(fields: [distributorClaimId], references: [id], onDelete: Cascade)
+  document           UploadedDocument @relation(fields: [documentId], references: [id], onDelete: Restrict)
+
+  @@index([distributorClaimId, type])
+}
+
+model ReturnedInventoryUnit {
+  id                  String                     @id @default(uuid()) @db.Uuid
+  returnCaseId        String                     @db.Uuid
+  originalProductId   String?                    @db.Uuid
+  resaleProductId     String?                    @unique @db.Uuid
+  serialNumber        String?
+  condition           ReturnedInventoryCondition @default(AWAITING_ASSESSMENT)
+  outcome             ReturnedInventoryOutcome   @default(PENDING)
+  status              ReturnedUnitStatus         @default(AWAITING_CONDITION_REVIEW)
+  receivedAt          DateTime?
+  returnMethod        String?
+  receivedBy          String?
+  conditionNotes      String?                    @db.Text
+  packagingCondition  String?
+  accessories         String[]
+  storageLocation     String?
+  repairHistory       String?                    @db.Text
+  damageDescription   String?                    @db.Text
+  costValue           Decimal                    @default(0) @db.Decimal(19, 4)
+  repairCost          Decimal                    @default(0) @db.Decimal(19, 4)
+  recoveryTarget      Decimal                    @default(0) @db.Decimal(19, 4)
+  approvedResalePrice Decimal?                   @db.Decimal(19, 4)
+  resaleRecovery      Decimal                    @default(0) @db.Decimal(19, 4)
+  approvedById        String?                    @db.Uuid
+  createdAt           DateTime                   @default(now())
+  updatedAt           DateTime                   @updatedAt
+  returnCase          ReturnCase                 @relation(fields: [returnCaseId], references: [id], onDelete: Restrict)
+  originalProduct     Product?                   @relation("ReturnedOriginalProduct", fields: [originalProductId], references: [id], onDelete: SetNull)
+  resaleProduct       Product?                   @relation("ReturnedResaleProduct", fields: [resaleProductId], references: [id], onDelete: SetNull)
+
+  @@index([status, condition])
+  @@index([returnCaseId])
+}
+
+model ReturnCaseEvent {
+  id              String     @id @default(uuid()) @db.Uuid
+  returnCaseId    String     @db.Uuid
+  actorId         String?    @db.Uuid
+  type            String
+  customerVisible Boolean    @default(false)
+  message         String     @db.Text
+  previousValue   Json?
+  newValue        Json?
+  createdAt       DateTime   @default(now())
+  returnCase      ReturnCase @relation(fields: [returnCaseId], references: [id], onDelete: Cascade)
+  actor           User?      @relation("ReturnEventActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([returnCaseId, createdAt])
 }
 
 model TestAsset {

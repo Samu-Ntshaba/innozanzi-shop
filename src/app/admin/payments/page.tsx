@@ -28,6 +28,12 @@ export default async function Page() {
       title="Payment verification"
       description="Proof review controls order activation. Uploading evidence never verifies payment automatically."
     >
+      <Panel>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div><h2 className="font-bold">Customer refund payment queue</h2><p className="mt-1 text-sm text-slate-600">Approved refunds remain separate from original payments and require finance confirmation before completion.</p></div>
+          <Link className="rounded bg-sky-700 px-4 py-2 text-sm font-bold text-white" href="/admin/returns?refund=AWAITING_PAYMENT">Open refund queue</Link>
+        </div>
+      </Panel>
       <Panel className="p-0">
         <table className={tableClass}>
           <thead>

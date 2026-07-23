@@ -7,6 +7,7 @@ const links = [
   ["Overview", "/account", "⌂"],
   ["Quotations", "/account/quotations", "Q"],
   ["Orders & tracking", "/account/orders", "↗"],
+  ["Returns & concerns", "/account/returns", "↩"],
   ["Support", "/account/support", "?"],
   ["Partnership", "/account/partnership", "◇"],
 ] as const;
