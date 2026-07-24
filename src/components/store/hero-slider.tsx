@@ -29,8 +29,8 @@ const slides = [
     eyebrow: "Fulfilment you can follow",
     title: "From confirmed stock to dependable delivery.",
     description: "Every item is checked, prepared and coordinated with care before it reaches your team.",
-    action: "Shop technology",
-    href: "/shop",
+    action: "See how it works",
+    href: "/how-to",
   },
 ] as const;
 
