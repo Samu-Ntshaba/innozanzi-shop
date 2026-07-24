@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { CategoryIcon } from "@/components/store/category-icon";
 import { prisma } from "@/lib/prisma";
 
+export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "Technology categories",
   description: "Browse all active Innozanzi business technology categories.",
