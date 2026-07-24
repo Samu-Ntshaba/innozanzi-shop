@@ -4,7 +4,7 @@ import { whatsappUrl } from "@/lib/support";
 
 export function StoreFooter() {
   return (
-    <footer className="mt-16 bg-[#071b33] text-slate-300">
+    <footer className="mt-16 border-t border-slate-200 bg-[#071b33] text-slate-300">
       <div className="mx-auto grid max-w-6xl gap-8 px-4 py-10 sm:px-6 md:grid-cols-3 lg:px-8">
         <div>
           <BrandLogo variant="footer" className="w-44" />

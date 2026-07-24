@@ -7,21 +7,21 @@ export function ProductCard({ product }: { product: ProductCardData }) {
   const image = product.images[0];
   const inStock = product.stockStatus === "IN_STOCK" || product.stockStatus === "LOW_STOCK";
   return (
-    <article className="group flex h-full flex-col overflow-hidden rounded-xl border border-slate-200 bg-white transition hover:border-sky-300 hover:shadow-xl">
+    <article className="group flex h-full flex-col overflow-hidden rounded-lg border border-slate-200 bg-white transition hover:border-slate-400 hover:shadow-md">
       <Link href={`/products/${product.slug}`} className="relative block aspect-square overflow-hidden bg-white">
         {image ? <Image src={image.path} alt={image.altText ?? product.name} fill sizes="(max-width: 479px) 100vw, (max-width: 1023px) 50vw, 25vw" className="object-contain p-4 transition duration-300 group-hover:scale-105 sm:p-5" /> : <div className="grid h-full place-items-center bg-slate-50 px-3 text-center text-xs text-slate-400">Product image coming soon</div>}
       </Link>
       <div className="flex min-w-0 flex-1 flex-col border-t border-slate-100 p-4">
-        <p className="text-[11px] font-bold uppercase tracking-wide text-sky-600">{product.brand?.name ?? product.category.name}</p>
-        <Link href={`/products/${product.slug}`} className="mt-1 line-clamp-2 min-h-12 font-semibold leading-6 text-slate-900 group-hover:text-sky-700">{product.name}</Link>
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{product.brand?.name ?? product.category.name}</p>
+        <Link href={`/products/${product.slug}`} className="mt-1 line-clamp-2 min-h-12 font-semibold leading-6 text-slate-900 group-hover:text-sky-800">{product.name}</Link>
         <p className="mt-1 text-xs text-slate-400">SKU: {product.sku}</p>
-        <p className={`mt-3 flex items-center gap-1 text-xs font-semibold ${inStock ? "text-emerald-700" : "text-red-600"}`}>
+        <p className="mt-3 flex items-center gap-1 text-xs font-medium text-slate-600">
           {inStock ? <Check className="size-3.5" /> : <PackageX className="size-3.5" />}{inStock ? "In stock" : "Check availability"}
         </p>
         <div className="mt-auto pt-4">
           <div className="flex items-end justify-between gap-2">
-            <div className="min-w-0"><p className="text-base font-black tracking-tight text-slate-950">Pricing by quotation</p><p className="text-[11px] text-slate-500">Request the quantity you need</p></div>
-            <Link aria-label={`View ${product.name}`} href={`/products/${product.slug}`} className="grid size-10 place-items-center rounded-lg bg-sky-600 text-white hover:bg-sky-700"><ArrowRight className="size-4" /></Link>
+            <div className="min-w-0"><p className="text-base font-semibold tracking-tight text-slate-950">Pricing by quotation</p><p className="text-[11px] text-slate-500">Request the quantity you need</p></div>
+            <Link aria-label={`View ${product.name}`} href={`/products/${product.slug}`} className="grid size-10 place-items-center rounded-md border border-slate-300 text-slate-800 hover:border-sky-700 hover:text-sky-800"><ArrowRight className="size-4" /></Link>
           </div>
         </div>
       </div>
