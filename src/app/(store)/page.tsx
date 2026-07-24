@@ -1,7 +1,5 @@
 import {
   ArrowRight,
-  Building2,
-  CheckCircle2,
   Headphones,
   Laptop,
   Monitor,
@@ -81,13 +79,6 @@ export default async function HomePage() {
       </section>
 
       <ProductSection eyebrow="Catalogue preview" title="See how products will be presented" products={catalogue.featured} />
-
-      <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        <div className="grid overflow-hidden rounded-lg border border-slate-200 bg-slate-50 md:grid-cols-[1fr_0.8fr]">
-          <div className="p-8 sm:p-10"><div className="flex items-center gap-2 text-sky-800"><Building2 className="size-5" /><span className="text-sm font-semibold">One trusted technology partner</span></div><h2 className="mt-4 text-3xl font-semibold text-slate-950">One device or one hundred—we make procurement easier.</h2><p className="mt-3 max-w-xl leading-7 text-slate-600">Get fast provisional pricing, human-verified recommendations and one accountable team for sourcing, configuration, delivery and support.</p><Link className="mt-6 inline-flex items-center rounded-md bg-[#071b33] px-5 py-3 font-semibold text-white hover:bg-slate-800" href="/quotations/request">Request a quotation <ArrowRight className="ml-2 size-4" /></Link></div>
-          <div className="grid content-center gap-4 border-t border-slate-200 bg-white p-8 md:border-l md:border-t-0">{["Provisional quotation in approximately 30 seconds", "Human review before the final quotation", "Delivery and installation planning", "Ongoing support after fulfilment"].map((item) => <p key={item} className="flex items-center gap-3 text-sm font-medium text-slate-700"><CheckCircle2 className="size-5 text-sky-700" />{item}</p>)}</div>
-        </div>
-      </section>
 
       <section className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
         <div id="newsletter" className="scroll-mt-24 border-y border-slate-200 py-9 text-center"><h2 className="text-2xl font-semibold text-slate-950">Deals, new arrivals and ICT advice</h2><p className="mt-2 text-sm text-slate-600">Useful product and technology updates, without the noise.</p><form action={subscribeNewsletter} className="mx-auto mt-5 flex max-w-lg flex-col gap-2 sm:flex-row"><input aria-label="Email address" className="h-12 flex-1 rounded-md border border-slate-300 bg-white px-4 outline-none focus:border-sky-700 focus:ring-1 focus:ring-sky-700" name="email" type="email" placeholder="you@company.co.za" required /><button className="h-12 rounded-md bg-[#071b33] px-6 font-semibold text-white hover:bg-slate-800" type="submit">Subscribe</button></form></div>
