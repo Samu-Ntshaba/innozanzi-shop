@@ -21,7 +21,6 @@ export async function StoreHeader() {
           <Link className="block rounded-md bg-[#071b33] px-4 py-3 font-semibold text-white" href="/shop">All products</Link>
           {categories.map(([label, slug]) => <Link key={slug} className="block rounded-md px-4 py-3 text-sm font-medium text-slate-700 hover:bg-slate-50" href={`/categories/${slug}`}>{label}</Link>)}
           <Link className="block rounded-md px-4 py-3 text-sm font-semibold text-sky-800" href="/quotations/request">Request a quote</Link>
-          <Link className="block rounded-md px-4 py-3 text-sm font-medium text-slate-700" href="/partners">Partners</Link>
         </nav>
       </details>
       <BrandLogo className="w-32 min-[380px]:w-36 sm:w-44" priority />
@@ -43,8 +42,7 @@ export async function StoreHeader() {
     <nav aria-label="Product categories" className="mx-auto hidden h-11 max-w-7xl items-center gap-7 border-t border-slate-100 px-6 lg:flex lg:px-8">
       <Link className="text-sm font-semibold text-sky-800" href="/shop">All products</Link>
       {categories.map(([label, slug]) => <Link key={slug} className="text-sm font-medium text-slate-600 hover:text-slate-950" href={`/categories/${slug}`}>{label}</Link>)}
-      <Link className="ml-auto text-sm font-medium text-slate-700" href="/partners">Partners</Link>
-      <Link className="rounded-md bg-[#071b33] px-4 py-2 text-sm font-semibold text-white" href="/quotations/request">Request a quote</Link>
+      <Link className="ml-auto rounded-md bg-[#071b33] px-4 py-2 text-sm font-semibold text-white" href="/quotations/request">Request a quote</Link>
     </nav>
   </header>;
 }
