@@ -4,8 +4,8 @@
   "private": true,
   "packageManager": "npm@10.9.4",
   "engines": {
-    "node": ">=20 <25",
-    "npm": "10.x"
+    "node": ">=22 <25",
+    "npm": ">=10 <12"
   },
   "scripts": {
     "dev": "tsx scripts/dev-railway.ts",
@@ -45,7 +45,7 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
+    "@types/node": "^22",
     "@types/pg": "^8.20.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",
