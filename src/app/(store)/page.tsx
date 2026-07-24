@@ -27,12 +27,12 @@ export default async function HomePage() {
       <HeroSlider />
 
       <section aria-label="Product categories" className="mx-auto max-w-7xl px-4 py-7 sm:px-6 lg:px-8">
+        <div className="mb-4 text-right"><Link className="text-sm font-semibold text-sky-800 hover:underline" href="/categories">View more categories</Link></div>
         <div className="-mx-4 flex snap-x gap-3 overflow-x-auto px-4 pb-2 sm:mx-0 sm:grid sm:grid-cols-3 sm:overflow-visible sm:px-0 lg:grid-cols-6">
           {categories.map((category) => {
             return <Link key={category.id} href={`/categories/${category.slug}`} className="group flex min-w-36 snap-start items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 py-3 transition hover:border-sky-300 hover:bg-sky-50/40 sm:min-w-0"><div className="grid size-9 shrink-0 place-items-center rounded-md bg-slate-100 text-sky-800 transition group-hover:bg-white"><CategoryIcon value={category.imagePath} slug={category.slug}/></div><h2 className="text-sm font-semibold leading-5 text-slate-900">{category.name}</h2></Link>;
           })}
         </div>
-        <div className="mt-3 text-right"><Link className="text-sm font-semibold text-sky-800 hover:underline" href="/categories">View more categories →</Link></div>
       </section>
 
       <ProductSection products={catalogue.featured} />
