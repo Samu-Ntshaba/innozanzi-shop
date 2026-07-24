@@ -9,10 +9,10 @@ export type GlobalSeoSettings={
 };
 
 const defaults:GlobalSeoSettings={
-  siteTitle:"Innozanzi | Business Technology Partner",titleTemplate:"%s | Innozanzi",
-  description:"Fast business technology quotations, expert advice, delivery, installation and ongoing support across South Africa.",
+  siteTitle:"Innozanzi | Technology That Moves Business Forward",titleTemplate:"%s | Innozanzi",
+  description:"Fast technology quotations, expert advice, nationwide delivery, installation and ongoing support for South African businesses.",
   businessName:"Innozanzi",siteUrl:process.env.NEXT_PUBLIC_SITE_URL??"https://shop.innozanzi.co.za",
-  defaultImage:process.env.EMAIL_LOGO_URL??"/icon.png",logo:process.env.EMAIL_LOGO_URL??"/icon.png",
+  defaultImage:"/social/innozanzi-share.png",logo:"/brand/innozanzi-shop-logo.png",
   twitter:"",facebook:"",linkedin:"",instagram:"",phone:"+27 71 238 4185",email:"support@innozanzi.co.za",
   address:"Ground Floor, Waterstone Building, Stonemill Office Park, 300 Acacia Road, Darrenwood, Randburg, Johannesburg, 2195",
   serviceAreas:"South Africa",googleVerification:"",bingVerification:"",
