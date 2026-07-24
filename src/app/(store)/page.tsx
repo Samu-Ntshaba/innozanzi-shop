@@ -1,4 +1,4 @@
-import { Headphones, Laptop, Monitor, Network, PackageCheck, PlugZap, ShieldCheck, Truck } from "lucide-react";
+import { Laptop, Monitor, Network, PackageCheck, PlugZap } from "lucide-react";
 import Link from "next/link";
 import { HeroSlider } from "@/components/store/hero-slider";
 import { ProductSection } from "@/components/store/product-section";
@@ -17,12 +17,6 @@ const fallbackCategories = [
   { id: "network", name: "Networking", slug: "networking", description: "Reliable business connectivity", icon: Network },
 ];
 
-const trustItems = [
-  { icon: Truck, title: "Nationwide delivery", body: "Tracked fulfilment across South Africa" },
-  { icon: ShieldCheck, title: "Human-verified quotes", body: "Clear recommendations before you commit" },
-  { icon: Headphones, title: "Ongoing support", body: "One team from sourcing to after-sales care" },
-];
-
 export default async function HomePage() {
   const catalogue = await getHomepageCatalogue();
   const categories = catalogue.categories.length
@@ -31,17 +25,6 @@ export default async function HomePage() {
   return (
     <main className="bg-white">
       <HeroSlider />
-
-      <section className="border-b border-slate-200 bg-white">
-        <div className="mx-auto grid max-w-5xl grid-cols-1 divide-y divide-slate-200 px-4 min-[480px]:grid-cols-3 min-[480px]:divide-x min-[480px]:divide-y-0 sm:px-6">
-          {trustItems.map(({ icon: Icon, title, body }) => (
-            <div key={title} className="flex items-start gap-3 px-3 py-5 sm:px-5">
-              <Icon className="mt-0.5 size-5 shrink-0 text-sky-700" />
-              <div><p className="text-sm font-semibold text-slate-900">{title}</p><p className="mt-0.5 text-xs leading-5 text-slate-500">{body}</p></div>
-            </div>
-          ))}
-        </div>
-      </section>
 
       <section aria-label="Product categories" className="mx-auto max-w-7xl px-4 py-7 sm:px-6 lg:px-8">
         <div className="-mx-4 flex snap-x gap-3 overflow-x-auto px-4 pb-2 sm:mx-0 sm:grid sm:grid-cols-3 sm:overflow-visible sm:px-0 lg:grid-cols-6">
