@@ -10,7 +10,7 @@ export function StoreFooter() {
           <BrandLogo variant="footer" className="w-44" />
           <p className="mt-4 text-sm leading-6">Your technology partner from quotation and expert guidance to delivery, deployment and ongoing support.</p>
         </div>
-        <div><p className="font-semibold text-white">Explore</p><ul className="mt-3 space-y-2 text-sm"><li><Link href="/shop">Products</Link></li><li><Link href="/quotations/request">Request a quotation</Link></li></ul></div>
+        <div><p className="font-semibold text-white">Explore</p><ul className="mt-3 space-y-2 text-sm"><li><Link href="/shop">Products</Link></li></ul></div>
         <div><p className="font-semibold text-white">Support</p><ul className="mt-3 space-y-2 text-sm"><li><Link href="/contact">Contact our team</Link></li><li><a href={whatsappUrl()} target="_blank" rel="noreferrer">WhatsApp: 071 238 4185</a></li><li><Link href="/returns-policy">Returns and assistance</Link></li><li><Link href="/policies/privacy">Privacy</Link></li></ul></div>
       </div>
       <div className="border-t border-slate-800 px-4 py-5 text-center text-xs text-slate-500">© {new Date().getFullYear()} Innozanzi (Pty) Ltd. All rights reserved.</div>
