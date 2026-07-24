@@ -1,3 +1,4 @@
+import { Headphones, ShieldCheck, Truck } from "lucide-react";
 import Link from "next/link";
 import { CategoryIcon } from "@/components/store/category-icon";
 import { HeroSlider } from "@/components/store/hero-slider";
@@ -17,6 +18,12 @@ const fallbackCategories = [
   { id: "network", name: "Networking", slug: "networking", description: "Reliable business connectivity", imagePath: "icon:network" },
 ];
 
+const trustItems = [
+  { icon: Truck, title: "Nationwide delivery", body: "Tracked fulfilment across South Africa" },
+  { icon: ShieldCheck, title: "Human-verified quotes", body: "Clear recommendations before you commit" },
+  { icon: Headphones, title: "Ongoing support", body: "One team from sourcing to after-sales care" },
+];
+
 export default async function HomePage() {
   const catalogue = await getHomepageCatalogue();
   const categories = catalogue.categories.length
@@ -25,6 +32,17 @@ export default async function HomePage() {
   return (
     <main className="bg-white">
       <HeroSlider />
+
+      <section className="border-b border-slate-200 bg-white" aria-label="Why businesses choose Innozanzi">
+        <div className="mx-auto grid max-w-5xl grid-cols-1 divide-y divide-slate-200 px-4 min-[480px]:grid-cols-3 min-[480px]:divide-x min-[480px]:divide-y-0 sm:px-6">
+          {trustItems.map(({ icon: Icon, title, body }) => (
+            <div key={title} className="flex items-start gap-3 px-3 py-5 sm:px-5">
+              <Icon className="mt-0.5 size-5 shrink-0 text-sky-700" />
+              <div><p className="text-sm font-semibold text-slate-900">{title}</p><p className="mt-0.5 text-xs leading-5 text-slate-500">{body}</p></div>
+            </div>
+          ))}
+        </div>
+      </section>
 
       <section aria-label="Product categories" className="mx-auto max-w-7xl px-4 py-7 sm:px-6 lg:px-8">
         <div className="mb-4 text-right"><Link className="text-sm font-semibold text-sky-800 hover:underline" href="/categories">View more categories</Link></div>
