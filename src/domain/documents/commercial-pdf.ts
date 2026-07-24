@@ -37,7 +37,7 @@ const pdfText = (value: string) =>
     .replace(/[^\x20-\x7E]/g, "")
     .replace(/([\\()])/g, "\\$1");
 
-const textWidth = (value: string, size: number) => value.length * size * 0.49;
+const textWidth = (value: string, size: number, bold = false) => value.length * size * (bold ? 0.56 : 0.49);
 const formatDate = (date: Date) => date.toLocaleDateString("en-ZA", { day: "2-digit", month: "short", year: "numeric" });
 
 function wrap(value: string, width: number, size = 9) {
@@ -131,7 +131,7 @@ function text(value: string, x: number, y: number, size = 9, font = "F1", color 
 }
 
 function rightText(value: string, right: number, y: number, size = 9, font = "F1", color = NAVY) {
-  return text(value, Math.max(MARGIN, right - textWidth(value, size)), y, size, font, color);
+  return text(value, Math.max(MARGIN, right - textWidth(value, size, font === "F2")), y, size, font, color);
 }
 
 function rect(x: number, y: number, width: number, height: number, color: string) {
@@ -139,16 +139,18 @@ function rect(x: number, y: number, width: number, height: number, color: string
 }
 
 function pageHeader(input: CommercialPdfInput, branding: DocumentBranding, page: number, pages: number, hasLogo: boolean) {
+  const titleLines = wrap(input.title, 300, 14).slice(0, 2);
+  const titleTop = titleLines.length > 1 ? 806 : 800;
   const commands = [
     rect(0, PAGE_HEIGHT - 118, PAGE_WIDTH, 118, "1 1 1"),
     rect(0, PAGE_HEIGHT - 122, PAGE_WIDTH, 4, BLUE),
     hasLogo
       ? "q 156 0 0 52 40 760 cm /Logo Do Q"
       : text("INNOZANZI", MARGIN, 792, 20, "F2", NAVY),
-    rightText(input.title, PAGE_WIDTH - MARGIN, 800, 15, "F2", NAVY),
-    rightText(input.number, PAGE_WIDTH - MARGIN, 780, 10, "F2", BLUE),
+    ...titleLines.map((line, index) => rightText(line, PAGE_WIDTH - MARGIN, titleTop - index * 17, 14, "F2", NAVY)),
+    rightText(input.number, PAGE_WIDTH - MARGIN, titleLines.length > 1 ? 766 : 780, 10, "F2", BLUE),
   ];
-  if (pages > 1) commands.push(rightText(`Page ${page} of ${pages}`, PAGE_WIDTH - MARGIN, 762, 8, "F1", SLATE));
+  if (pages > 1) commands.push(rightText(`Page ${page} of ${pages}`, PAGE_WIDTH - MARGIN, titleLines.length > 1 ? 751 : 762, 8, "F1", SLATE));
   return commands;
 }
 
@@ -164,7 +166,7 @@ function firstPageBody(input: CommercialPdfInput, lines: DocumentLine[], brandin
   const commands: string[] = [];
   const contentWidth = PAGE_WIDTH - MARGIN * 2;
   commands.push(rect(MARGIN, 664, contentWidth, 68, PALE_BLUE));
-  commands.push(text("BILLED / DELIVERED TO", MARGIN + 14, 714, 7.5, "F2", BLUE));
+  commands.push(text("PREPARED FOR", MARGIN + 14, 714, 7.5, "F2", BLUE));
   commands.push(text(input.customer || "Customer", MARGIN + 14, 695, 12, "F2", NAVY));
   commands.push(text(input.email || "", MARGIN + 14, 680, 8.5, "F1", SLATE));
   commands.push(text("ISSUE DATE", 350, 714, 7.5, "F2", BLUE));
@@ -175,7 +177,7 @@ function firstPageBody(input: CommercialPdfInput, lines: DocumentLine[], brandin
   }
   if (input.reference) commands.push(text(`Reference: ${input.reference}`, 350, 678, 8, "F1", SLATE));
   commands.push(...table(input, lines, 638));
-  commands.push(...totalsAndNotes(input, branding, 638 - 26 - lines.length * 34));
+  commands.push(...totalsAndNotes(input, branding, 638 - 26 - Math.max(lines.length, 1) * 34));
   return commands;
 }
 
