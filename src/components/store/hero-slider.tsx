@@ -48,12 +48,12 @@ export function HeroSlider() {
   return (
     <section aria-roledescription="carousel" aria-label="How Innozanzi supports your business" className="border-b border-slate-200 bg-white">
       <div className="mx-auto max-w-7xl px-4 py-5 sm:px-6 sm:py-7 lg:px-8">
-        <div className="relative min-h-[31rem] overflow-hidden rounded-xl bg-[#071b33] sm:min-h-[34rem]">
+        <div className="relative min-h-[28rem] overflow-hidden rounded-xl bg-[#071b33] sm:min-h-[30rem]">
           {slides.map((slide, index) => (
             <article aria-hidden={active !== index} className={cn("absolute inset-0 transition-opacity duration-700", active === index ? "z-10 opacity-100" : "pointer-events-none opacity-0")} key={slide.title}>
               <Image className="object-cover object-center" src={slide.image} alt="" fill sizes="(max-width: 1280px) 100vw, 1280px" priority={index === 0} />
               <div className="absolute inset-0 bg-gradient-to-r from-[#06182e]/95 via-[#06182e]/75 to-[#06182e]/5" />
-              <div className="relative flex min-h-[31rem] max-w-2xl flex-col justify-center px-6 pb-24 pt-12 text-white sm:min-h-[34rem] sm:px-12 sm:pb-20">
+              <div className="relative flex min-h-[28rem] max-w-2xl flex-col justify-center px-6 pb-24 pt-10 text-white sm:min-h-[30rem] sm:px-12 sm:pb-20">
                 <p className="text-sm font-semibold tracking-wide text-sky-300">{slide.eyebrow}</p>
                 <h1 className="mt-4 max-w-xl text-4xl font-semibold tracking-tight sm:text-5xl">{slide.title}</h1>
                 <p className="mt-5 max-w-xl text-base leading-7 text-slate-200 sm:text-lg">{slide.description}</p>
