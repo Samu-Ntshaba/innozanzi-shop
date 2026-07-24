@@ -65,8 +65,7 @@ export async function describeBusinessDocument(type:BusinessDocumentType,recordI
 export async function getOrCreateBusinessDocument(type:BusinessDocumentType,recordId:string,actorId?:string){
   const descriptor=await describeBusinessDocument(type,recordId);
   const existing=await prisma.businessDocument.findUnique({where:{type_recordId_version:{type,recordId,version:descriptor.version}},include:{dispatches:{include:{sentBy:{select:{name:true,email:true}}},orderBy:{createdAt:"desc"}}}});
-  if(existing&&(existing.state!=="DRAFT"||existing.dispatches.some(item=>item.status==="SENT")))return {artifact:existing,descriptor};
-  const data={documentNumber:descriptor.number,state:descriptor.state,filename:descriptor.filename,content:Uint8Array.from(descriptor.pdf),size:descriptor.pdf.length,snapshot:descriptor.snapshot,issuedAt:descriptor.state==="ISSUED"?new Date():null,isTestData:descriptor.isTestData,...(actorId?{generatedBy:{connect:{id:actorId}}}:{})};
+  const data={documentNumber:descriptor.number,state:descriptor.state,filename:descriptor.filename,content:Uint8Array.from(descriptor.pdf),size:descriptor.pdf.length,snapshot:descriptor.snapshot,issuedAt:descriptor.state==="ISSUED"?(existing?.issuedAt??new Date()):null,isTestData:descriptor.isTestData,...(actorId?{generatedBy:{connect:{id:actorId}}}:{})};
   const saved=existing?await prisma.businessDocument.update({where:{id:existing.id},data}):await prisma.businessDocument.create({data:{type,recordId,version:descriptor.version,...data}});
   const artifact=await prisma.businessDocument.findUniqueOrThrow({where:{id:saved.id},include:{dispatches:{include:{sentBy:{select:{name:true,email:true}}},orderBy:{createdAt:"desc"}}}});
   return {artifact,descriptor};
