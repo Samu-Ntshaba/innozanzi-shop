@@ -19,7 +19,7 @@ export function BrandLogo({ className, priority = false, variant = "default" }: 
 
   return (
     <Link href="/" aria-label="Innozanzi Shop home" className={cn("inline-flex shrink-0", className)}>
-      <Image src="/brand/innozanzi-shop-logo.png" alt="Innozanzi Shop" width={720} height={360} className="h-auto w-full object-contain" priority={priority} />
+      <Image src="/brand/innozanzi-shop-logo-header-v2.png" alt="Innozanzi Shop" width={600} height={200} className="h-auto w-full object-contain" priority={priority} />
     </Link>
   );
 }
