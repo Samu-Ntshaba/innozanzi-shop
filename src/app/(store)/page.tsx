@@ -24,7 +24,7 @@ import { entityMetadata } from "@/domain/marketing/seo";
 import type { Metadata } from "next";
 
 export const dynamic = "force-dynamic";
-export async function generateMetadata():Promise<Metadata>{return entityMetadata({entityType:"STATIC_PAGE",entityId:"homepage",path:"/",title:"Business technology made simple",description:"Receive fast technology quotations, expert advice, delivery, installation and ongoing support from one trusted South African technology partner."})}
+export async function generateMetadata():Promise<Metadata>{return entityMetadata({entityType:"STATIC_PAGE",entityId:"homepage",path:"/",title:"Innozanzi — Technology That Moves Business Forward",description:"Fast quotations. Expert advice. Nationwide delivery, installation and ongoing support for your business.",image:"/social/innozanzi-share.png"})}
 
 const fallbackCategories = [
   { id: "laptops", name: "Laptops", slug: "laptops", description: "Work, study and business notebooks", icon: Laptop },
