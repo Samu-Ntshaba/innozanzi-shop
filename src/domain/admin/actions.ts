@@ -7,9 +7,25 @@ import { requirePermission } from "@/domain/auth/session";
 import { enqueueEmail } from "@/integrations/email/outbox";
 import { emailTemplates } from "@/integrations/email/templates";
 import { assertOrderTransition, reservationAfterRelease } from "@/domain/orders/lifecycle";
+import { categoryIconOptions } from "@/components/store/category-icon";
 
 const slugify = (value: string) => value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 const text = z.string().trim().min(1).max(200);
+const categorySchema = z.object({
+  name: text,
+  slug: z.string().trim().max(200).optional(),
+  description: z.string().trim().max(2000).optional(),
+  iconKey: z.string().refine(value => categoryIconOptions.some(([key]) => key === value), "Choose a valid category icon."),
+  displayOrder: z.coerce.number().int().min(0).max(10000).default(0),
+});
+
+const refreshCategories = (slug?: string) => {
+  revalidatePath("/");
+  revalidatePath("/shop");
+  revalidatePath("/categories");
+  revalidatePath("/admin/categories");
+  if (slug) revalidatePath(`/categories/${slug}`);
+};
 
 async function audit(actorId: string, action: string, entityType: string, entityId: string, before: unknown, after: unknown) {
   await prisma.auditLog.create({ data: { actorId, action, entityType, entityId, before: before as object | undefined, after: after as object | undefined } });
@@ -17,10 +33,37 @@ async function audit(actorId: string, action: string, entityType: string, entity
 
 export async function createCategory(formData: FormData) {
   const context = await requirePermission("products.update");
-  const value = text.parse(formData.get("name"));
-  const category = await prisma.category.create({ data: { name: value, slug: slugify(value) } });
-  await audit(context.user.id, "category.create", "Category", category.id, undefined, { name: category.name, slug: category.slug });
-  revalidatePath("/admin/categories");
+  const data = categorySchema.parse(Object.fromEntries(formData));
+  const slug = slugify(data.slug || data.name);
+  const category = await prisma.category.create({ data: { name: data.name, slug, description: data.description || null, imagePath: `icon:${data.iconKey}`, displayOrder: data.displayOrder } });
+  await audit(context.user.id, "category.create", "Category", category.id, undefined, { name: category.name, slug: category.slug, icon: category.imagePath });
+  refreshCategories(category.slug);
+}
+
+export async function updateCategory(formData: FormData) {
+  const context = await requirePermission("products.update");
+  const data = categorySchema.extend({ id: z.string().uuid(), isActive: z.string().optional() }).parse(Object.fromEntries(formData));
+  const before = await prisma.category.findUniqueOrThrow({ where: { id: data.id } });
+  const slug = slugify(data.slug || data.name);
+  const category = await prisma.category.update({ where: { id: data.id }, data: { name: data.name, slug, description: data.description || null, imagePath: `icon:${data.iconKey}`, displayOrder: data.displayOrder, isActive: data.isActive === "on" } });
+  await audit(context.user.id, "category.update", "Category", category.id, { name: before.name, slug: before.slug, icon: before.imagePath, isActive: before.isActive }, { name: category.name, slug: category.slug, icon: category.imagePath, isActive: category.isActive });
+  refreshCategories(before.slug);
+  refreshCategories(category.slug);
+}
+
+export async function deleteCategory(formData: FormData) {
+  const context = await requirePermission("products.update");
+  const id = z.string().uuid().parse(formData.get("id"));
+  const category = await prisma.category.findUniqueOrThrow({ where: { id }, include: { _count: { select: { products: true, children: true, couponCategories: true } } } });
+  const hasDependencies = category._count.products > 0 || category._count.children > 0 || category._count.couponCategories > 0;
+  if (hasDependencies) {
+    await prisma.category.update({ where: { id }, data: { isActive: false } });
+    await audit(context.user.id, "category.deactivate", "Category", id, { isActive: category.isActive }, { isActive: false, reason: "Category has linked records" });
+  } else {
+    await prisma.category.delete({ where: { id } });
+    await audit(context.user.id, "category.delete", "Category", id, { name: category.name, slug: category.slug }, undefined);
+  }
+  refreshCategories(category.slug);
 }
 
 export async function createBrand(formData: FormData) {
