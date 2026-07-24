@@ -70,12 +70,12 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <section className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-        <div className="mb-6 flex items-end justify-between"><div><p className="text-sm font-semibold text-sky-800">Shop by category</p><h2 className="mt-1 text-2xl font-semibold text-slate-950 sm:text-3xl">Find the right technology</h2></div><Link className="hidden text-sm font-semibold text-sky-800 hover:underline sm:block" href="/shop">View all categories</Link></div>
-        <div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2 lg:grid-cols-4">
+      <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        <div className="mb-4 flex items-center justify-between gap-4"><h2 className="text-lg font-semibold text-slate-950 sm:text-xl">Shop by category</h2><Link className="text-sm font-semibold text-sky-800 hover:underline" href="/shop">View all</Link></div>
+        <div className="-mx-4 flex snap-x gap-3 overflow-x-auto px-4 pb-2 sm:mx-0 sm:grid sm:grid-cols-3 sm:overflow-visible sm:px-0 lg:grid-cols-6">
           {categories.map((category) => {
             const Icon = category.icon;
-            return <Link key={category.id} href={`/categories/${category.slug}`} className="group rounded-lg border border-slate-200 bg-white p-5 transition hover:border-slate-400"><div className="grid size-11 place-items-center rounded-md bg-slate-100 text-sky-800"><Icon className="size-5" /></div><h3 className="mt-4 text-sm font-semibold text-slate-900">{category.name}</h3><p className="mt-1 line-clamp-2 text-xs leading-5 text-slate-500">{category.description}</p></Link>;
+            return <Link key={category.id} href={`/categories/${category.slug}`} className="group flex min-w-36 snap-start items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 py-3 transition hover:border-sky-300 hover:bg-sky-50/40 sm:min-w-0"><div className="grid size-9 shrink-0 place-items-center rounded-md bg-slate-100 text-sky-800 transition group-hover:bg-white"><Icon className="size-4" /></div><h3 className="text-sm font-semibold leading-5 text-slate-900">{category.name}</h3></Link>;
           })}
         </div>
       </section>
