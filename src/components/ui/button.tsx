@@ -3,11 +3,11 @@ import type { ButtonHTMLAttributes } from "react";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center rounded-lg text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 disabled:pointer-events-none disabled:opacity-50",
+  "inline-flex items-center justify-center rounded-md text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-700 disabled:pointer-events-none disabled:opacity-50",
   {
     variants: {
       variant: {
-        primary: "bg-sky-600 text-white hover:bg-sky-700",
+        primary: "bg-[#0b6da8] text-white hover:bg-[#085a8c]",
         secondary: "bg-zinc-900 text-white hover:bg-zinc-800",
         outline: "border border-zinc-300 bg-white text-zinc-900 hover:bg-zinc-50",
         ghost: "text-zinc-700 hover:bg-zinc-100",
