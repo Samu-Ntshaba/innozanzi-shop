@@ -28,11 +28,13 @@ export async function globalSeoSettings():Promise<GlobalSeoSettings>{
 export function absoluteUrl(path:string,base:string){try{return new URL(path,base).toString()}catch{return base}}
 
 export async function entityMetadata(input:{entityType:string;entityId:string;path:string;title:string;description?:string|null;image?:string|null;keywords?:string[]}):Promise<Metadata>{
-  const [global,seo]=await Promise.all([globalSeoSettings(),prisma.seoRecord.findUnique({where:{entityType_entityId:{entityType:input.entityType,entityId:input.entityId}}})]);
+  const global=await globalSeoSettings();
+  let seo:Awaited<ReturnType<typeof prisma.seoRecord.findUnique>>=null;
+  try{seo=await prisma.seoRecord.findUnique({where:{entityType_entityId:{entityType:input.entityType,entityId:input.entityId}}})}catch(error){console.error("Page SEO override unavailable; using content defaults",error)}
   const title=seo?.title||input.title||global.siteTitle;const description=seo?.description||input.description||global.description;
   const canonical=seo?.canonicalUrl||absoluteUrl(input.path,global.siteUrl);const image=seo?.openGraphImage||seo?.twitterImage||input.image||global.defaultImage;
   const noIndex=isTestModeEnvironment()||seo?.isTestData||seo?.indexable===false;
-  return{title,description,keywords:[...(input.keywords??[]),seo?.primaryKeyword??"",...(seo?.secondaryKeywords??[])].filter(Boolean),alternates:{canonical},robots:{index:!noIndex,follow:!isTestModeEnvironment()&&(seo?.followLinks??true)},openGraph:{type:"website",title:seo?.openGraphTitle||title,description:seo?.openGraphDescription||description,url:canonical,siteName:global.businessName,locale:"en_ZA",images:image?[{url:absoluteUrl(image,global.siteUrl),width:1200,height:630,alt:title,type:"image/png"}]:undefined},twitter:{card:"summary_large_image",site:global.twitter||undefined,title:seo?.twitterTitle||seo?.openGraphTitle||title,description:seo?.twitterDescription||seo?.openGraphDescription||description,images:image?[{url:absoluteUrl(seo?.twitterImage||image,global.siteUrl),alt:title}]:undefined}};
+  return{title:input.path==="/"?{absolute:title}:title,description,keywords:[...(input.keywords??[]),seo?.primaryKeyword??"",...(seo?.secondaryKeywords??[])].filter(Boolean),alternates:{canonical},robots:{index:!noIndex,follow:!isTestModeEnvironment()&&(seo?.followLinks??true)},openGraph:{type:"website",title:seo?.openGraphTitle||title,description:seo?.openGraphDescription||description,url:canonical,siteName:global.businessName,locale:"en_ZA",images:image?[{url:absoluteUrl(image,global.siteUrl),width:1200,height:630,alt:title,type:"image/png"}]:undefined},twitter:{card:"summary_large_image",site:global.twitter||undefined,title:seo?.twitterTitle||seo?.openGraphTitle||title,description:seo?.twitterDescription||seo?.openGraphDescription||description,images:image?[{url:absoluteUrl(seo?.twitterImage||image,global.siteUrl),alt:title}]:undefined}};
 }
 
 export function safeJsonLd(value:unknown){return JSON.stringify(value).replace(/</g,"\\u003c")}
