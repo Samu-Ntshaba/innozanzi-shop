@@ -5,44 +5,126 @@ import { prisma } from "@/lib/prisma";
 
 export default async function NewTransport() {
   await requirePermission("transport.create");
-  const [categories, providers, orders, suppliers, returns, claims, staff, partners, notes] = await Promise.all([
+  const [categories, providers, orders, suppliers, returns, claims, staff, partners, deliveryNotes] = await Promise.all([
     prisma.transportCategory.findMany({ where: { isActive: true }, orderBy: { displayOrder: "asc" } }),
     prisma.transportProvider.findMany({ where: { isActive: true, deletedAt: null }, orderBy: { name: "asc" } }),
     prisma.order.findMany({ orderBy: { createdAt: "desc" }, take: 100, select: { id: true, orderNumber: true, email: true } }),
     prisma.supplier.findMany({ where: { isActive: true, deletedAt: null }, orderBy: { companyName: "asc" } }),
     prisma.returnCase.findMany({ where: { status: { not: "CLOSED" } }, orderBy: { createdAt: "desc" }, take: 100 }),
     prisma.distributorClaim.findMany({ where: { status: { notIn: ["CLOSED", "DECLINED"] } }, orderBy: { createdAt: "desc" }, take: 100 }),
-    prisma.user.findMany({ where: { accountType: "INTERNAL_EMPLOYEE", status: "ACTIVE" }, select: { id: true, name: true, email: true } }),
-    prisma.partnership.findMany({ where: { status: { in: ["APPROVED", "CONDITIONALLY_APPROVED"] } }, include: { owner: true } }),
+    prisma.user.findMany({
+      where: { accountType: "INTERNAL_EMPLOYEE", status: "ACTIVE" },
+      select: { id: true, name: true, email: true },
+      orderBy: { name: "asc" },
+    }),
+    prisma.partnership.findMany({
+      where: { status: { in: ["APPROVED", "CONDITIONALLY_APPROVED"] } },
+      include: { owner: true },
+      orderBy: { createdAt: "desc" },
+      take: 100,
+    }),
     prisma.deliveryNote.findMany({ orderBy: { createdAt: "desc" }, take: 100 }),
   ]);
-  const select = `${inputClass} mt-1 w-full`;
-  return <AdminPage title="Create transport record" description="Capture transport arranged inside or outside the system. Only select links relevant to this movement.">
-    <Panel><form action={createTransport} className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-      <label>Transport type<select className={select} name="categoryId" required><option value="">Select category</option>{categories.map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</select></label>
-      <label>Provider<select className={select} name="providerId"><option value="">Internal / not assigned</option>{providers.map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</select></label>
-      <label>Scheduled date<input className={select} name="scheduledAt" type="datetime-local"/></label>
-      <label>Origin<input className={select} name="origin" required/></label><label>Destination<input className={select} name="destination" required/></label>
-      <label>Distance km<input className={select} name="distanceKm" type="number" min="0" step=".1"/></label>
-      <label>Related order<select className={select} name="orderId"><option value="">None</option>{orders.map(x=><option key={x.id} value={x.id}>{x.orderNumber} · {x.email}</option>)}</select></label>
-      <label>Delivery note<select className={select} name="deliveryNoteId"><option value="">None</option>{notes.map(x=><option key={x.id} value={x.id}>{x.deliveryNoteNumber}</option>)}</select></label>
-      <label>Supplier<select className={select} name="supplierId"><option value="">None</option>{suppliers.map(x=><option key={x.id} value={x.id}>{x.companyName}</option>)}</select></label>
-      <label>Return case<select className={select} name="returnCaseId"><option value="">None</option>{returns.map(x=><option key={x.id} value={x.id}>{x.referenceNumber}</option>)}</select></label>
-      <label>Distributor claim<select className={select} name="distributorClaimId"><option value="">None</option>{claims.map(x=><option key={x.id} value={x.id}>{x.claimNumber}</option>)}</select></label>
-      <label>Partnership<select className={select} name="partnershipId"><option value="">None</option>{partners.map(x=><option key={x.id} value={x.id}>{x.partnerNumber} · {x.owner.name??x.owner.email}</option>)}</select></label>
-      <label>Responsible person<select className={select} name="responsibleUserId"><option value="">Unassigned</option>{staff.map(x=><option key={x.id} value={x.id}>{x.name??x.email}</option>)}</select></label>
-      <label>Technician<select className={select} name="technicianId"><option value="">None</option>{staff.map(x=><option key={x.id} value={x.id}>{x.name??x.email}</option>)}</select></label>
-      <label>PO reference<input className={select} name="purchaseOrderReference"/></label>
-      <label>Cost responsibility<select className={select} name="responsibility">{["INNOZANZI","CUSTOMER","SUPPLIER","DISTRIBUTOR","SHARED","INCLUDED_IN_PRODUCT_PRICE","INCLUDED_IN_PARTNERSHIP","RECOVERABLE_FROM_SUPPLIER","RECOVERABLE_FROM_CUSTOMER","WAIVED","OTHER"].map(x=><option key={x}>{x}</option>)}</select></label>
-      <label>Allocation method<select className={select} name="allocationMethod">{["NONE","FULL_ORDER","EQUAL_PER_ITEM","BY_QUANTITY","BY_PRODUCT_VALUE","BY_WEIGHT","BY_VOLUME","MANUAL"].map(x=><option key={x}>{x}</option>)}</select></label>
-      <label>Estimated cost R<input className={select} name="estimatedAmount" type="number" min="0" step=".01" defaultValue="0"/></label>
-      <label>Proposed budget R<input className={select} name="approvedBudget" type="number" min="0" step=".01" defaultValue="0"/></label>
-      <label>Customer charge R<input className={select} name="customerCharge" type="number" min="0" step=".01" defaultValue="0"/></label>
-      <label>Vehicle<input className={select} name="vehicle"/></label><label>Driver name<input className={select} name="driverName"/></label>
-      <label className="sm:col-span-2 xl:col-span-3">Purpose<textarea className={`${select} min-h-24`} name="purpose" required/></label>
-      <label className="sm:col-span-2">Special handling instructions<textarea className={`${select} min-h-20`} name="specialInstructions"/></label>
-      <label>Internal note<textarea className={`${select} min-h-20`} name="internalNote"/></label>
-      <button className={`${buttonClass} sm:col-span-2 xl:col-span-3`}>Create transport request</button>
-    </form></Panel>
-  </AdminPage>;
+  const field = `${inputClass} mt-1 w-full`;
+
+  return (
+    <AdminPage
+      title="Create transport request"
+      description="Choose what is moving and when. Existing business data fills in the route, links and financial defaults."
+    >
+      <Panel>
+        <form action={createTransport} className="space-y-6">
+          <div className="grid gap-4 md:grid-cols-2">
+            <label className="text-sm font-semibold">
+              Movement type
+              <select className={field} name="categoryId" required>
+                <option value="">Select movement type</option>
+                {categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
+              </select>
+            </label>
+            <label className="text-sm font-semibold">
+              Related business record
+              <select className={field} name="relatedRecord">
+                <option value="">General business movement</option>
+                <optgroup label="Orders">
+                  {orders.map((order) => <option key={order.id} value={`ORDER:${order.id}`}>{order.orderNumber} · {order.email}</option>)}
+                </optgroup>
+                <optgroup label="Delivery notes">
+                  {deliveryNotes.map((note) => <option key={note.id} value={`DELIVERY_NOTE:${note.id}`}>{note.deliveryNoteNumber}</option>)}
+                </optgroup>
+                <optgroup label="Returns">
+                  {returns.map((item) => <option key={item.id} value={`RETURN_CASE:${item.id}`}>{item.referenceNumber}</option>)}
+                </optgroup>
+                <optgroup label="Distributor claims">
+                  {claims.map((claim) => <option key={claim.id} value={`DISTRIBUTOR_CLAIM:${claim.id}`}>{claim.claimNumber}</option>)}
+                </optgroup>
+                <optgroup label="Suppliers">
+                  {suppliers.map((supplier) => <option key={supplier.id} value={`SUPPLIER:${supplier.id}`}>{supplier.companyName}</option>)}
+                </optgroup>
+                <optgroup label="Partnerships">
+                  {partners.map((partner) => <option key={partner.id} value={`PARTNERSHIP:${partner.id}`}>{partner.partnerNumber} · {partner.owner.name ?? partner.owner.email}</option>)}
+                </optgroup>
+              </select>
+              <span className="mt-1 block text-xs font-normal text-slate-500">
+                This automatically links the order, customer, delivery note, return, supplier or partner.
+              </span>
+            </label>
+            <label className="text-sm font-semibold">
+              Provider
+              <select className={field} name="providerId">
+                <option value="">Choose later / internal transport</option>
+                {providers.map((provider) => <option key={provider.id} value={provider.id}>{provider.name}</option>)}
+              </select>
+            </label>
+            <label className="text-sm font-semibold">
+              Planned date
+              <input className={field} name="scheduledAt" type="datetime-local" />
+            </label>
+          </div>
+
+          <details className="rounded-lg border border-slate-200">
+            <summary className="cursor-pointer px-4 py-3 text-sm font-semibold">
+              Route and instructions <span className="font-normal text-slate-500">· optional</span>
+            </summary>
+            <div className="grid gap-4 border-t border-slate-200 p-4 md:grid-cols-2">
+              <label className="text-sm font-semibold">Origin<input className={field} name="origin" placeholder="Filled automatically when available" /></label>
+              <label className="text-sm font-semibold">Destination<input className={field} name="destination" placeholder="Filled automatically when available" /></label>
+              <label className="text-sm font-semibold md:col-span-2">Purpose<textarea className={`${field} min-h-20`} name="purpose" placeholder="Generated from the movement type and linked record" /></label>
+              <label className="text-sm font-semibold md:col-span-2">Special handling instructions<textarea className={`${field} min-h-20`} name="specialInstructions" placeholder="Fragile items, access instructions, contact details or timing constraints" /></label>
+            </div>
+          </details>
+
+          <details className="rounded-lg border border-slate-200">
+            <summary className="cursor-pointer px-4 py-3 text-sm font-semibold">
+              Internal assignment <span className="font-normal text-slate-500">· optional</span>
+            </summary>
+            <div className="grid gap-4 border-t border-slate-200 p-4 md:grid-cols-2">
+              <label className="text-sm font-semibold">
+                Responsible person
+                <select className={field} name="responsibleUserId">
+                  <option value="">Assign later</option>
+                  {staff.map((person) => <option key={person.id} value={person.id}>{person.name ?? person.email}</option>)}
+                </select>
+              </label>
+              <label className="text-sm font-semibold">
+                Technician
+                <select className={field} name="technicianId">
+                  <option value="">Not required / assign later</option>
+                  {staff.map((person) => <option key={person.id} value={person.id}>{person.name ?? person.email}</option>)}
+                </select>
+              </label>
+              <label className="text-sm font-semibold md:col-span-2">Internal note<textarea className={`${field} min-h-20`} name="internalNote" /></label>
+            </div>
+          </details>
+
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-5">
+            <p className="max-w-2xl text-xs leading-5 text-slate-500">
+              Costs, quotations, approval, driver details and payment are recorded only when their workflow stage is reached.
+            </p>
+            <button className={buttonClass}>Create transport request</button>
+          </div>
+        </form>
+      </Panel>
+    </AdminPage>
+  );
 }

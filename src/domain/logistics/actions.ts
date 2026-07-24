@@ -9,6 +9,7 @@ import { requirePermission } from "@/domain/auth/session";
 import { assertTransportTransition } from "@/domain/logistics/lifecycle";
 import { prisma } from "@/lib/prisma";
 import { createSupabaseAdmin } from "@/lib/supabase";
+import { getDocumentBranding } from "@/domain/documents/branding";
 
 const optionalDate=z.preprocess(v=>v===""||v==null?undefined:v,z.coerce.date().optional());
 const optionalUuid=z.preprocess(v=>v===""||v==null?undefined:v,z.string().uuid().optional());
@@ -28,12 +29,38 @@ async function upload(file:FormDataEntryValue|null,folder:string){
 
 export async function createTransport(formData:FormData){
   const ctx=await requirePermission("transport.create");
-  const data=z.object({categoryId:z.string().uuid(),purpose:z.string().trim().min(5).max(3000),origin:z.string().trim().min(2).max(500),destination:z.string().trim().min(2).max(500),scheduledAt:optionalDate,providerId:optionalUuid,responsibleUserId:optionalUuid,technicianId:optionalUuid,customerId:optionalUuid,supplierId:optionalUuid,orderId:optionalUuid,deliveryNoteId:optionalUuid,returnCaseId:optionalUuid,distributorClaimId:optionalUuid,partnershipId:optionalUuid,purchaseOrderReference:z.string().trim().max(120).optional(),responsibility:z.enum(["CUSTOMER","INNOZANZI","SUPPLIER","DISTRIBUTOR","SHARED","INCLUDED_IN_PRODUCT_PRICE","INCLUDED_IN_PARTNERSHIP","RECOVERABLE_FROM_SUPPLIER","RECOVERABLE_FROM_CUSTOMER","WAIVED","OTHER"]),allocationMethod:z.enum(["EQUAL_PER_ITEM","BY_QUANTITY","BY_PRODUCT_VALUE","BY_WEIGHT","BY_VOLUME","MANUAL","NONE","FULL_ORDER"]),estimatedAmount:money,approvedBudget:money,customerCharge:money,distanceKm:z.coerce.number().min(0).optional(),vehicle:z.string().trim().max(160).optional(),driverName:z.string().trim().max(160).optional(),specialInstructions:z.string().trim().max(3000).optional(),internalNote:z.string().trim().max(3000).optional()}).parse(Object.fromEntries(formData));
+  const data=z.object({categoryId:z.string().uuid(),relatedRecord:z.string().trim().optional(),purpose:z.string().trim().max(3000).optional(),origin:z.string().trim().max(500).optional(),destination:z.string().trim().max(500).optional(),scheduledAt:optionalDate,providerId:optionalUuid,responsibleUserId:optionalUuid,technicianId:optionalUuid,specialInstructions:z.string().trim().max(3000).optional(),internalNote:z.string().trim().max(3000).optional()}).parse(Object.fromEntries(formData));
+  const relation=data.relatedRecord?.match(/^(ORDER|DELIVERY_NOTE|RETURN_CASE|DISTRIBUTOR_CLAIM|SUPPLIER|PARTNERSHIP):([0-9a-f-]{36})$/i);
+  if(data.relatedRecord&&!relation)throw new Error("The related logistics record is invalid.");
+  const relatedType=relation?.[1].toUpperCase(),relatedId=relation?.[2];
+  const [category,branding,order,deliveryNote,returnCase]=await Promise.all([
+    prisma.transportCategory.findUniqueOrThrow({where:{id:data.categoryId}}),
+    getDocumentBranding(),
+    relatedType==="ORDER"?prisma.order.findUnique({where:{id:relatedId},include:{addresses:true}}):null,
+    relatedType==="DELIVERY_NOTE"?prisma.deliveryNote.findUnique({where:{id:relatedId},include:{order:{include:{addresses:true}}}}):null,
+    relatedType==="RETURN_CASE"?prisma.returnCase.findUnique({where:{id:relatedId},include:{order:{include:{addresses:true}}}}):null,
+  ]);
+  const linkedOrder=order??deliveryNote?.order??returnCase?.order;
+  const deliveryAddress=linkedOrder?.addresses.find(address=>address.type==="DELIVERY"||address.type==="BOTH");
+  const formattedAddress=deliveryAddress?[deliveryAddress.line1,deliveryAddress.line2,deliveryAddress.suburb,deliveryAddress.city,deliveryAddress.province,deliveryAddress.postalCode].filter(Boolean).join(", "):undefined;
+  const relatedLabel=order?.orderNumber??deliveryNote?.deliveryNoteNumber??returnCase?.referenceNumber??relatedId;
+  const inbound=relatedType==="RETURN_CASE";
+  const origin=data.origin||(inbound?(formattedAddress??"Customer collection address to be confirmed"):branding.address);
+  const destination=data.destination||(inbound?branding.address:(deliveryNote?.deliveryAddress??formattedAddress??"Delivery address to be confirmed"));
+  const purpose=data.purpose||`${category.name}${relatedLabel?` for ${relatedLabel}`:""}`;
+  const links={
+    orderId:linkedOrder?.id,
+    deliveryNoteId:relatedType==="DELIVERY_NOTE"?relatedId:undefined,
+    returnCaseId:relatedType==="RETURN_CASE"?relatedId:undefined,
+    distributorClaimId:relatedType==="DISTRIBUTOR_CLAIM"?relatedId:undefined,
+    supplierId:relatedType==="SUPPLIER"?relatedId:undefined,
+    partnershipId:relatedType==="PARTNERSHIP"?relatedId:undefined,
+  };
   const number=ref();
   const row=await prisma.$transaction(async tx=>{
-    const created=await tx.transportRecord.create({data:{referenceNumber:number,categoryId:data.categoryId,purpose:data.purpose,status:"REQUESTED",origin:data.origin,destination:data.destination,scheduledAt:data.scheduledAt,providerId:data.providerId,responsibleUserId:data.responsibleUserId,technicianId:data.technicianId,customerId:data.customerId,supplierId:data.supplierId,orderId:data.orderId,deliveryNoteId:data.deliveryNoteId,returnCaseId:data.returnCaseId,distributorClaimId:data.distributorClaimId,partnershipId:data.partnershipId,purchaseOrderReference:data.purchaseOrderReference||null,responsibility:data.responsibility,allocationMethod:data.allocationMethod,estimatedAmount:new Decimal(data.estimatedAmount),approvedBudget:new Decimal(data.approvedBudget),customerCharge:new Decimal(data.customerCharge),distanceKm:data.distanceKm,vehicle:data.vehicle||null,driverName:data.driverName||null,specialInstructions:data.specialInstructions||null,internalNote:data.internalNote||null,requestedById:ctx.user.id,isInternal:!data.providerId,isTestData:false}});
+    const created=await tx.transportRecord.create({data:{referenceNumber:number,categoryId:data.categoryId,purpose,status:"REQUESTED",origin,destination,scheduledAt:data.scheduledAt,providerId:data.providerId,responsibleUserId:data.responsibleUserId,technicianId:data.technicianId,customerId:linkedOrder?.userId??returnCase?.customerId, ...links,purchaseOrderReference:linkedOrder?.purchaseOrderNumber??null,responsibility:category.defaultResponsibility,allocationMethod:linkedOrder?"FULL_ORDER":"NONE",estimatedAmount:new Decimal(0),approvedBudget:new Decimal(0),customerCharge:new Decimal(0),specialInstructions:data.specialInstructions||null,internalNote:data.internalNote||null,requestedById:ctx.user.id,isInternal:!data.providerId,isTestData:false}});
     await tx.transportEvent.create({data:{transportId:created.id,actorId:ctx.user.id,action:"CREATED",toStatus:"REQUESTED",internalNote:"Transport request created."}});
-    await tx.auditLog.create({data:{actorId:ctx.user.id,action:"transport.create",entityType:"TransportRecord",entityId:created.id,after:{referenceNumber:number,categoryId:data.categoryId,orderId:data.orderId,returnCaseId:data.returnCaseId,estimatedAmount:data.estimatedAmount}}});
+    await tx.auditLog.create({data:{actorId:ctx.user.id,action:"transport.create",entityType:"TransportRecord",entityId:created.id,after:{referenceNumber:number,categoryId:data.categoryId,relatedType,relatedId,automatedFields:["route","purpose","responsibility","allocation","financialDefaults"]}}});
     return created;
   });
   redirect(`/admin/logistics/${row.id}`);
