@@ -38,6 +38,20 @@ body {
   text-wrap: balance;
 }
 
+.storefront .font-black {
+  font-weight: 700;
+}
+
+.storefront .rounded-2xl,
+.storefront .rounded-3xl {
+  border-radius: .75rem;
+}
+
+.storefront .shadow-xl,
+.storefront .shadow-2xl {
+  box-shadow: 0 10px 25px rgb(15 23 42 / .12);
+}
+
 :focus-visible {
   outline: 3px solid var(--brand-amber);
   outline-offset: 3px;
