@@ -41,6 +41,7 @@ export async function StoreHeader() {
     <nav aria-label="Product categories" className="mx-auto hidden h-11 max-w-7xl items-center gap-7 border-t border-slate-100 px-6 lg:flex lg:px-8">
       <Link className="text-sm font-semibold text-sky-800" href="/shop">All products</Link>
       {categories.map(([label, slug]) => <Link key={slug} className="text-sm font-medium text-slate-600 hover:text-slate-950" href={`/categories/${slug}`}>{label}</Link>)}
+      <Link className="ml-auto text-sm font-medium text-slate-600 hover:text-slate-950" href="/blog">Insights</Link>
     </nav>
   </header>;
 }
