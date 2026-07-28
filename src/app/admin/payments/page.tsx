@@ -8,10 +8,10 @@ import {
   tableClass,
 } from "@/components/admin/admin-ui";
 import { requirePermission } from "@/domain/auth/session";
-import { verifyPaymentSubmission } from "@/domain/payments/actions";
+import { createPaystackRefund, verifyPaymentSubmission } from "@/domain/payments/actions";
 export default async function Page() {
   await requirePermission("payments.approve");
-  const rows = await prisma.paymentSubmission.findMany({
+  const [rows,onlinePayments] = await Promise.all([prisma.paymentSubmission.findMany({
     include: {
       quotation: { include: { quotationRequest: true } },
       document: true,
@@ -22,7 +22,7 @@ export default async function Page() {
     },
     orderBy: { submittedAt: "desc" },
     take: 100,
-  });
+  }),prisma.payment.findMany({where:{provider:"PAYSTACK",status:{in:["PAID","PARTIALLY_REFUNDED"]}},include:{order:true},orderBy:{paidAt:"desc"},take:100})]);
   return (
     <AdminPage
       title="Payment verification"
@@ -33,6 +33,12 @@ export default async function Page() {
           <div><h2 className="font-bold">Customer refund payment queue</h2><p className="mt-1 text-sm text-slate-600">Approved refunds remain separate from original payments and require finance confirmation before completion.</p></div>
           <Link className="rounded bg-sky-700 px-4 py-2 text-sm font-bold text-white" href="/admin/returns?refund=AWAITING_PAYMENT">Open refund queue</Link>
         </div>
+      </Panel>
+      <Panel title="Paystack refunds" description="Refunds are sent back through the original Paystack transaction and recorded in the audit log.">
+        <div className="overflow-x-auto"><table className={tableClass}><thead><tr><th>Order</th><th>Captured payment</th><th>Status</th><th>Create refund</th></tr></thead><tbody>
+          {onlinePayments.map(payment=><tr key={payment.id}><td><strong>{payment.order.orderNumber}</strong><br/><span className="text-xs text-slate-500">{payment.order.email}</span></td><td>R {payment.amount.toString()}<br/><span className="text-xs font-mono">{payment.externalReference}</span></td><td><StatusBadge value={payment.status}/></td><td><form action={createPaystackRefund} className="grid min-w-72 gap-2"><input name="paymentId" type="hidden" value={payment.id}/><input className={inputClass} max={payment.amount.toString()} min="0.01" name="amount" placeholder="Refund amount" step="0.01" type="number" required/><input className={inputClass} name="reason" placeholder="Customer-facing refund reason" required/><button className="border border-red-300 bg-red-50 px-3 py-2 text-sm font-bold text-red-800">Create Paystack refund</button></form></td></tr>)}
+          {!onlinePayments.length?<tr><td colSpan={4} className="py-8 text-center text-slate-500">No refundable Paystack payments.</td></tr>:null}
+        </tbody></table></div>
       </Panel>
       <Panel>
         <div className="flex flex-wrap items-center justify-between gap-3">

@@ -1,6 +1,6 @@
 import { createHmac } from "node:crypto";
 import { describe, expect, it, vi } from "vitest";
-import { HostedPaymentAdapter, EftPaymentAdapter } from "../../src/integrations/payments/adapters";
+import { HostedPaymentAdapter, EftPaymentAdapter, PaystackPaymentAdapter } from "../../src/integrations/payments/adapters";
 import { quotationPdf } from "../../src/domain/quotations/pdf";
 import { getEmailProvider, MailtrapEmailProvider } from "../../src/integrations/email/provider";
 import { emailTemplates } from "../../src/integrations/email/templates";
@@ -68,5 +68,16 @@ describe("transactional email", () => {
     expect(payload.from).toEqual({ email: "marketing@innozanzi.co.za", name: "Innozanzi Marketing" });
     expect(payload.category).toBe("marketing");
     fetchMock.mockRestore();
+  });
+  it("initializes Paystack in subunits and uses its returned checkout URL", async()=>{
+    const fetchMock=vi.spyOn(globalThis,"fetch").mockResolvedValue(new Response(JSON.stringify({status:true,message:"Authorization URL created",data:{authorization_url:"https://checkout.paystack.com/test",reference:"IZ-payment"}}),{status:200}));
+    const session=await new PaystackPaymentAdapter("sk_test").initialize({paymentId:"payment-id",amount:"125.50",currency:"ZAR",email:"buyer@example.com",callbackUrl:"https://shop.example/callback",idempotencyKey:"payment-id"});
+    const payload=JSON.parse(String((fetchMock.mock.calls[0]?.[1] as RequestInit).body));
+    expect(payload.amount).toBe("12550");expect(session.redirectUrl).toBe("https://checkout.paystack.com/test");fetchMock.mockRestore();
+  });
+  it("validates Paystack webhooks with SHA-512 and normalizes subunit amounts",()=>{
+    const body=JSON.stringify({event:"charge.success",data:{id:12,status:"success",reference:"IZ-payment",amount:12550}});
+    const signature=createHmac("sha512","sk_test").update(body).digest("hex");
+    expect(new PaystackPaymentAdapter("sk_test").verifyWebhook(body,signature)).toMatchObject({status:"PAID",externalReference:"IZ-payment",amount:"125.5"});
   });
 });
