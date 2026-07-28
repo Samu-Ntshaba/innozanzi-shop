@@ -58,4 +58,15 @@ describe("transactional email", () => {
     expect(fetchMock).toHaveBeenCalledWith("https://send.api.mailtrap.io/api/send", expect.objectContaining({ method: "POST" }));
     fetchMock.mockRestore();
   });
+
+  it("passes a message-specific marketing sender to the provider", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({ success: true, message_ids: ["message-2"] }), { status: 200, headers: { "content-type": "application/json" } }));
+    const provider = new MailtrapEmailProvider("test-token", "support@innozanzi.co.za", "Innozanzi Shop");
+    await provider.send({ to: "buyer@example.com", from: { email: "marketing@innozanzi.co.za", name: "Innozanzi Marketing" }, category: "marketing", subject: "Campaign", text: "Text", html: "<p>Text</p>", idempotencyKey: "campaign-1" });
+    const request=fetchMock.mock.calls[0]?.[1] as RequestInit;
+    const payload=JSON.parse(String(request.body));
+    expect(payload.from).toEqual({ email: "marketing@innozanzi.co.za", name: "Innozanzi Marketing" });
+    expect(payload.category).toBe("marketing");
+    fetchMock.mockRestore();
+  });
 });

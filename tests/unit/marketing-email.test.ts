@@ -34,4 +34,10 @@ describe("marketing email renderer", () => {
     expect(message.html).toContain("Thandi Example");
     expect(message.html).toContain("thandi@example.co.za");
   });
+
+  it("uses the dedicated marketing sender for campaigns and tests", () => {
+    const message = emailTemplates.campaign("buyer@example.co.za", "New products", "Preview", "<p>Campaign</p>", "campaign-1", true);
+    expect(message.from).toEqual({ email: "marketing@innozanzi.co.za", name: "Innozanzi Marketing" });
+    expect(message.category).toBe("marketing");
+  });
 });

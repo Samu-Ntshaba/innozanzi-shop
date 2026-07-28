@@ -510,6 +510,8 @@ export async function retryMarketingEmail(formData: FormData) {
       to: z.string().email(),
       text: z.string(),
       idempotencyKey: z.string(),
+      from: z.object({ email: z.string().email(), name: z.string() }).optional(),
+      category: z.enum(["transactional", "marketing"]).optional(),
     })
     .parse(notification.data);
   await enqueueEmail({
@@ -518,6 +520,8 @@ export async function retryMarketingEmail(formData: FormData) {
     html: notification.body,
     text: data.text,
     idempotencyKey: data.idempotencyKey,
+    from: data.from,
+    category: data.category,
   });
   revalidatePath("/admin/email-marketing");
 }

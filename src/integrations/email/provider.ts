@@ -1,5 +1,5 @@
 export type EmailAttachment = { filename: string; content: Buffer; contentType: string };
-export type EmailMessage = { to: string; cc?: string[]; subject: string; html: string; text: string; idempotencyKey: string; attachments?: EmailAttachment[] };
+export type EmailMessage = { to: string; cc?: string[]; subject: string; html: string; text: string; idempotencyKey: string; attachments?: EmailAttachment[]; from?:{email:string;name:string}; category?:"transactional"|"marketing" };
 export interface EmailProvider { send(message: EmailMessage): Promise<{ messageId: string }> }
 
 type MailtrapResponse = { success?: boolean; message_ids?: string[]; errors?: Array<{ message?: string }> };
@@ -35,13 +35,13 @@ export class MailtrapEmailProvider implements EmailProvider {
       method: "POST",
       headers: { Authorization: `Bearer ${this.token}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        from: { email: this.senderEmail, name: this.senderName },
+        from: message.from ?? { email: this.senderEmail, name: this.senderName },
         to: [{ email: message.to }],
         cc: message.cc?.map(email => ({ email })),
         subject: message.subject,
         text: message.text,
         html: message.html,
-        category: "transactional",
+        category: message.category ?? "transactional",
         custom_variables: { idempotency_key: message.idempotencyKey },
         attachments: message.attachments?.map(attachment => ({ filename: attachment.filename, content: attachment.content.toString("base64"), type: attachment.contentType, disposition: "attachment" })),
       }),
@@ -75,7 +75,7 @@ export class MailtrapSmtpEmailProvider implements EmailProvider {
     });
   }
   async send(message: EmailMessage) {
-    const result = await this.transporter.sendMail({ from: { name: this.senderName, address: this.senderEmail }, to: message.to, cc: message.cc, subject: message.subject, text: message.text, html: message.html, attachments: message.attachments, headers: { "X-Idempotency-Key": message.idempotencyKey } });
+    const result = await this.transporter.sendMail({ from: message.from?{name:message.from.name,address:message.from.email}:{ name: this.senderName, address: this.senderEmail }, to: message.to, cc: message.cc, subject: message.subject, text: message.text, html: message.html, attachments: message.attachments, headers: { "X-Idempotency-Key": message.idempotencyKey } });
     return { messageId: result.messageId };
   }
 }
