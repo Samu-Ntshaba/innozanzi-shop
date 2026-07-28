@@ -1,5 +1,6 @@
 "use server";
 import{createHash,randomBytes}from"node:crypto";import{redirect}from"next/navigation";import{revalidatePath}from"next/cache";import{z}from"zod";import{prisma}from"@/lib/prisma";import{requirePermission}from"@/domain/auth/session";import{hashPassword}from"@/domain/auth/password";import{generateTemporaryPassword,invitationExpiry}from"@/domain/auth/invitation-utils";import{enqueueEmail}from"@/integrations/email/outbox";import{emailTemplates}from"@/integrations/email/templates";import{applicationNumber,partnerNumber,reviewDate}from"./service";
+import{notifySupportOfNewUser}from"@/domain/auth/user-notifications";
 
 export async function createManualPartner(formData:FormData){
   const ctx=await requirePermission("partnership.partner.manage");
@@ -60,6 +61,7 @@ export async function createManualPartner(formData:FormData){
     await tx.auditLog.create({data:{actorId:ctx.user.id,action:"partnership.partner.manual-create",entityType:"Partnership",entityId:created.id,after:{partnerNumber:number,applicationNumber:appNumber,userId:client.id,sourceMode:data.sourceMode,track:type.track,status:data.status,reason:data.reason}}});
     return created;
   });
+  if(data.sourceMode==="NEW")await notifySupportOfNewUser({userId:partner.userId,name,email,accountType:"CUSTOMER",source:"ADMIN_PARTNER_CREATION",createdBy:ctx.user.name??ctx.user.email});
   redirect(`/admin/partnerships/partners/${partner.id}`);
 }
 export async function addPartnerCommercialTerm(formData:FormData){const ctx=await requirePermission("partnership.pricing.manage");const data=z.object({partnershipId:z.string().uuid(),type:z.enum(["STANDARD_DISCOUNT","CATEGORY_DISCOUNT","PRODUCT_PRICE","QUANTITY_PRICE","PAYMENT_TERMS","DELIVERY_TERMS","SINGLE_ITEM_PERMISSION","OTHER"]),title:z.string().trim().min(3).max(160),value:z.string().trim().min(1).max(1000),minimumQty:z.coerce.number().int().positive().optional(),validUntil:z.coerce.date().optional()}).parse(Object.fromEntries(formData));const term=await prisma.partnerCommercialTerm.create({data:{...data,createdById:ctx.user.id}});await prisma.auditLog.create({data:{actorId:ctx.user.id,action:"partnership.commercial-term.create",entityType:"PartnerCommercialTerm",entityId:term.id,after:{partnershipId:data.partnershipId,type:data.type,title:data.title,value:data.value}}});revalidatePath(`/admin/partnerships/partners/${data.partnershipId}`)}

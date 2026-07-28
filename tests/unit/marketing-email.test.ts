@@ -4,6 +4,7 @@ import {
   renderProductCampaign,
   type CampaignProduct,
 } from "@/domain/communications/marketing-email";
+import { emailTemplates } from "@/integrations/email/templates";
 
 const products: CampaignProduct[] = [{
   name: "Business Laptop <Pro>",
@@ -24,5 +25,13 @@ describe("marketing email renderer", () => {
     expect(html).toContain("https://shop.innozanzi.co.za/products/business-laptop");
     expect(html).toContain("Availability and final pricing are confirmed");
     expect(html).not.toContain("Business Laptop <Pro>");
+  });
+
+  it("creates an idempotent branded support notification for new users", () => {
+    const message = emailTemplates.newUserCreated("user-123", "Thandi Example", "thandi@example.co.za", "CUSTOMER", "PUBLIC_REGISTRATION");
+    expect(message.subject).toBe("New user created: Thandi Example");
+    expect(message.idempotencyKey).toBe("new-user-created:user-123");
+    expect(message.html).toContain("Thandi Example");
+    expect(message.html).toContain("thandi@example.co.za");
   });
 });

@@ -16,6 +16,7 @@ import { clearAuthAttempts, consumeAuthAttempt, consumeRateLimit } from "@/domai
 import { createSession, deleteCurrentSession } from "@/domain/auth/session";
 import { enqueueEmail } from "@/integrations/email/outbox";
 import { emailTemplates } from "@/integrations/email/templates";
+import { notifySupportOfNewUser } from "@/domain/auth/user-notifications";
 
 function value(formData: FormData, key: string) {
   const field = formData.get(key);
@@ -79,7 +80,7 @@ export async function registerAction(formData: FormData) {
   const token = createHash("sha256").update(rawToken).digest("hex");
 
   await enqueueEmail(emailTemplates.verifyEmail(parsed.data.email, parsed.data.name, rawToken));
-  await prisma.$transaction(async (tx) => {
+  const user = await prisma.$transaction(async (tx) => {
     const customerRole = await tx.role.findUnique({ where: { slug: "customer" } });
     const user = await tx.user.create({
       data: {
@@ -100,7 +101,9 @@ export async function registerAction(formData: FormData) {
         expires: new Date(Date.now() + 24 * 60 * 60 * 1_000),
       },
     });
+    return user;
   });
+  await notifySupportOfNewUser({ userId: user.id, name: user.name, email: user.email, accountType: user.accountType, source: "PUBLIC_REGISTRATION" });
   redirect("/register?status=check-email");
 }
 
