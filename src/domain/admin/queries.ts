@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 
 export async function getAdminDashboard() {
-  const [products, orders, customers, pendingPayments, lowStock, revenue, openRequests, quotesToApprove, outstandingInvoices, pipeline, awaitingPayment, expiredQuotes, verifiedPayments, activeOrders, deliveriesInProgress, completedOrders, partnershipApplications, unassignedPartnerRequests, openHelpDesk] = await Promise.all([
+  const [products, orders, customers, pendingPayments, lowStock, revenue, openRequests, quotesToApprove, outstandingInvoices, pipeline, awaitingPayment, expiredQuotes, verifiedPayments, activeOrders, deliveriesInProgress, completedOrders, partnershipApplications, unassignedPartnerRequests, openHelpDesk] = await prisma.$transaction([
     prisma.product.count({ where: { deletedAt: null } }),
     prisma.order.count(),
     prisma.user.count({ where: { customerProfile: { isNot: null } } }),
@@ -21,7 +21,7 @@ export async function getAdminDashboard() {
     prisma.partnershipApplication.count({ where: { status: { in: ["SUBMITTED", "UNDER_REVIEW", "DUE_DILIGENCE", "DOCUMENTS_REQUIRED", "CHANGES_REQUESTED"] } } }),
     prisma.partnerRequest.count({ where: { assignedToId: null, status: { in: ["SUBMITTED", "RECEIVED"] } } }),
     prisma.helpDeskTicket.count({ where: { status: { in: ["OPEN", "IN_PROGRESS", "WAITING_CUSTOMER"] } } }),
-  ]);
+  ], { timeout: 15_000 });
   return {products,orders,customers,pendingPayments,lowStock,openRequests,quotesToApprove,outstandingInvoices,awaitingPayment,expiredQuotes,verifiedPayments,activeOrders,deliveriesInProgress,completedOrders,partnershipApplications,unassignedPartnerRequests,openHelpDesk,pipeline:pipeline._sum.grandTotal?.toString()??"0",revenue:revenue._sum.grandTotal?.toString()??"0"};
 }
 
