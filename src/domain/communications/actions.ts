@@ -20,6 +20,7 @@ import {
   renderProductCampaign,
   type CampaignCopy,
 } from "@/domain/communications/marketing-email";
+import { staffEmailRecipients } from "@/domain/notifications/role-email";
 
 const email = z.string().trim().toLowerCase().email().max(254);
 const supportSchema = z.object({
@@ -125,18 +126,9 @@ export async function submitHelpDeskTicket(formData: FormData) {
   const ticketNumber = `SUP-${Date.now().toString(36).toUpperCase()}`;
   const departmentName = supportDepartment[data.category];
   const department = await prisma.department.findFirst({ where: { companyId: null, name: departmentName, isActive: true }, select: { id: true } });
-  const staffRecipients = await prisma.user.findMany({
-    where: {
-      status: "ACTIVE",
-      deletedAt: null,
-      OR: [
-        ...(department ? [{ departmentId: department.id }] : []),
-        { roles: { some: { role: { slug: "super-administrator" } } } },
-      ],
-    },
-    select: { email: true },
-  });
-  const notificationEmails = [...new Set([process.env.SUPPORT_EMAIL ?? "support@innozanzi.co.za", ...staffRecipients.map(({ email }) => email)])];
+  const subscribedStaff = await staffEmailRecipients("HELP_DESK_CREATED");
+  const departmentStaff = department ? await prisma.user.findMany({ where: { id: { in: subscribedStaff.map(({ id }) => id) }, departmentId: department.id }, select: { email: true } }) : subscribedStaff;
+  const notificationEmails = departmentStaff.length ? departmentStaff.map(({ email }) => email) : [process.env.SUPPORT_EMAIL ?? "support@innozanzi.co.za"];
   await Promise.all([
     enqueueEmail(
       emailTemplates.helpDeskReceived(data.email, data.name, ticketNumber),
@@ -174,8 +166,9 @@ export async function createAdminHelpDeskTicket(formData: FormData) {
   }).parse(Object.fromEntries(formData));
   const department = await prisma.department.findFirstOrThrow({ where: { id: data.departmentId, isActive: true }, select: { id: true, name: true } });
   const customer = await prisma.user.findUnique({ where: { email: data.email }, select: { id: true } });
-  const recipients = await prisma.user.findMany({ where: { status: "ACTIVE", deletedAt: null, OR: [{ departmentId: department.id }, { roles: { some: { role: { slug: "super-administrator" } } } }] }, select: { email: true } });
-  const notificationEmails = [...new Set([process.env.SUPPORT_EMAIL ?? "support@innozanzi.co.za", ...recipients.map(({email})=>email)])];
+  const subscribedStaff = await staffEmailRecipients("HELP_DESK_CREATED");
+  const departmentStaff = await prisma.user.findMany({ where: { id: { in: subscribedStaff.map(({ id }) => id) }, departmentId: department.id }, select: { email: true } });
+  const notificationEmails = departmentStaff.length ? departmentStaff.map(({email})=>email) : [process.env.SUPPORT_EMAIL ?? "support@innozanzi.co.za"];
   const ticketNumber = `SUP-${Date.now().toString(36).toUpperCase()}`;
   await Promise.all([
     enqueueEmail(emailTemplates.helpDeskReceived(data.email, data.name, ticketNumber), customer?.id),
@@ -192,8 +185,9 @@ export async function replyToHelpDeskTicket(formData:FormData){
   const ticket=await prisma.helpDeskTicket.findFirst({where:{id,OR:[{customerId:ctx.user.id},{customerId:null,email:{equals:ctx.user.email,mode:"insensitive"}}]},include:{department:true}});
   if(!ticket)throw new Error("Support ticket not found.");
   if(ticket.status==="CLOSED")throw new Error("This ticket is closed. Start a new support request.");
-  const recipients=await prisma.user.findMany({where:{status:"ACTIVE",deletedAt:null,OR:[...(ticket.departmentId?[{departmentId:ticket.departmentId}]:[]),{roles:{some:{role:{slug:"super-administrator"}}}}]},select:{email:true}});
-  const emails=[...new Set([process.env.SUPPORT_EMAIL??"support@innozanzi.co.za",...recipients.map(x=>x.email)])];
+  const subscribed=await staffEmailRecipients("HELP_DESK_CUSTOMER_REPLY");
+  const departmentRecipients=ticket.departmentId?await prisma.user.findMany({where:{id:{in:subscribed.map(x=>x.id)},departmentId:ticket.departmentId},select:{email:true}}):subscribed;
+  const emails=departmentRecipients.length?departmentRecipients.map(x=>x.email):[process.env.SUPPORT_EMAIL??"support@innozanzi.co.za"];
   await Promise.all(emails.map(recipient=>enqueueEmail(emailTemplates.helpDeskCustomerReply(recipient,ticket.ticketNumber,ticket.department?.name??"Customer Care",ticket.name,message))));
   await prisma.$transaction([prisma.helpDeskActivity.create({data:{ticketId:id,actorId:ctx.user.id,type:"CUSTOMER_REPLY",message}}),prisma.helpDeskTicket.update({where:{id},data:{status:"OPEN"}})]);
   revalidatePath(`/account/support/${id}`);
@@ -228,8 +222,9 @@ export async function updateHelpDeskTicket(formData: FormData) {
   if (customerMessage) await enqueueEmail(emailTemplates.helpDeskUpdated(before.email, before.ticketNumber, status, customerMessage));
   if(departmentId&&departmentId!==before.departmentId){
     const department=await prisma.department.findUniqueOrThrow({where:{id:departmentId},select:{name:true}});
-    const recipients=await prisma.user.findMany({where:{status:"ACTIVE",deletedAt:null,OR:[{departmentId},{roles:{some:{role:{slug:"super-administrator"}}}}]},select:{email:true}});
-    const emails=[...new Set([process.env.SUPPORT_EMAIL??"support@innozanzi.co.za",...recipients.map(x=>x.email)])];
+    const subscribed=await staffEmailRecipients("HELP_DESK_CREATED");
+    const departmentRecipients=await prisma.user.findMany({where:{id:{in:subscribed.map(x=>x.id)},departmentId},select:{email:true}});
+    const emails=departmentRecipients.length?departmentRecipients.map(x=>x.email):[process.env.SUPPORT_EMAIL??"support@innozanzi.co.za"];
     await Promise.all(emails.map(recipient=>enqueueEmail(emailTemplates.helpDeskDepartmentAlert(recipient,before.ticketNumber,department.name,before.name,before.email,before.subject,before.message))));
   }
   await prisma.$transaction([

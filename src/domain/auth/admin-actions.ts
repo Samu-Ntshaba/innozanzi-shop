@@ -5,6 +5,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { isProtectedRoleRemoval, PERMISSIONS } from "@/domain/auth/permissions";
 import { requirePermission } from "@/domain/auth/session";
+import { STAFF_EMAIL_EVENTS } from "@/domain/notifications/role-email";
 
 const uuid = z.string().uuid();
 const slugify = (value: string) => value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
@@ -39,6 +40,20 @@ export async function saveRoleRules(formData: FormData) {
     await tx.rolePermission.deleteMany({ where: { roleId } });
     if (rules.length) await tx.rolePermission.createMany({ data: rules });
     await tx.auditLog.create({ data: { actorId: context.user.id, action: "role.rules.update", entityType: "Role", entityId: roleId, before: { rules: role.permissions.map((item) => ({ key: item.permission.key, effect: item.effect })) }, after: { rules: rules.map((rule) => ({ permissionId: rule.permissionId, effect: rule.effect })) } } });
+  });
+  revalidatePath("/admin/access-control");
+}
+
+export async function saveRoleEmailPreferences(formData: FormData) {
+  const context = await requirePermission("users.manage");
+  const roleId = uuid.parse(formData.get("roleId"));
+  const role = await prisma.role.findUniqueOrThrow({ where: { id: roleId }, include: { emailPreferences: true } });
+  const rows = STAFF_EMAIL_EVENTS.map(([eventKey]) => ({ roleId, eventKey, enabled: formData.get(`event:${eventKey}`) === "on" }));
+  await prisma.$transaction(async (tx) => {
+    for (const row of rows) {
+      await tx.roleEmailPreference.upsert({ where: { roleId_eventKey: { roleId, eventKey: row.eventKey } }, update: { enabled: row.enabled }, create: row });
+    }
+    await tx.auditLog.create({ data: { actorId: context.user.id, action: "role.email-preferences.update", entityType: "Role", entityId: roleId, before: { preferences: role.emailPreferences }, after: { preferences: rows } } });
   });
   revalidatePath("/admin/access-control");
 }

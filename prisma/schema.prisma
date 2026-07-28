@@ -889,16 +889,29 @@ model VerificationToken {
 }
 
 model Role {
-  id          String           @id @default(uuid()) @db.Uuid
-  name        String           @unique
-  slug        String           @unique
-  description String?
-  isSystem    Boolean          @default(false)
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
-  users       UserRole[]
-  permissions RolePermission[]
-  invitations UserInvitation[]
+  id               String                @id @default(uuid()) @db.Uuid
+  name             String                @unique
+  slug             String                @unique
+  description      String?
+  isSystem         Boolean               @default(false)
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+  users            UserRole[]
+  permissions      RolePermission[]
+  emailPreferences RoleEmailPreference[]
+  invitations      UserInvitation[]
+}
+
+model RoleEmailPreference {
+  roleId    String   @db.Uuid
+  eventKey  String
+  enabled   Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  role      Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, eventKey])
+  @@index([eventKey, enabled])
 }
 
 model Permission {

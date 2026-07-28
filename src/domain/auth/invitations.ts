@@ -12,6 +12,7 @@ import { enqueueEmail } from "@/integrations/email/outbox";
 import { emailTemplates } from "@/integrations/email/templates";
 import { generateTemporaryPassword, invitationExpiry } from "./invitation-utils";
 import { notifySupportOfNewUser } from "./user-notifications";
+import { sendStaffEmail } from "@/domain/notifications/role-email";
 
 export async function inviteUser(formData: FormData) {
   const actor = await requirePermission("users.manage");
@@ -100,12 +101,12 @@ export async function activateInvitedUser(formData: FormData) {
     await tx.auditLog.create({ data: { actorId: invitation.user.id, action: "user.activate", entityType: "User", entityId: invitation.user.id, after: { activatedAt, accountType: invitation.accountType, roleId: invitation.roleId } } });
   });
   try {
-    await enqueueEmail(emailTemplates.userActivated(
+    await sendStaffEmail("USER_ACTIVATED", emailTemplates.userActivated(
       invitation.user.name ?? "Unnamed user", invitation.user.email, invitation.accountType,
       invitation.role.name, invitation.company?.companyName ?? "Innozanzi",
       invitation.department?.name ?? "Not assigned", invitation.invitedBy.name ?? invitation.invitedBy.email,
       invitation.createdAt, activatedAt, invitation.user.id,
-    ), invitation.user.id);
+    ));
   } catch (error) {
     console.error("Account activated, but the internal activation notification failed.", error);
   }

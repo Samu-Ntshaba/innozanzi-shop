@@ -10,12 +10,14 @@ import {
   permanentlyDeleteUser,
   removeRoleAssignment,
   restoreUser,
+  saveRoleEmailPreferences,
   saveRoleRules,
 } from "@/domain/auth/admin-actions";
 import { inviteUser, resendUserInvitation } from "@/domain/auth/invitations";
 import { PERMISSIONS } from "@/domain/auth/permissions";
 import { requirePermission } from "@/domain/auth/session";
 import { prisma } from "@/lib/prisma";
+import { STAFF_EMAIL_EVENTS } from "@/domain/notifications/role-email";
 
 const permissionGroups = [
   ["Catalogue", PERMISSIONS.filter((permission) => permission.startsWith("products.") || permission.startsWith("inventory."))],
@@ -33,7 +35,7 @@ type AccessControlPageProps = {
   searchParams: Promise<{ role?: string; tab?: string }>;
 };
 
-const tabKeys = ["users", "invite", "roles", "permissions"] as const;
+const tabKeys = ["users", "invite", "roles", "permissions", "notifications"] as const;
 type TabKey = (typeof tabKeys)[number];
 
 export default async function AccessControlPage({ searchParams }: AccessControlPageProps) {
@@ -41,7 +43,7 @@ export default async function AccessControlPage({ searchParams }: AccessControlP
   const params = await searchParams;
   const [roles, users, companies, departments] = await Promise.all([
     prisma.role.findMany({
-      include: { permissions: { include: { permission: true } }, _count: { select: { users: true } } },
+      include: { permissions: { include: { permission: true } }, emailPreferences: true, _count: { select: { users: true } } },
       orderBy: { name: "asc" },
     }),
     prisma.user.findMany({
@@ -72,6 +74,7 @@ export default async function AccessControlPage({ searchParams }: AccessControlP
     { key: "invite", label: "Invite user" },
     { key: "roles", label: "Roles", count: roles.length },
     { key: "permissions", label: "Permission rules" },
+    { key: "notifications", label: "Email notifications" },
   ] satisfies Array<{ key: TabKey; label: string; count?: number }>;
 
   return (
@@ -232,6 +235,23 @@ export default async function AccessControlPage({ searchParams }: AccessControlP
             <div className="flex items-end"><button className={buttonClass}>Send invitation</button></div>
           </form>
         </Panel>
+      ) : null}
+
+      {activeTab === "notifications" ? (
+        <div className="space-y-4">
+          <Panel title="Role email notifications" description="Choose which operational events are emailed to active staff members in each role. Customer confirmations are always sent and are not controlled here.">
+            <div className="overflow-x-auto">
+              <table className={tableClass}>
+                <thead><tr><th>Role</th><th>Events received by email</th><th></th></tr></thead>
+                <tbody>{roles.filter((role) => role.slug !== "customer").map((role) => {
+                  const enabled = new Set(role.emailPreferences.filter((preference) => preference.enabled).map((preference) => preference.eventKey));
+                  return <tr key={role.id}><td><strong>{role.name}</strong><p className="mt-1 text-xs text-slate-500">{role._count.users} assigned user{role._count.users === 1 ? "" : "s"}</p></td><td><form action={saveRoleEmailPreferences} className="grid gap-2 sm:grid-cols-2"><input type="hidden" name="roleId" value={role.id}/>{STAFF_EMAIL_EVENTS.map(([eventKey, eventLabel, description]) => <label className="flex gap-2 rounded border border-slate-200 p-3" key={eventKey}><input className="mt-0.5 size-4" type="checkbox" name={`event:${eventKey}`} defaultChecked={enabled.has(eventKey)}/><span><span className="block text-sm font-semibold text-slate-900">{eventLabel}</span><span className="mt-0.5 block text-xs leading-5 text-slate-500">{description}</span></span></label>)}<button className={`${buttonClass} mt-2 sm:col-span-2`}>Save {role.name} notifications</button></form></td><td></td></tr>;
+                })}</tbody>
+              </table>
+            </div>
+          </Panel>
+          <p className="text-xs leading-5 text-slate-500">If no active staff role subscribes to an event, the configured SUPPORT_EMAIL receives one fallback message so critical work is not silently lost.</p>
+        </div>
       ) : null}
 
       {activeTab === "roles" ? (

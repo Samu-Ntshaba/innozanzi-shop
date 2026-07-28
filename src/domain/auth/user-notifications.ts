@@ -1,5 +1,5 @@
-import { enqueueEmail } from "@/integrations/email/outbox";
 import { emailTemplates } from "@/integrations/email/templates";
+import { sendStaffEmail } from "@/domain/notifications/role-email";
 
 export async function notifySupportOfNewUser(input: {
   userId: string;
@@ -10,7 +10,7 @@ export async function notifySupportOfNewUser(input: {
   createdBy?: string | null;
 }) {
   try {
-    await enqueueEmail(emailTemplates.newUserCreated(
+    await sendStaffEmail("USER_CREATED", emailTemplates.newUserCreated(
       input.userId,
       input.name ?? "New user",
       input.email,

@@ -12,6 +12,7 @@
     "dev:direct": "next dev",
     "build": "prisma generate && next build",
     "start": "next start",
+    "automation:emails": "tsx scripts/process-email-automation.ts",
     "lint": "eslint",
     "test": "vitest run",
     "test:watch": "vitest",
