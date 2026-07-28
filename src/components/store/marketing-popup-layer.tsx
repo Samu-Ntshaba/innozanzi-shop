@@ -26,5 +26,5 @@ export async function MarketingPopupLayer(){
     const content=row.content as Partial<StorePopup>;
     return {id:row.id,key:row.key,heading:content.heading??row.title??"Innozanzi update",body:content.body??"",buttonLabel:content.buttonLabel??null,buttonLink:content.buttonLink??null,audience:content.audience??"ALL",pathMode:content.pathMode??"ALL",paths:Array.isArray(content.paths)?content.paths:[],frequency:content.frequency??"ONCE_SESSION",tone:content.tone??"INFO"} satisfies StorePopup;
   }).filter(item=>item.body);
-  return <MarketingPopup popups={popups.length?popups:[fallback]} isAuthenticated={Boolean(auth)}/>;
+  return <MarketingPopup popups={popups.length?[...popups,fallback]:[fallback]} isAuthenticated={Boolean(auth)}/>;
 }
