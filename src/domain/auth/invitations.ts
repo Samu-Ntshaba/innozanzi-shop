@@ -11,6 +11,7 @@ import { passwordSchema } from "@/schemas/auth";
 import { enqueueEmail } from "@/integrations/email/outbox";
 import { emailTemplates } from "@/integrations/email/templates";
 import { generateTemporaryPassword, invitationExpiry } from "./invitation-utils";
+import { notifySupportOfNewUser } from "./user-notifications";
 
 export async function inviteUser(formData: FormData) {
   const actor = await requirePermission("users.manage");
@@ -46,7 +47,7 @@ export async function inviteUser(formData: FormData) {
   const expiresAt = invitationExpiry();
 
   await enqueueEmail(emailTemplates.userInvitation(data.email, data.name, temporaryPassword, role.name, data.accountType, company?.companyName ?? "Innozanzi", rawToken, expiresAt));
-  await prisma.$transaction(async (tx) => {
+  const invitedUser = await prisma.$transaction(async (tx) => {
     const user = await tx.user.create({ data: {
       email: data.email, name: data.name, phone: data.phone || null, passwordHash,
       status: "INVITED", accountType: data.accountType, companyId: data.companyId || null,
@@ -64,7 +65,9 @@ export async function inviteUser(formData: FormData) {
       accountType: data.accountType, activationTokenHash, expiresAt,
     } });
     await tx.auditLog.create({ data: { actorId: actor.user.id, action: "user.invite", entityType: "User", entityId: user.id, after: { email: user.email, accountType: data.accountType, roleId: role.id, companyId: data.companyId || null, departmentId: data.departmentId || null, expiresAt } } });
+    return user;
   });
+  await notifySupportOfNewUser({ userId: invitedUser.id, name: invitedUser.name, email: invitedUser.email, accountType: invitedUser.accountType, source: "ADMIN_INVITATION", createdBy: actor.user.name ?? actor.user.email });
   redirect("/admin/access-control?invited=1");
 }
 
