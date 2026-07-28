@@ -19,9 +19,6 @@ export async function StoreHeader() {
         <summary aria-label="Open menu" style={{ listStyle: "none" }} className="grid size-11 cursor-pointer place-items-center rounded-md border border-slate-300 text-slate-700 [&::-webkit-details-marker]:hidden"><Menu className="size-5" /></summary>
         <nav aria-label="Mobile product navigation" className="absolute left-0 top-[3.25rem] z-50 w-[min(19rem,calc(100vw-1.5rem))] rounded-lg border border-slate-200 bg-white p-2 shadow-lg">
           <Link className="block rounded-md bg-[#071b33] px-4 py-3 font-semibold text-white" href="/shop">All products</Link>
-          {categories.map(([label, slug]) => <Link key={slug} className="block rounded-md px-4 py-3 text-sm font-medium text-slate-700 hover:bg-slate-50" href={`/categories/${slug}`}>{label}</Link>)}
-          <div className="my-1 border-t border-slate-200" />
-          <Link className="block rounded-md px-4 py-3 text-sm font-semibold text-sky-800 hover:bg-slate-50" href="/categories">Browse all categories</Link>
           <Link className="block rounded-md px-4 py-3 text-sm font-semibold text-sky-800 hover:bg-slate-50" href="/blog">Insights</Link>
         </nav>
       </details>
