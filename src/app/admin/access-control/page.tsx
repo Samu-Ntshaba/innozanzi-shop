@@ -12,7 +12,7 @@ import {
   restoreUser,
   saveRoleRules,
 } from "@/domain/auth/admin-actions";
-import { inviteUser } from "@/domain/auth/invitations";
+import { inviteUser, resendUserInvitation } from "@/domain/auth/invitations";
 import { PERMISSIONS } from "@/domain/auth/permissions";
 import { requirePermission } from "@/domain/auth/session";
 import { prisma } from "@/lib/prisma";
@@ -131,7 +131,11 @@ export default async function AccessControlPage({ searchParams }: AccessControlP
                       <td>
                         <strong>{user.name || "Unnamed user"}</strong><br />
                         <span className="text-slate-500">{user.email}</span>
-                        {user.deletedAt ? <span className="mt-1 block text-xs font-bold uppercase text-rose-700">Deleted</span> : null}
+                        {user.deletedAt
+                          ? <span className="mt-1 block text-xs font-bold uppercase text-rose-700">Deleted</span>
+                          : user.status === "INVITED"
+                            ? <span className="mt-1 block text-xs font-bold uppercase text-amber-700">Invitation pending</span>
+                            : null}
                       </td>
                       <td>
                         <div className="flex flex-wrap gap-2">
@@ -164,6 +168,16 @@ export default async function AccessControlPage({ searchParams }: AccessControlP
                         )}
                       </td>
                       <td>
+                        {user.status === "INVITED" && !user.deletedAt ? (
+                          <form action={resendUserInvitation} className="mb-2">
+                            <input type="hidden" name="userId" value={user.id} />
+                            <ConfirmActionButton
+                              className="font-semibold text-amber-700 underline"
+                              label="Resend invitation"
+                              message={`Send ${user.email} a new temporary password and invalidate the previous invitation?`}
+                            />
+                          </form>
+                        ) : null}
                         {context.isSuperAdministrator && user.id !== context.user.id ? (
                           user.deletedAt ? (
                             <div className="flex flex-wrap gap-3">

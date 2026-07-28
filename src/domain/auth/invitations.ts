@@ -2,6 +2,7 @@
 
 import { createHash, randomBytes } from "node:crypto";
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { hashPassword, verifyPassword } from "./password";
@@ -69,27 +70,22 @@ export async function inviteUser(formData: FormData) {
 
 export async function activateInvitedUser(formData: FormData) {
   const context = await requireActivationUser();
-  const data = z.object({
-    temporaryPassword: z.string().min(1).max(128),
+  const parsed = z.object({
     password: passwordSchema,
     confirmPassword: z.string(),
-  }).refine((value) => value.password === value.confirmPassword, { path: ["confirmPassword"], message: "Passwords do not match." }).parse(Object.fromEntries(formData));
+  }).refine((value) => value.password === value.confirmPassword, { path: ["confirmPassword"], message: "Passwords do not match." }).safeParse(Object.fromEntries(formData));
+  if (!parsed.success) redirect("/activate-account?error=password-requirements");
+  const data = parsed.data;
   const invitation = await prisma.userInvitation.findFirst({
     where: { userId: context.user.id, acceptedAt: null, expiresAt: { gt: new Date() } },
     include: { role: true, company: true, department: true, invitedBy: { select: { email: true, name: true } }, user: true },
     orderBy: { createdAt: "desc" },
   });
-  if (!invitation?.user.passwordHash || !(await verifyPassword(invitation.user.passwordHash, data.temporaryPassword))) throw new Error("Temporary password is invalid.");
-  if (await verifyPassword(invitation.user.passwordHash, data.password)) throw new Error("Choose a new password, different from the temporary password.");
+  if (!invitation?.user.passwordHash) redirect("/sign-in?error=invitation-expired");
+  if (await verifyPassword(invitation.user.passwordHash, data.password)) redirect("/activate-account?error=password-reused");
   const activatedAt = new Date();
   const passwordHash = await hashPassword(data.password);
 
-  await enqueueEmail(emailTemplates.userActivated(
-    invitation.user.name ?? "Unnamed user", invitation.user.email, invitation.accountType,
-    invitation.role.name, invitation.company?.companyName ?? "Innozanzi",
-    invitation.department?.name ?? "Not assigned", invitation.invitedBy.name ?? invitation.invitedBy.email,
-    invitation.createdAt, activatedAt, invitation.user.id,
-  ), invitation.user.id);
   await prisma.$transaction(async (tx) => {
     await tx.user.update({ where: { id: invitation.user.id }, data: {
       passwordHash, status: "ACTIVE", mustChangePassword: false,
@@ -100,5 +96,58 @@ export async function activateInvitedUser(formData: FormData) {
     await tx.session.deleteMany({ where: { userId: invitation.user.id, id: { not: context.sessionId } } });
     await tx.auditLog.create({ data: { actorId: invitation.user.id, action: "user.activate", entityType: "User", entityId: invitation.user.id, after: { activatedAt, accountType: invitation.accountType, roleId: invitation.roleId } } });
   });
+  try {
+    await enqueueEmail(emailTemplates.userActivated(
+      invitation.user.name ?? "Unnamed user", invitation.user.email, invitation.accountType,
+      invitation.role.name, invitation.company?.companyName ?? "Innozanzi",
+      invitation.department?.name ?? "Not assigned", invitation.invitedBy.name ?? invitation.invitedBy.email,
+      invitation.createdAt, activatedAt, invitation.user.id,
+    ), invitation.user.id);
+  } catch (error) {
+    console.error("Account activated, but the internal activation notification failed.", error);
+  }
   redirect(context.user.roles.includes("customer") ? "/account" : "/admin");
+}
+
+export async function resendUserInvitation(formData: FormData) {
+  const actor = await requirePermission("users.manage");
+  const userId = z.string().uuid().parse(formData.get("userId"));
+  const user = await prisma.user.findFirst({
+    where: { id: userId, status: "INVITED", mustChangePassword: true, deletedAt: null },
+    include: {
+      invitationsReceived: {
+        include: { role: true, company: true },
+        orderBy: { createdAt: "desc" },
+        take: 1,
+      },
+    },
+  });
+  const previous = user?.invitationsReceived[0];
+  if (!user || !previous) throw new Error("This user does not have a renewable invitation.");
+
+  const temporaryPassword = generateTemporaryPassword();
+  const passwordHash = await hashPassword(temporaryPassword);
+  const rawToken = randomBytes(32).toString("base64url");
+  const activationTokenHash = createHash("sha256").update(rawToken).digest("hex");
+  const expiresAt = invitationExpiry();
+  await enqueueEmail(emailTemplates.userInvitation(
+    user.email, user.name ?? "Invited user", temporaryPassword, previous.role.name,
+    previous.accountType, previous.company?.companyName ?? "Innozanzi", rawToken, expiresAt,
+  ), user.id);
+
+  await prisma.$transaction(async (tx) => {
+    await tx.session.deleteMany({ where: { userId } });
+    await tx.userInvitation.deleteMany({ where: { userId, acceptedAt: null } });
+    await tx.user.update({ where: { id: userId }, data: { passwordHash, temporaryPasswordExpiresAt: expiresAt } });
+    await tx.userInvitation.create({ data: {
+      userId, invitedById: actor.user.id, roleId: previous.roleId,
+      companyId: previous.companyId, departmentId: previous.departmentId,
+      accountType: previous.accountType, activationTokenHash, expiresAt,
+    } });
+    await tx.auditLog.create({ data: {
+      actorId: actor.user.id, action: "user.invitation.resend", entityType: "User", entityId: userId,
+      after: { expiresAt, roleId: previous.roleId, accountType: previous.accountType },
+    } });
+  });
+  revalidatePath("/admin/access-control");
 }
