@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 
 import "./globals.css";
+import { GoogleAnalytics } from "@/components/google-analytics";
 import { SystemFeedback } from "@/components/system-feedback";
 import { TestModeBanner } from "@/components/test-mode-banner";
 import {
@@ -23,6 +25,19 @@ export async function generateMetadata(): Promise<Metadata> {
     creator: settings.businessName,
     publisher: settings.businessName,
     category: "Business technology",
+    keywords: [
+      "Innozanzi Shop",
+      "business technology South Africa",
+      "IT hardware South Africa",
+      "technology procurement",
+      "business laptops",
+      "networking equipment",
+      "backup power",
+      "technology quotations",
+      "IT delivery and installation",
+      "business IT support",
+    ],
+    alternates: { canonical: "/" },
     formatDetection: { email: false, address: false, telephone: false },
     icons: { icon: "/icon.png", apple: "/icon.png" },
     verification: {
@@ -69,9 +84,14 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  const googleAnalyticsId = process.env.NEXT_PUBLIC_GOOGLE_ANALYTICS_ID ?? "G-XRS7H1W6Z7";
   return (
     <html lang="en" suppressHydrationWarning className="h-full antialiased">
+      <head>
+        <link rel="sitemap" type="application/xml" title="Sitemap" href="/sitemap.xml" />
+      </head>
       <body className="min-h-full">
+        {googleAnalyticsId ? <Suspense fallback={null}><GoogleAnalytics measurementId={googleAnalyticsId} /></Suspense> : null}
         <OrganizationSchema />
         <TestModeBanner />
         {children}
