@@ -430,16 +430,31 @@ export async function sendCampaignTest(formData: FormData) {
 export async function sendCampaign(formData: FormData) {
   const ctx = await requirePermission("customers.manage");
   const id = z.string().uuid().parse(formData.get("id"));
+  await deliverCampaign(id, ctx.user.id, false);
+}
+
+export async function resendCampaign(formData: FormData) {
+  const ctx = await requirePermission("customers.manage");
+  const id = z.string().uuid().parse(formData.get("id"));
+  await deliverCampaign(id, ctx.user.id, true);
+}
+
+async function deliverCampaign(id: string, actorId: string, isResend: boolean) {
   const campaign = await prisma.emailCampaign.findUniqueOrThrow({
     where: { id },
   });
-  if (campaign.status !== "DRAFT")
+  if (!isResend && campaign.status !== "DRAFT")
     throw new Error("Only draft campaigns can be sent.");
+  if (isResend && campaign.status !== "SENT")
+    throw new Error("Only sent campaigns can be resent.");
   const subscribers = await prisma.newsletterSubscriber.findMany({
     where: { isActive: true },
     select: { email: true },
     take: 5000,
   });
+  if (!subscribers.length)
+    throw new Error("No active subscribers were found. The campaign was not marked as sent.");
+  const runId = `${campaign.id}:run:${randomUUID()}`;
   const results = await Promise.allSettled(
     subscribers.map((s) =>
       enqueueEmail(
@@ -448,15 +463,20 @@ export async function sendCampaign(formData: FormData) {
           campaign.subject,
           campaign.preview ?? campaign.subject,
           campaign.html,
-          campaign.id,
+          runId,
         ),
       ),
     ),
   );
-  const failed = results.filter((r) => r.status === "rejected").length;
+  const accepted = results.filter((result) => {
+    if (result.status !== "fulfilled" || result.value.status !== "SENT") return false;
+    const data = result.value.data;
+    return Boolean(data && typeof data === "object" && !Array.isArray(data) && "messageId" in data);
+  }).length;
+  const failed = results.length - accepted;
   if (failed)
     throw new Error(
-      `${failed} campaign emails failed; review the email outbox before retrying.`,
+      `${accepted} of ${subscribers.length} emails were accepted by the provider; ${failed} failed. The campaign was not marked as successfully sent. Review delivery history and retry failures.`,
     );
   await prisma.$transaction([
     prisma.emailCampaign.update({
@@ -465,15 +485,16 @@ export async function sendCampaign(formData: FormData) {
     }),
     prisma.auditLog.create({
       data: {
-        actorId: ctx.user.id,
-        action: "campaign.send",
+        actorId,
+        action: isResend ? "campaign.resend" : "campaign.send",
         entityType: "EmailCampaign",
         entityId: id,
-        after: { recipients: subscribers.length },
+        after: { recipients: subscribers.length, providerAccepted: accepted, runId },
       },
     }),
   ]);
   revalidatePath("/admin/email-marketing");
+  redirect(`/admin/email-marketing?campaign=${id}&delivery=accepted&accepted=${accepted}${isResend ? "&resent=true" : ""}`);
 }
 
 export async function retryMarketingEmail(formData: FormData) {
