@@ -1,5 +1,6 @@
 import { BrandLogo } from "@/components/brand-logo";
 import { AdminNav } from "@/components/admin/admin-nav";
+import { AdminWorkspace } from "@/components/admin/admin-workspace";
 import { logoutAction } from "@/app/(auth)/actions";
 import { requireUser } from "@/domain/auth/session";
 import { hasPermission } from "@/domain/auth/permissions";
@@ -20,16 +21,17 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       <div className="flex min-w-0 items-center gap-3 sm:gap-4"><BrandLogo className="w-28 sm:w-32"/><span className="hidden border-l border-slate-300 pl-4 text-sm font-semibold text-slate-700 min-[420px]:block">Business Suite</span></div>
       <div className="flex items-center gap-3 text-xs text-slate-600 sm:gap-4"><span className="hidden sm:block"><strong className="text-slate-900">Production</strong> · ZAR</span><span className="hidden max-w-52 truncate md:block">{user.email}</span><form action={logoutAction}><button className="font-semibold text-sky-700">Sign out</button></form></div>
     </header>
-    <details className="group/mobile border-b border-slate-800 bg-[#172b3a] text-slate-200 lg:hidden">
-      <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-sm font-semibold [&::-webkit-details-marker]:hidden"><span>Admin menu</span><span className="text-xs text-slate-400 group-open/mobile:hidden">Open</span><span className="hidden text-xs text-slate-400 group-open/mobile:inline">Close</span></summary>
-      <div className="max-h-[calc(100vh-7rem)] overflow-y-auto border-t border-white/10"><AdminNav {...navigationProps} /></div>
-    </details>
-    <div className="grid min-h-[calc(100vh-3.5rem)] lg:grid-cols-[280px_minmax(0,1fr)]">
-      <aside className="hidden border-r border-slate-800 bg-[#172b3a] text-slate-200 lg:sticky lg:top-14 lg:block lg:h-[calc(100vh-3.5rem)] lg:self-start lg:overflow-y-auto lg:overscroll-contain">
+    <AdminWorkspace
+      mobileNavigation={<details className="group/mobile border-b border-slate-800 bg-[#172b3a] text-slate-200 lg:hidden">
+        <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-sm font-semibold [&::-webkit-details-marker]:hidden"><span>Admin menu</span><span className="text-xs text-slate-400 group-open/mobile:hidden">Open</span><span className="hidden text-xs text-slate-400 group-open/mobile:inline">Close</span></summary>
+        <div className="max-h-[calc(100vh-7rem)] overflow-y-auto border-t border-white/10"><AdminNav {...navigationProps} /></div>
+      </details>}
+      desktopNavigation={<aside className="hidden border-r border-slate-800 bg-[#172b3a] text-slate-200 lg:sticky lg:top-14 lg:block lg:h-[calc(100vh-3.5rem)] lg:self-start lg:overflow-y-auto lg:overscroll-contain">
         <div className="sticky top-0 z-10 border-b border-white/10 bg-[#172b3a] px-5 py-4"><p className="text-[10px] font-bold uppercase tracking-[.16em] text-slate-500">Administration</p><p className="mt-1 text-sm font-semibold text-white">Business Suite</p></div>
         <AdminNav {...navigationProps} />
-      </aside>
-      <main className="min-w-0 p-4 sm:p-5 lg:p-6">{children}</main>
-    </div>
+      </aside>}
+    >
+      {children}
+    </AdminWorkspace>
   </div>;
 }
