@@ -1,0 +1,11 @@
+{
+  "$schema": "https://railway.com/railway.schema.json",
+  "build": {
+    "buildCommand": "npm ci && npx prisma generate"
+  },
+  "deploy": {
+    "startCommand": "npm run automation:emails",
+    "cronSchedule": "*/10 * * * *",
+    "restartPolicyType": "NEVER"
+  }
+}
