@@ -22,4 +22,53 @@ export async function toggleRedirect(formData:FormData){const ctx=await requireP
 
 export async function saveMarketingBlock(formData:FormData){const ctx=await requirePermission("marketing.content.edit");const data=z.object({id:z.string().uuid().optional().or(z.literal("")),key:z.string().trim().regex(/^[a-z0-9-]+$/),location:z.enum(["HOMEPAGE_TOP","HOMEPAGE_CONTENT","ANNOUNCEMENT"]),type:z.enum(["HERO","ANNOUNCEMENT","CTA","RICH_TEXT"]),title:text(160),heading:z.string().trim().min(3).max(160),body:z.string().trim().min(3).max(2000),buttonLabel:text(60),buttonLink:text(500),desktopImage:text(1000),mobileImage:text(1000),altText:text(300),displayOrder:z.coerce.number().int().min(0).max(1000),startsAt:optionalDate,endsAt:optionalDate,status:z.enum(["DRAFT","IN_REVIEW","APPROVED","SCHEDULED","PUBLISHED","EXPIRED","ARCHIVED"])}).parse(Object.fromEntries(formData));if(["APPROVED","SCHEDULED","PUBLISHED"].includes(data.status))await requirePermission("marketing.content.publish");if(data.buttonLink)validPath(data.buttonLink);const content={heading:data.heading,body:data.body,buttonLabel:data.buttonLabel||null,buttonLink:data.buttonLink||null,desktopImage:data.desktopImage||null,mobileImage:data.mobileImage||null,altText:data.altText||data.heading};await prisma.$transaction(async tx=>{const existing=data.id?await tx.marketingBlock.findUnique({where:{id:data.id}}):null;const block=existing?await tx.marketingBlock.update({where:{id:existing.id},data:{key:data.key,location:data.location,type:data.type,title:data.title||null,content,status:data.status,displayOrder:data.displayOrder,startsAt:data.startsAt,endsAt:data.endsAt,publishedAt:data.status==="PUBLISHED"?new Date():existing.publishedAt,updatedById:ctx.user.id}}):await tx.marketingBlock.create({data:{key:data.key,location:data.location,type:data.type,title:data.title||null,content,status:data.status,displayOrder:data.displayOrder,startsAt:data.startsAt,endsAt:data.endsAt,publishedAt:data.status==="PUBLISHED"?new Date():null,createdById:ctx.user.id,updatedById:ctx.user.id}});const version=await tx.marketingBlockVersion.count({where:{marketingBlockId:block.id}})+1;await tx.marketingBlockVersion.create({data:{marketingBlockId:block.id,version,snapshot:JSON.parse(JSON.stringify({content,status:data.status,displayOrder:data.displayOrder})),createdById:ctx.user.id}});await tx.auditLog.create({data:{actorId:ctx.user.id,action:"marketing.block.save",entityType:"MarketingBlock",entityId:block.id,before:existing?{status:existing.status,content:existing.content}:undefined,after:{status:data.status,content}}})});revalidatePath("/");revalidatePath("/admin/marketing/homepage")}
 
+export async function saveMarketingPopup(formData:FormData){
+  const ctx=await requirePermission("marketing.content.edit");
+  const data=z.object({
+    id:z.string().uuid().optional().or(z.literal("")),
+    key:z.string().trim().regex(/^[a-z0-9-]+$/),
+    title:text(160),
+    heading:z.string().trim().min(3).max(160),
+    body:z.string().trim().min(3).max(1500),
+    buttonLabel:text(60),
+    buttonLink:text(500),
+    audience:z.enum(["ALL","GUEST","AUTHENTICATED"]),
+    pathMode:z.enum(["ALL","INCLUDE","EXCLUDE"]),
+    paths:text(1000),
+    frequency:z.enum(["ONCE_SESSION","ONCE_7_DAYS","EVERY_VISIT"]),
+    tone:z.enum(["INFO","NOTICE","SUCCESS"]),
+    displayOrder:z.coerce.number().int().min(0).max(1000),
+    startsAt:optionalDate,
+    endsAt:optionalDate,
+    status:z.enum(["DRAFT","IN_REVIEW","APPROVED","SCHEDULED","PUBLISHED","EXPIRED","ARCHIVED"]),
+  }).parse(Object.fromEntries(formData));
+  if(["APPROVED","SCHEDULED","PUBLISHED"].includes(data.status))await requirePermission("marketing.content.publish");
+  if(data.buttonLink)validPath(data.buttonLink);
+  const paths=(data.paths??"").split(/[\n,]/).map(value=>value.trim()).filter(Boolean);
+  paths.forEach(validPath);
+  if(data.pathMode!=="ALL"&&!paths.length)throw new Error("Add at least one public path for include or exclude targeting.");
+  const content={heading:data.heading,body:data.body,buttonLabel:data.buttonLabel||null,buttonLink:data.buttonLink||null,audience:data.audience,pathMode:data.pathMode,paths,frequency:data.frequency,tone:data.tone,dismissible:true};
+  await prisma.$transaction(async tx=>{
+    const existing=data.id?await tx.marketingBlock.findFirst({where:{id:data.id,location:"POPUP"}}):null;
+    const block=existing
+      ?await tx.marketingBlock.update({where:{id:existing.id},data:{key:data.key,title:data.title||null,content,status:data.status,displayOrder:data.displayOrder,startsAt:data.startsAt,endsAt:data.endsAt,publishedAt:data.status==="PUBLISHED"?new Date():existing.publishedAt,updatedById:ctx.user.id}})
+      :await tx.marketingBlock.create({data:{key:data.key,location:"POPUP",type:"POPUP",title:data.title||null,content,status:data.status,displayOrder:data.displayOrder,startsAt:data.startsAt,endsAt:data.endsAt,publishedAt:data.status==="PUBLISHED"?new Date():null,createdById:ctx.user.id,updatedById:ctx.user.id}});
+    const version=await tx.marketingBlockVersion.count({where:{marketingBlockId:block.id}})+1;
+    await tx.marketingBlockVersion.create({data:{marketingBlockId:block.id,version,snapshot:JSON.parse(JSON.stringify({content,status:data.status,displayOrder:data.displayOrder,startsAt:data.startsAt,endsAt:data.endsAt})),createdById:ctx.user.id}});
+    await tx.auditLog.create({data:{actorId:ctx.user.id,action:"marketing.popup.save",entityType:"MarketingBlock",entityId:block.id,before:existing?{status:existing.status,content:existing.content}:undefined,after:{status:data.status,content}}});
+  });
+  revalidatePath("/","layout");revalidatePath("/admin/marketing/popups");
+}
+
+export async function archiveMarketingPopup(formData:FormData){
+  const ctx=await requirePermission("marketing.content.publish");
+  const id=z.string().uuid().parse(formData.get("id"));
+  const popup=await prisma.marketingBlock.findFirstOrThrow({where:{id,location:"POPUP"}});
+  await prisma.$transaction([
+    prisma.marketingBlock.update({where:{id},data:{status:"ARCHIVED",updatedById:ctx.user.id}}),
+    prisma.auditLog.create({data:{actorId:ctx.user.id,action:"marketing.popup.archive",entityType:"MarketingBlock",entityId:id,before:{status:popup.status},after:{status:"ARCHIVED"}}}),
+  ]);
+  revalidatePath("/","layout");revalidatePath("/admin/marketing/popups");
+}
+
 export async function uploadMarketingMedia(formData:FormData){const ctx=await requirePermission("marketing.media.manage");const data=z.object({altText:z.string().trim().min(3).max(300),title:text(150),caption:text(500),isSocialImage:z.string().optional()}).parse(Object.fromEntries(formData));const file=formData.get("file");if(!(file instanceof File)||!file.size||file.size>8*1024*1024||!["image/jpeg","image/png","image/webp","image/svg+xml"].includes(file.type))throw new Error("Upload a JPG, PNG, WebP or SVG smaller than 8 MB.");const bucket=process.env.SUPABASE_PUBLIC_BUCKET??"product-images";const supabase=createSupabaseAdmin();if(!(await supabase.storage.getBucket(bucket)).data){const made=await supabase.storage.createBucket(bucket,{public:true,fileSizeLimit:8*1024*1024});if(made.error)throw made.error}const safe=file.name.toLowerCase().replace(/[^a-z0-9._-]/g,"-");const path=`marketing/${new Date().getFullYear()}/${randomUUID()}-${safe}`;const uploaded=await supabase.storage.from(bucket).upload(path,file,{contentType:file.type,upsert:false});if(uploaded.error)throw uploaded.error;const publicUrl=supabase.storage.from(bucket).getPublicUrl(path).data.publicUrl;await prisma.mediaAsset.create({data:{bucket,path,publicUrl,title:data.title||null,altText:data.altText,caption:data.caption||null,mimeType:file.type,size:file.size,isSocialImage:data.isSocialImage==="on",createdById:ctx.user.id}});revalidatePath("/admin/marketing/media")}
