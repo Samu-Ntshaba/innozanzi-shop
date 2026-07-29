@@ -54,7 +54,7 @@ async function generateCover(title: string, alt: string, actorId: string) {
     size: "1536x1024",
     quality: "medium",
     output_format: "webp",
-  });
+  }, { timeout: 60_000 });
   const encoded = result.data?.[0]?.b64_json;
   if (!encoded) throw new Error("The image service returned no image.");
   const bytes = Buffer.from(encoded, "base64");
@@ -106,15 +106,22 @@ Use recent, reputable primary or authoritative sources. Do not invent prices, st
         },
       },
     },
-  });
+  }, { timeout: 120_000 });
   const draft = draftSchema.parse(JSON.parse(response.output_text));
   const sources = z.array(sourceSchema).parse(findSources(response));
   if (!sources.length) throw new Error("Research completed without verifiable source links. Please generate the draft again.");
+  const slug = await uniqueSlug(draft.title);
+  const post = await prisma.$transaction(async (tx) => {
+    const created = await tx.blogPost.create({ data: { ...draft, slug, topic: input.topic, audience: input.audience, sources, coverImageUrl: null, status: "DRAFT", aiGenerated: true, createdById: ctx.user.id, updatedById: ctx.user.id } });
+    await tx.auditLog.create({ data: { actorId: ctx.user.id, action: "blog.ai.generate", entityType: "BlogPost", entityId: created.id, after: { topic: input.topic, audience: input.audience, sourceCount: sources.length, coverGenerated: false } } });
+    return created;
+  });
   let coverImageUrl: string | null = null;
-  try { coverImageUrl = await generateCover(draft.title, draft.coverImageAlt, ctx.user.id); }
+  try {
+    coverImageUrl = await generateCover(draft.title, draft.coverImageAlt, ctx.user.id);
+    await prisma.blogPost.update({ where: { id: post.id }, data: { coverImageUrl, updatedById: ctx.user.id } });
+  }
   catch (error) { console.error("Blog cover generation failed; preserving the text draft", error); }
-  const post = await prisma.blogPost.create({ data: { ...draft, slug: await uniqueSlug(draft.title), topic: input.topic, audience: input.audience, sources, coverImageUrl, status: "DRAFT", aiGenerated: true, createdById: ctx.user.id, updatedById: ctx.user.id } });
-  await prisma.auditLog.create({ data: { actorId: ctx.user.id, action: "blog.ai.generate", entityType: "BlogPost", entityId: post.id, after: { topic: input.topic, audience: input.audience, sourceCount: sources.length, coverGenerated: Boolean(coverImageUrl) } } });
   redirect(`/admin/marketing/blog/${post.id}?generated=1${coverImageUrl ? "" : "&image=failed"}`);
 }
 
