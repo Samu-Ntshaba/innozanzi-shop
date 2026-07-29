@@ -2,20 +2,25 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AdminPage, Panel, buttonClass, inputClass, secondaryButtonClass } from "@/components/admin/admin-ui";
+import { BlogGenerationStatus } from "@/components/admin/blog-generation-status";
 import { requirePermission } from "@/domain/auth/session";
-import { regenerateBlogCover, saveBlogPost } from "@/domain/blog/actions";
+import { refreshBlogGeneration, regenerateBlogCover, saveBlogPost } from "@/domain/blog/actions";
 import { BLOG_AUDIENCES, BLOG_TOPICS } from "@/domain/blog/constants";
-import { prisma } from "@/lib/prisma";
 
-export default async function EditBlogPost({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ generated?: string; saved?: string; image?: string }> }) {
+export default async function EditBlogPost({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ generated?: string; generating?: string; saved?: string; image?: string }> }) {
   await requirePermission("marketing.content.view");
-  const post = await prisma.blogPost.findUnique({ where: { id: (await params).id } });
+  const post = await refreshBlogGeneration((await params).id);
   if (!post) notFound();
   const notice = await searchParams;
+  const generation = post.sources && !Array.isArray(post.sources) ? (post.sources as { generation?: { status?: string; error?: string } }).generation : null;
+  const isGenerating = generation?.status === "queued" || generation?.status === "in_progress";
   const sources = Array.isArray(post.sources) ? post.sources as Array<{ title?: string; url?: string }> : [];
   return <AdminPage title="Review article" description="Edit the draft, verify its sources and preview the public page before publishing." actions={<><Link className={secondaryButtonClass} href="/admin/marketing/blog">All articles</Link>{post.status === "PUBLISHED" ? <Link className={secondaryButtonClass} href={`/blog/${post.slug}`} target="_blank">View live</Link> : null}</>}>
+    {isGenerating ? <BlogGenerationStatus/> : null}
+    {generation?.status === "failed" ? <p className="border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">Article research failed. Return to the blog list and try again with a more specific direction. {generation.error ? <span className="block pt-1 text-xs">{generation.error}</span> : null}</p> : null}
     {notice.generated ? <p className="border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">Draft generated. Review the content and source links before publishing.</p> : null}
     {notice.saved ? <p className="border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">Article saved.</p> : null}
+    {notice.image === "pending" ? <p className="border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-950">The text draft is safely saved. Generate its cover from the Cover image panel when you are ready.</p> : null}
     {notice.image === "failed" ? <p className="border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">The article was created, but the cover image could not be generated. Check OpenAI image access and Supabase storage, then retry below.</p> : null}
     <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
       <Panel title="Article content">
@@ -33,7 +38,7 @@ export default async function EditBlogPost({ params, searchParams }: { params: P
           <div className="grid gap-3 md:grid-cols-2"><label className="text-sm font-medium">SEO title<input className={`${inputClass} mt-1 w-full`} name="metaTitle" defaultValue={post.metaTitle ?? ""}/></label><label className="text-sm font-medium">SEO description<textarea className={`${inputClass} mt-1 min-h-20 w-full`} name="metaDescription" defaultValue={post.metaDescription ?? ""}/></label></div>
           <label className="text-sm font-medium">Status<select className={`${inputClass} mt-1 w-full`} name="status" defaultValue={post.status}><option>DRAFT</option><option>PUBLISHED</option><option>ARCHIVED</option></select></label>
           <p className="text-xs text-slate-500">Publishing requires the marketing content publish permission. Changing a published article back to draft removes it from the public site.</p>
-          <button className={buttonClass}>Save article</button>
+          <button className={buttonClass} disabled={isGenerating}>Save article</button>
         </form>
       </Panel>
       <div className="space-y-4">

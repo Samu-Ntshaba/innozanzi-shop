@@ -1,0 +1,14 @@
+Using SSH key from file C:\Users\simukelo\.ssh\id_ed25519_railway_codex.pub: codex-railway-innozanzi
+
+PostgreSQL tunnel open — point an external client at:
+
+  Host:     127.0.0.1
+  Port:     15432
+  User:     postgres
+  Password: KLqMfxMpgjzxQKjNAhaOYuztdlpYHZIb
+  Database: railway
+
+  URL:      postgresql://postgres:KLqMfxMpgjzxQKjNAhaOYuztdlpYHZIb@127.0.0.1:15432/railway
+
+Press Ctrl+C to close the tunnel.
+

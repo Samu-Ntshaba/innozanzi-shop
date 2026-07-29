@@ -74,55 +74,103 @@ async function generateCover(title: string, alt: string, actorId: string) {
 
 export async function generateBlogDraft(formData: FormData) {
   const ctx = await requirePermission("marketing.content.edit");
-  const input = z.object({
-    topic: z.enum(BLOG_TOPICS.map(([value]) => value) as [string, ...string[]]),
-    audience: z.enum(BLOG_AUDIENCES.map(([value]) => value) as [string, ...string[]]),
-    direction: z.string().trim().max(500).optional(),
-  }).parse(Object.fromEntries(formData));
-  const response = await getOpenAIClient().responses.create({
-    model: process.env.OPENAI_BLOG_MODEL ?? process.env.OPENAI_MODEL ?? "gpt-5.6",
-    store: false,
-    tools: [{ type: "web_search" }],
-    include: ["web_search_call.action.sources"],
-    input: `Research and write a useful article for Innozanzi, a South African business technology procurement and support company.
+  let destination = "/admin/marketing/blog?generationError=failed";
+  try {
+    const input = z.object({
+      topic: z.enum(BLOG_TOPICS.map(([value]) => value) as [string, ...string[]]),
+      audience: z.enum(BLOG_AUDIENCES.map(([value]) => value) as [string, ...string[]]),
+      direction: z.string().trim().max(500).optional(),
+    }).parse(Object.fromEntries(formData));
+    const response = await getOpenAIClient().responses.create({
+      model: process.env.OPENAI_BLOG_MODEL ?? process.env.OPENAI_MODEL ?? "gpt-5.6",
+      store: false,
+      background: true,
+      tools: [{ type: "web_search" }],
+      include: ["web_search_call.action.sources"],
+      input: `Research and write a useful article for Innozanzi, a South African business technology procurement and support company.
 Topic: ${blogLabel(input.topic)}
 Audience: ${blogLabel(input.audience)}
 Editorial direction: ${input.direction || "Choose a timely, practical angle based on credible current information."}
 
 Use recent, reputable primary or authoritative sources. Do not invent prices, stock, partnerships, certifications, statistics, customer stories or product availability. Use South African context where relevant. Write 900-1,300 words in clear Markdown using ## headings, short paragraphs and occasional bullet lists. Do not include a sources section inside the article. Avoid hype and keyword stuffing. End with a practical, low-pressure conclusion. Return JSON only.`,
-    text: {
-      format: {
-        type: "json_schema",
-        name: "blog_draft",
-        strict: true,
-        schema: {
-          type: "object",
-          additionalProperties: false,
-          properties: {
-            title: { type: "string" }, excerpt: { type: "string" }, content: { type: "string" },
-            coverImageAlt: { type: "string" }, metaTitle: { type: "string" }, metaDescription: { type: "string" },
+      text: {
+        format: {
+          type: "json_schema",
+          name: "blog_draft",
+          strict: true,
+          schema: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              title: { type: "string" }, excerpt: { type: "string" }, content: { type: "string" },
+              coverImageAlt: { type: "string" }, metaTitle: { type: "string" }, metaDescription: { type: "string" },
+            },
+            required: ["title", "excerpt", "content", "coverImageAlt", "metaTitle", "metaDescription"],
           },
-          required: ["title", "excerpt", "content", "coverImageAlt", "metaTitle", "metaDescription"],
         },
       },
-    },
-  }, { timeout: 120_000 });
-  const draft = draftSchema.parse(JSON.parse(response.output_text));
-  const sources = z.array(sourceSchema).parse(findSources(response));
-  if (!sources.length) throw new Error("Research completed without verifiable source links. Please generate the draft again.");
-  const slug = await uniqueSlug(draft.title);
-  const post = await prisma.$transaction(async (tx) => {
-    const created = await tx.blogPost.create({ data: { ...draft, slug, topic: input.topic, audience: input.audience, sources, coverImageUrl: null, status: "DRAFT", aiGenerated: true, createdById: ctx.user.id, updatedById: ctx.user.id } });
-    await tx.auditLog.create({ data: { actorId: ctx.user.id, action: "blog.ai.generate", entityType: "BlogPost", entityId: created.id, after: { topic: input.topic, audience: input.audience, sourceCount: sources.length, coverGenerated: false } } });
-    return created;
-  });
-  let coverImageUrl: string | null = null;
-  try {
-    coverImageUrl = await generateCover(draft.title, draft.coverImageAlt, ctx.user.id);
-    await prisma.blogPost.update({ where: { id: post.id }, data: { coverImageUrl, updatedById: ctx.user.id } });
+    }, { timeout: 15_000 });
+    const placeholderTitle = `Researching ${blogLabel(input.topic)}`;
+    const slug = await uniqueSlug(`${placeholderTitle}-${Date.now()}`);
+    const post = await prisma.$transaction(async (tx) => {
+      const created = await tx.blogPost.create({ data: {
+        slug,
+        title: placeholderTitle,
+        excerpt: "Research is in progress. This page will update when the sourced draft is ready.",
+        content: "Research is in progress. Please keep this draft open or refresh it shortly.",
+        topic: input.topic,
+        audience: input.audience,
+        sources: { generation: { responseId: response.id, status: response.status } },
+        coverImageUrl: null,
+        status: "DRAFT",
+        aiGenerated: true,
+        createdById: ctx.user.id,
+        updatedById: ctx.user.id,
+      } });
+      await tx.auditLog.create({ data: { actorId: ctx.user.id, action: "blog.ai.generate.queued", entityType: "BlogPost", entityId: created.id, after: { topic: input.topic, audience: input.audience, responseId: response.id } } });
+      return created;
+    });
+    destination = `/admin/marketing/blog/${post.id}?generating=1`;
+  } catch (error) {
+    console.error("Blog draft generation failed", error);
+    const message = error instanceof Error ? error.message.toLowerCase() : "";
+    const reason = message.includes("source") ? "sources" : message.includes("timeout") || message.includes("timed out") ? "timeout" : "failed";
+    destination = `/admin/marketing/blog?generationError=${reason}`;
   }
-  catch (error) { console.error("Blog cover generation failed; preserving the text draft", error); }
-  redirect(`/admin/marketing/blog/${post.id}?generated=1${coverImageUrl ? "" : "&image=failed"}`);
+  redirect(destination);
+}
+
+type GenerationMetadata = { generation?: { responseId?: string; status?: string; error?: string } };
+
+export async function refreshBlogGeneration(id: string) {
+  await requirePermission("marketing.content.view");
+  const post = await prisma.blogPost.findUnique({ where: { id } });
+  if (!post) return null;
+  const metadata = post.sources && !Array.isArray(post.sources) ? post.sources as GenerationMetadata : null;
+  const responseId = metadata?.generation?.responseId;
+  if (!responseId || !["queued", "in_progress"].includes(metadata?.generation?.status ?? "")) return post;
+  try {
+    const response = await getOpenAIClient().responses.retrieve(responseId, undefined, { timeout: 10_000 });
+    if (response.status === "queued" || response.status === "in_progress") {
+      if (response.status !== metadata?.generation?.status) {
+        return prisma.blogPost.update({ where: { id }, data: { sources: { generation: { responseId, status: response.status } } } });
+      }
+      return post;
+    }
+    if (response.status !== "completed") {
+      return prisma.blogPost.update({ where: { id }, data: { sources: { generation: { responseId, status: "failed", error: response.status } } } });
+    }
+    const draft = draftSchema.parse(JSON.parse(response.output_text));
+    const sources = z.array(sourceSchema).parse(findSources(response));
+    if (!sources.length) throw new Error("Research completed without verifiable source links.");
+    const completed = await prisma.blogPost.update({ where: { id }, data: { ...draft, slug: await uniqueSlug(draft.title, id), sources, updatedById: post.updatedById } });
+    await prisma.auditLog.create({ data: { actorId: post.updatedById ?? post.createdById, action: "blog.ai.generate.completed", entityType: "BlogPost", entityId: id, after: { responseId, sourceCount: sources.length } } });
+    return completed;
+  } catch (error) {
+    console.error("Blog background generation check failed", error);
+    const message = error instanceof Error ? error.message.slice(0, 300) : "Generation failed";
+    return prisma.blogPost.update({ where: { id }, data: { sources: { generation: { responseId, status: "failed", error: message } } } });
+  }
 }
 
 export async function saveBlogPost(formData: FormData) {

@@ -5,7 +5,7 @@ import { generateBlogDraft } from "@/domain/blog/actions";
 import { BLOG_AUDIENCES, BLOG_TOPICS, blogLabel } from "@/domain/blog/constants";
 import { prisma } from "@/lib/prisma";
 
-export default async function AdminBlogPage({ searchParams }: { searchParams: Promise<{ search?: string; status?: string; page?: string }> }) {
+export default async function AdminBlogPage({ searchParams }: { searchParams: Promise<{ search?: string; status?: string; page?: string; generationError?: string }> }) {
   await requirePermission("marketing.content.view");
   const query = await searchParams;
   const page = Math.max(1, Number(query.page) || 1);
@@ -19,7 +19,8 @@ export default async function AdminBlogPage({ searchParams }: { searchParams: Pr
     prisma.blogPost.count({ where }),
   ]);
   return <AdminPage title="Blog" description="Research, review and publish useful technology articles. AI-generated work always starts as a draft.">
-    <Panel title="Create an AI-assisted draft" description="Choose the subject and reader. OpenAI researches current sources, writes the article and creates a cover image saved to your media storage.">
+    {query.generationError ? <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950"><strong>We could not create the article.</strong> {query.generationError === "sources" ? "The research response did not include verifiable source links. Try again with a more specific direction." : query.generationError === "timeout" ? "The research service took too long to respond. Please retry." : "The research service returned an invalid or unavailable response. Please retry; the admin workspace remains available."}</div> : null}
+    <Panel title="Create an AI-assisted draft" description="Choose the subject and reader. OpenAI researches current sources and saves the article as a draft. Generate its cover image from the review page.">
       <form action={generateBlogDraft} className="grid gap-3 md:grid-cols-2">
         <label className="text-sm font-medium">Topic<select className={`${inputClass} mt-1 w-full`} name="topic">{BLOG_TOPICS.map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select></label>
         <label className="text-sm font-medium">Audience<select className={`${inputClass} mt-1 w-full`} name="audience">{BLOG_AUDIENCES.map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select></label>

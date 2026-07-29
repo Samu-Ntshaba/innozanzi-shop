@@ -4453,3 +4453,17 @@ Creating turbopack project { dir: 'C:\\Users\\simukelo\\Music\\innozanzi-shop', 
 ✓ Compiled in 21ms
 ✓ Compiled in 202ms
 ✓ Compiled in 191ms
+                                                                                                                                                                              ✓ Compiled in 549ms
+✓ Compiled in 398ms
+✓ Compiled in 195ms
+✓ Compiled in 183ms
+ GET / 200 in 19.8s (next.js: 9.6s, application-code: 10.2s)
+○ Compiling /admin/marketing/blog ...
+ GET /admin/marketing/blog 307 in 11.9s (next.js: 11.1s, application-code: 817ms)
+ GET /shop 200 in 1567ms (next.js: 419ms, application-code: 1148ms)
+ GET /admin/marketing/blog 307 in 729ms (next.js: 12ms, application-code: 717ms)
+ GET /sign-in 200 in 620ms (next.js: 205ms, application-code: 414ms)
+✓ Compiled in 263ms
+✓ Compiled in 259ms
+✓ Compiled in 157ms
+✓ Compiled in 114ms
