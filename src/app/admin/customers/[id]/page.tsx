@@ -1,0 +1,50 @@
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { AdminPage, Panel, StatusBadge, buttonClass, inputClass, secondaryButtonClass, tableClass } from "@/components/admin/admin-ui";
+import { requirePermission } from "@/domain/auth/session";
+import { addCustomerNote, updateCustomer } from "@/domain/crm/actions";
+import { prisma } from "@/lib/prisma";
+
+export default async function CustomerPage({ params }: { params: Promise<{ id: string }> }) {
+  await requirePermission("customers.manage");
+  const { id } = await params;
+  const [customer, fields] = await Promise.all([
+    prisma.user.findUnique({ where: { id }, include: { customerProfile: { include: { company: true, notes: { include: { author: { select: { name: true, email: true } } }, orderBy: { createdAt: "desc" } } } }, orders: { select: { id: true, orderNumber: true, status: true, grandTotal: true, createdAt: true }, orderBy: { createdAt: "desc" }, take: 10 } } }),
+    prisma.crmCustomField.findMany({ orderBy: { createdAt: "asc" } }),
+  ]);
+  if (!customer?.customerProfile) notFound();
+  const profile = customer.customerProfile;
+  const values = (profile.customFields && typeof profile.customFields === "object" && !Array.isArray(profile.customFields) ? profile.customFields : {}) as Record<string, unknown>;
+  const displayName = customer.name || [profile.firstName, profile.lastName].filter(Boolean).join(" ") || profile.company?.companyName || "Unnamed customer";
+  return <AdminPage title={displayName} description={`CRM customer · ${profile.source.toLowerCase()} source`} actions={<Link className={secondaryButtonClass} href="/admin/customers">Back to customers</Link>}>
+    <div className="grid gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)]">
+      <div className="space-y-4">
+        <form action={updateCustomer} className="space-y-4">
+          <input type="hidden" name="userId" value={customer.id} />
+          <Panel title="Contact and company" description="Edit this CRM record. It does not require an online account.">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="text-sm font-semibold">First name<input className={`${inputClass} mt-1 w-full`} name="firstName" defaultValue={profile.firstName ?? ""} /></label>
+              <label className="text-sm font-semibold">Last name<input className={`${inputClass} mt-1 w-full`} name="lastName" defaultValue={profile.lastName ?? ""} /></label>
+              <label className="text-sm font-semibold">Email<input className={`${inputClass} mt-1 w-full`} name="email" type="email" defaultValue={customer.email.endsWith("@internal.invalid") ? "" : customer.email} /></label>
+              <label className="text-sm font-semibold">Phone<input className={`${inputClass} mt-1 w-full`} name="phone" defaultValue={customer.phone ?? ""} /></label>
+              <label className="text-sm font-semibold sm:col-span-2">Company<input className={`${inputClass} mt-1 w-full`} name="companyName" defaultValue={profile.company?.companyName ?? ""} /></label>
+              {fields.map((field) => <label className="text-sm font-semibold" key={field.id}>{field.label}<input className={`${inputClass} mt-1 w-full`} name={`custom:${field.key}`} defaultValue={String(values[field.key] ?? "")} /></label>)}
+            </div>
+            <div className="mt-4 flex justify-end"><button className={buttonClass}>Save changes</button></div>
+          </Panel>
+        </form>
+        <Panel title="Recent orders" description="Commerce activity linked to this customer.">
+          {customer.orders.length ? <table className={tableClass}><thead><tr><th>Order</th><th>Status</th><th>Total</th><th>Date</th></tr></thead><tbody>{customer.orders.map((order) => <tr key={order.id}><td><Link className="font-semibold text-sky-700" href={`/admin/orders/${order.id}`}>{order.orderNumber}</Link></td><td><StatusBadge value={order.status} /></td><td>R {Number(order.grandTotal).toFixed(2)}</td><td>{order.createdAt.toLocaleDateString("en-ZA")}</td></tr>)}</tbody></table> : <p className="text-sm text-slate-500">No orders yet.</p>}
+        </Panel>
+      </div>
+      <Panel title="Notes" description="Keep calls, follow-ups, preferences, and internal context on the customer record.">
+        <form action={addCustomerNote} className="space-y-2">
+          <input type="hidden" name="userId" value={customer.id} /><input type="hidden" name="customerProfileId" value={profile.id} />
+          <textarea className={`${inputClass} min-h-28 w-full`} name="body" placeholder="Add a note…" required />
+          <button className={buttonClass}>Add note</button>
+        </form>
+        <div className="mt-5 space-y-3">{profile.notes.map((note) => <article className="border-l-2 border-sky-600 bg-slate-50 p-3" key={note.id}><p className="whitespace-pre-wrap text-sm text-slate-800">{note.body}</p><p className="mt-2 text-[11px] text-slate-500">{note.author?.name ?? note.author?.email ?? "Former staff"} · {note.createdAt.toLocaleString("en-ZA")}</p></article>)}{!profile.notes.length ? <p className="text-sm text-slate-500">No notes have been added.</p> : null}</div>
+      </Panel>
+    </div>
+  </AdminPage>;
+}

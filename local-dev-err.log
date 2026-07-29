@@ -1,0 +1,26 @@
+(node:63392) [DEP0190] DeprecationWarning: Passing args to a child process with shell option true can lead to security vulnerabilities, as the arguments are not escaped, only concatenated.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+Using SSH key from file C:\Users\simukelo\.ssh\id_ed25519_railway_codex.pub: codex-railway-innozanzi
+
+PostgreSQL tunnel open — point an external client at:
+
+  Host:     127.0.0.1
+  Port:     15432
+  User:     postgres
+  Password: KLqMfxMpgjzxQKjNAhaOYuztdlpYHZIb
+  Database: railway
+
+  URL:      postgresql://postgres:KLqMfxMpgjzxQKjNAhaOYuztdlpYHZIb@127.0.0.1:15432/railway
+
+Press Ctrl+C to close the tunnel.
+
+⚠ Port 3000 is in use by process 62116, using available port 3001 instead.
+⨯ Another next dev server is already running.
+
+- Local:        http://localhost:3000
+- PID:          62116
+- Dir:          C:\Users\simukelo\Music\innozanzi-shop
+- Log:          .next\dev\logs\next-development.log
+
+Run taskkill /PID 62116 /F to stop it.
+client_loop: send disconnect: Connection reset

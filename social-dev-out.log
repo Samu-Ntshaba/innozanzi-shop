@@ -1,0 +1,12 @@
+
+> innozanzi-shop@0.1.0 dev
+> tsx scripts/dev-railway.ts
+
+Reusing database tunnel on 127.0.0.1:15432.
+Starting Next.js with the Railway database tunnel...
+▲ Next.js 16.2.11 (Turbopack)
+- Local:         http://localhost:3001
+- Network:       http://10.1.93.191:3001
+- Environments: .env
+✓ Ready in 890ms
+[?25h
