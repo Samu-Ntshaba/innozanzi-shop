@@ -41,25 +41,64 @@ export const adminNavGroups: readonly NavGroup[] = [
 ] as const;
 
 type AdminNavProps = {
-  canViewRfqs?: boolean;
-  canViewMarketing?: boolean;
-  canViewDocuments?: boolean;
-  canViewReturns?: boolean;
-  canViewTransport?: boolean;
-  canManageUsers?: boolean;
+  permissions?: readonly string[];
   isSuperAdministrator?: boolean;
 };
 
-export function AdminNav({ canViewRfqs = false, canViewMarketing = false, canViewDocuments = false, canViewReturns = false, canViewTransport = false, canManageUsers = false, isSuperAdministrator = false }: AdminNavProps) {
+export const adminRoutePermissions: Record<string, string> = {
+  "/admin": "reports.view",
+  "/admin/customers": "customers.manage",
+  "/admin/help-desk": "customers.manage",
+  "/admin/calendar": "customers.manage",
+  "/admin/quotations": "quotations.manage",
+  "/admin/rfqs": "rfq.view",
+  "/admin/invoices": "quotations.manage",
+  "/admin/partnerships": "partnership.view",
+  "/admin/partnerships/applications": "partnership.view",
+  "/admin/partnerships/partners": "partnership.view",
+  "/admin/partnerships/requests": "partnership.request.view",
+  "/admin/partnerships/agreements": "partnership.view",
+  "/admin/marketing": "marketing.dashboard.view",
+  "/admin/marketing/analytics": "marketing.analytics.view",
+  "/admin/marketing/homepage": "marketing.content.view",
+  "/admin/marketing/blog": "marketing.content.view",
+  "/admin/marketing/popups": "marketing.content.view",
+  "/admin/marketing/media": "marketing.media.manage",
+  "/admin/email-marketing": "customers.manage",
+  "/admin/marketing/seo": "marketing.seo.view",
+  "/admin/marketing/page-seo": "marketing.seo.view",
+  "/admin/marketing/audit": "marketing.seo.view",
+  "/admin/marketing/redirects": "marketing.redirects.manage",
+  "/admin/orders": "orders.view",
+  "/admin/payments": "payments.approve",
+  "/admin/delivery-notes": "orders.view",
+  "/admin/logistics": "transport.view",
+  "/admin/returns": "returns.view",
+  "/admin/returns/fulfilment": "returns.view",
+  "/admin/returns/claims": "returns.claims.manage",
+  "/admin/returns/documents": "returns.documents.download",
+  "/admin/inventory": "inventory.manage",
+  "/admin/suppliers": "products.update",
+  "/admin/products": "products.view",
+  "/admin/categories": "products.update",
+  "/admin/brands": "products.update",
+  "/admin/promotions": "settings.manage",
+  "/admin/reports": "reports.view",
+  "/admin/returns/profitability": "returns.financial.view",
+  "/admin/syntech": "products.update",
+  "/admin/documents": "documents.history.view",
+  "/admin/content": "settings.manage",
+  "/admin/reviews": "products.update",
+  "/admin/access-control": "users.manage",
+  "/admin/audit-log": "users.manage",
+};
+
+export function AdminNav({ permissions = [], isSuperAdministrator = false }: AdminNavProps) {
   const pathname = usePathname();
-  const canShow = (href: string) =>
-    href.startsWith("/admin/marketing") || href === "/admin/email-marketing" ? canViewMarketing
-      : href.startsWith("/admin/documents") ? canViewDocuments
-        : href.startsWith("/admin/returns") ? canViewReturns
-          : href.startsWith("/admin/logistics") ? canViewTransport
-            : href === "/admin/rfqs" ? canViewRfqs
-              : href === "/admin/test-mode" ? isSuperAdministrator
-                : href !== "/admin/access-control" || canManageUsers;
+  const grants = new Set(permissions);
+  const canShow = (href: string) => href === "/admin/test-mode"
+    ? isSuperAdministrator
+    : isSuperAdministrator || grants.has(adminRoutePermissions[href] ?? "");
   const visibleHrefs = adminNavGroups.flatMap((group) => group.sections.flatMap((section) => section.links.map(([, href]) => href))).filter(canShow);
   const activeHref = visibleHrefs
     .filter((href) => href === "/admin" ? pathname === href : pathname === href || pathname.startsWith(`${href}/`))

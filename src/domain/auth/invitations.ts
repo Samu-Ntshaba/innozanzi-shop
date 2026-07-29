@@ -13,6 +13,7 @@ import { emailTemplates } from "@/integrations/email/templates";
 import { generateTemporaryPassword, invitationExpiry } from "./invitation-utils";
 import { notifySupportOfNewUser } from "./user-notifications";
 import { sendStaffEmail } from "@/domain/notifications/role-email";
+import { employeeOnboardingPdf } from "./employee-onboarding-pdf";
 
 export async function inviteUser(formData: FormData) {
   const actor = await requirePermission("users.manage");
@@ -47,14 +48,21 @@ export async function inviteUser(formData: FormData) {
   const activationTokenHash = createHash("sha256").update(rawToken).digest("hex");
   const expiresAt = invitationExpiry();
 
-  await enqueueEmail(emailTemplates.userInvitation(data.email, data.name, temporaryPassword, role.name, data.accountType, company?.companyName ?? "Innozanzi", rawToken, expiresAt));
+  const invitationEmail = emailTemplates.userInvitation(data.email, data.name, temporaryPassword, role.name, data.accountType, company?.companyName ?? "Innozanzi", rawToken, expiresAt);
+  if (data.accountType === "INTERNAL_EMPLOYEE") {
+    const onboardingPdf = await employeeOnboardingPdf({ name: data.name, email: data.email, role: role.name, company: company?.companyName ?? "Innozanzi", department: department?.name, expiresAt });
+    invitationEmail.text += "\n\nYour employee system onboarding guide is attached. Read it before working in the system.";
+    invitationEmail.html = invitationEmail.html.replace("</body>", '<p style="margin:0 auto 24px;max-width:564px;color:#334155;font-family:Arial,sans-serif"><strong>Attached:</strong> Innozanzi Employee System Onboarding Guide (PDF). Please read it before working in the system.</p></body>');
+    invitationEmail.attachments = [{ filename: "Innozanzi-Employee-System-Onboarding.pdf", content: onboardingPdf, contentType: "application/pdf" }];
+  }
+  await enqueueEmail(invitationEmail);
   const invitedUser = await prisma.$transaction(async (tx) => {
     const user = await tx.user.create({ data: {
       email: data.email, name: data.name, phone: data.phone || null, passwordHash,
       status: "INVITED", accountType: data.accountType, companyId: data.companyId || null,
       departmentId: data.departmentId || null, mustChangePassword: true,
       temporaryPasswordExpiresAt: expiresAt,
-      customerProfile: data.accountType === "CUSTOMER" ? { create: {} } : undefined,
+      customerProfile: data.accountType === "CUSTOMER" ? { create: { source: "ADMIN_INVITATION" } } : undefined,
     } });
     await tx.userRole.create({ data: { userId: user.id, roleId: role.id, assignedBy: actor.user.id } });
     if (administratorRole && administratorRole.id !== role.id) {
@@ -120,7 +128,7 @@ export async function resendUserInvitation(formData: FormData) {
     where: { id: userId, status: "INVITED", mustChangePassword: true, deletedAt: null },
     include: {
       invitationsReceived: {
-        include: { role: true, company: true },
+        include: { role: true, company: true, department: true },
         orderBy: { createdAt: "desc" },
         take: 1,
       },
@@ -134,10 +142,17 @@ export async function resendUserInvitation(formData: FormData) {
   const rawToken = randomBytes(32).toString("base64url");
   const activationTokenHash = createHash("sha256").update(rawToken).digest("hex");
   const expiresAt = invitationExpiry();
-  await enqueueEmail(emailTemplates.userInvitation(
+  const invitationEmail = emailTemplates.userInvitation(
     user.email, user.name ?? "Invited user", temporaryPassword, previous.role.name,
     previous.accountType, previous.company?.companyName ?? "Innozanzi", rawToken, expiresAt,
-  ), user.id);
+  );
+  if (previous.accountType === "INTERNAL_EMPLOYEE") {
+    const onboardingPdf = await employeeOnboardingPdf({ name: user.name ?? "Invited user", email: user.email, role: previous.role.name, company: previous.company?.companyName ?? "Innozanzi", department: previous.department?.name, expiresAt });
+    invitationEmail.text += "\n\nYour employee system onboarding guide is attached. Read it before working in the system.";
+    invitationEmail.html = invitationEmail.html.replace("</body>", '<p style="margin:0 auto 24px;max-width:564px;color:#334155;font-family:Arial,sans-serif"><strong>Attached:</strong> Innozanzi Employee System Onboarding Guide (PDF). Please read it before working in the system.</p></body>');
+    invitationEmail.attachments = [{ filename: "Innozanzi-Employee-System-Onboarding.pdf", content: onboardingPdf, contentType: "application/pdf" }];
+  }
+  await enqueueEmail(invitationEmail, user.id);
 
   await prisma.$transaction(async (tx) => {
     await tx.session.deleteMany({ where: { userId } });

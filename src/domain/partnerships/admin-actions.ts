@@ -47,7 +47,7 @@ export async function createManualPartner(formData:FormData){
   const partner=await prisma.$transaction(async tx=>{
     let client=existingClient;
     if(data.sourceMode==="NEW"){
-      client=await tx.user.create({data:{email,name,phone:data.phone||null,passwordHash,status:"INVITED",accountType:"CUSTOMER",mustChangePassword:true,temporaryPasswordExpiresAt:expiresAt,customerProfile:{create:{firstName:name.split(/\s+/)[0],lastName:name.split(/\s+/).slice(1).join(" ")||null,company:{create:{companyName:data.companyName!,registrationNo:data.registrationNo||null}}}}},include:{customerProfile:{include:{company:true}}}});
+      client=await tx.user.create({data:{email,name,phone:data.phone||null,passwordHash,status:"INVITED",accountType:"CUSTOMER",mustChangePassword:true,temporaryPasswordExpiresAt:expiresAt,customerProfile:{create:{firstName:name.split(/\s+/)[0],lastName:name.split(/\s+/).slice(1).join(" ")||null,source:"ADMIN_PARTNER_CREATION",company:{create:{companyName:data.companyName!,registrationNo:data.registrationNo||null}}}}},include:{customerProfile:{include:{company:true}}}});
       await tx.user.update({where:{id:client.id},data:{companyId:client.customerProfile!.company!.id}});
       await tx.userRole.create({data:{userId:client.id,roleId:customerRole!.id,assignedBy:ctx.user.id}});
       await tx.userInvitation.create({data:{userId:client.id,invitedById:ctx.user.id,roleId:customerRole!.id,companyId:client.customerProfile!.company!.id,accountType:"CUSTOMER",activationTokenHash:activationTokenHash!,expiresAt}});

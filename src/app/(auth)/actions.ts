@@ -72,8 +72,18 @@ export async function registerAction(formData: FormData) {
   const ip = requestHeaders.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
   if (!consumeRateLimit(`register:${ip}:${parsed.data.email}`, 5, 60 * 60_000).allowed) redirect("/register?error=rate-limited");
 
-  const existing = await prisma.user.findUnique({ where: { email: parsed.data.email }, select: { id: true } });
-  if (existing) redirect("/register?status=check-email");
+  const existing = await prisma.user.findUnique({
+    where: { email: parsed.data.email },
+    select: { id: true, passwordHash: true, status: true, deletedAt: true, customerProfile: { select: { id: true, source: true } } },
+  });
+  const crmOnlyCustomer = Boolean(
+    existing?.customerProfile &&
+    !existing.passwordHash &&
+    existing.status === "DISABLED" &&
+    !existing.deletedAt &&
+    ["MANUAL", "IMPORT"].includes(existing.customerProfile.source),
+  );
+  if (existing && !crmOnlyCustomer) redirect("/register?status=check-email");
 
   const passwordHash = await hashPassword(parsed.data.password);
   const rawToken = randomBytes(32).toString("base64url");
@@ -82,18 +92,30 @@ export async function registerAction(formData: FormData) {
   await enqueueEmail(emailTemplates.verifyEmail(parsed.data.email, parsed.data.name, rawToken));
   const user = await prisma.$transaction(async (tx) => {
     const customerRole = await tx.role.findUnique({ where: { slug: "customer" } });
-    const user = await tx.user.create({
-      data: {
-        email: parsed.data.email,
-        name: parsed.data.name,
-        phone: parsed.data.phone || null,
-        passwordHash,
-        customerProfile: { create: {} },
-      },
-    });
+    const user = existing && crmOnlyCustomer
+      ? await tx.user.update({
+          where: { id: existing.id },
+          data: {
+            name: parsed.data.name,
+            phone: parsed.data.phone || null,
+            passwordHash,
+            status: "PENDING_VERIFICATION",
+            customerProfile: { update: { source: `${existing.customerProfile!.source}_REGISTERED` } },
+          },
+        })
+      : await tx.user.create({
+          data: {
+            email: parsed.data.email,
+            name: parsed.data.name,
+            phone: parsed.data.phone || null,
+            passwordHash,
+            customerProfile: { create: { source: "WEBSITE" } },
+          },
+        });
     if (customerRole) {
-      await tx.userRole.create({ data: { userId: user.id, roleId: customerRole.id } });
+      await tx.userRole.upsert({ where: { userId_roleId: { userId: user.id, roleId: customerRole.id } }, update: {}, create: { userId: user.id, roleId: customerRole.id } });
     }
+    await tx.verificationToken.deleteMany({ where: { identifier: `verify:${parsed.data.email}` } });
     await tx.verificationToken.create({
       data: {
         identifier: `verify:${parsed.data.email}`,
@@ -101,9 +123,12 @@ export async function registerAction(formData: FormData) {
         expires: new Date(Date.now() + 24 * 60 * 60 * 1_000),
       },
     });
+    if (existing && crmOnlyCustomer) {
+      await tx.auditLog.create({ data: { action: "customer.crm-register", entityType: "User", entityId: user.id, before: { status: existing.status, source: existing.customerProfile!.source }, after: { status: "PENDING_VERIFICATION", source: `${existing.customerProfile!.source}_REGISTERED`, crmHistoryPreserved: true } } });
+    }
     return user;
   });
-  await notifySupportOfNewUser({ userId: user.id, name: user.name, email: user.email, accountType: user.accountType, source: "PUBLIC_REGISTRATION" });
+  await notifySupportOfNewUser({ userId: user.id, name: user.name, email: user.email, accountType: user.accountType, source: crmOnlyCustomer ? "CRM_CUSTOMER_REGISTRATION" : "PUBLIC_REGISTRATION" });
   redirect("/register?status=check-email");
 }
 

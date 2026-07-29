@@ -3,18 +3,13 @@ import { AdminNav } from "@/components/admin/admin-nav";
 import { AdminWorkspace } from "@/components/admin/admin-workspace";
 import { logoutAction } from "@/app/(auth)/actions";
 import { requireUser } from "@/domain/auth/session";
-import { hasPermission } from "@/domain/auth/permissions";
+import { hasPermission, PERMISSIONS } from "@/domain/auth/permissions";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const context = await requireUser();
   const { user } = context;
-  const canViewRfqs = hasPermission(context.grants, "rfq.view", context.isSuperAdministrator);
-  const canManageUsers = hasPermission(context.grants, "users.manage", context.isSuperAdministrator);
-  const canViewMarketing = hasPermission(context.grants, "marketing.dashboard.view", context.isSuperAdministrator);
-  const canViewDocuments = hasPermission(context.grants, "documents.history.view", context.isSuperAdministrator);
-  const canViewReturns = hasPermission(context.grants, "returns.view", context.isSuperAdministrator);
-  const canViewTransport = hasPermission(context.grants, "transport.view", context.isSuperAdministrator);
-  const navigationProps = { canViewRfqs, canViewMarketing, canViewDocuments, canViewReturns, canViewTransport, canManageUsers, isSuperAdministrator: context.isSuperAdministrator };
+  const permissions = PERMISSIONS.filter((permission) => hasPermission(context.grants, permission, context.isSuperAdministrator));
+  const navigationProps = { permissions, isSuperAdministrator: context.isSuperAdministrator };
 
   return <div className="min-h-screen bg-[#eef1f4]">
     <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-slate-300 bg-white px-4 shadow-sm lg:px-6">
