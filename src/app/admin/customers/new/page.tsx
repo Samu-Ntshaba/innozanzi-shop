@@ -2,11 +2,11 @@ import Link from "next/link";
 import { AdminPage, Panel, buttonClass, inputClass, secondaryButtonClass } from "@/components/admin/admin-ui";
 import { requirePermission } from "@/domain/auth/session";
 import { createCustomer } from "@/domain/crm/actions";
-import { prisma } from "@/lib/prisma";
+import { getCrmCustomFields } from "@/domain/crm/custom-fields";
 
 export default async function NewCustomerPage() {
   await requirePermission("customers.manage");
-  const fields = await prisma.crmCustomField.findMany({ orderBy: { createdAt: "asc" } });
+  const fields = await getCrmCustomFields();
   return <AdminPage title="Add customer" description="Create a CRM record without requiring the customer to register or activate an online account." actions={<Link className={secondaryButtonClass} href="/admin/customers">Cancel</Link>}>
     <form action={createCustomer} className="space-y-4">
       <Panel title="Customer details"><div className="grid gap-3 sm:grid-cols-2">

@@ -116,6 +116,19 @@ export async function createCustomField(formData: FormData) {
   revalidatePath("/admin/customers/new");
 }
 
+export async function deleteCustomField(formData: FormData) {
+  const context = await requirePermission("customers.manage");
+  const id = uuid.parse(formData.get("id"));
+  const field = await prisma.crmCustomField.findUniqueOrThrow({ where: { id } });
+  await prisma.$transaction([
+    prisma.crmCustomField.delete({ where: { id } }),
+    prisma.auditLog.create({ data: { actorId: context.user.id, action: "customer.custom-field.delete", entityType: "CrmCustomField", entityId: id, before: { key: field.key, label: field.label } } }),
+  ]);
+  revalidatePath("/admin/customers");
+  revalidatePath("/admin/customers/new");
+  revalidatePath("/admin/customers/import");
+}
+
 const importRow = z.object({
   firstName: z.string().optional(),
   lastName: z.string().optional(),

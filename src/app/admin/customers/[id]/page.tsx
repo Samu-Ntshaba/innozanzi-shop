@@ -5,13 +5,14 @@ import { requirePermission } from "@/domain/auth/session";
 import { addCustomerNote, updateCustomer } from "@/domain/crm/actions";
 import { assignClientPortal, setClientPortalStatus } from "@/domain/client-portal/actions";
 import { prisma } from "@/lib/prisma";
+import { getCrmCustomFields } from "@/domain/crm/custom-fields";
 
 export default async function CustomerPage({ params }: { params: Promise<{ id: string }> }) {
   await requirePermission("customers.manage");
   const { id } = await params;
   const [customer, fields] = await Promise.all([
     prisma.user.findUnique({ where: { id }, include: { customerProfile: { include: { company: true, clientPortal:true, notes: { include: { author: { select: { name: true, email: true } } }, orderBy: { createdAt: "desc" } } } }, orders: { select: { id: true, orderNumber: true, status: true, grandTotal: true, createdAt: true }, orderBy: { createdAt: "desc" }, take: 10 } } }),
-    prisma.crmCustomField.findMany({ orderBy: { createdAt: "asc" } }),
+    getCrmCustomFields(),
   ]);
   if (!customer?.customerProfile) notFound();
   const profile = customer.customerProfile;
