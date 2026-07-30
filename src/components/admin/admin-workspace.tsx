@@ -1,7 +1,7 @@
 "use client";
 
 import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
-import type { ReactNode } from "react";
+import { Fragment, type ReactNode } from "react";
 import { useEffect, useSyncExternalStore } from "react";
 
 const storageKey = "innozanzi-admin-focus-mode";
@@ -44,9 +44,9 @@ export function AdminWorkspace({
 
   return (
     <>
-      {!focusMode ? mobileNavigation : null}
+      {!focusMode ? <Fragment key="mobile-navigation">{mobileNavigation}</Fragment> : null}
       <div className={`grid min-h-[calc(100vh-3.5rem)] ${focusMode ? "grid-cols-1" : "lg:grid-cols-[280px_minmax(0,1fr)]"}`}>
-        {!focusMode ? desktopNavigation : null}
+        {!focusMode ? <Fragment key="desktop-navigation">{desktopNavigation}</Fragment> : null}
         <main className={`min-w-0 p-4 sm:p-5 lg:p-6 ${focusMode ? "mx-auto w-full max-w-[1920px]" : ""}`}>
           <div className="mb-3 flex justify-end">
             <button
@@ -60,7 +60,7 @@ export function AdminWorkspace({
               {focusMode ? "Show menu" : "Full-width view"}
             </button>
           </div>
-          {children}
+          <Fragment key="workspace-content">{children}</Fragment>
         </main>
       </div>
     </>

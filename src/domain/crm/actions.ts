@@ -67,6 +67,11 @@ export async function createCustomer(formData: FormData) {
   const companyName = optionalText(formData.get("companyName"));
   if (!email && !firstName && !lastName && !companyName) throw new Error("Add a name, company, or email.");
   if (email) z.string().email().parse(email);
+  if (email) {
+    const existing = await prisma.user.findUnique({ where: { email: email.toLowerCase() }, select: { id: true, customerProfile: { select: { id: true } } } });
+    if (existing?.customerProfile) redirect(`/admin/customers/${existing.id}?existing=1`);
+    if (existing) redirect(`/admin/access-control?user=${existing.id}`);
+  }
   const customer = await createCustomerRecord({
     email, firstName, lastName, companyName,
     phone: optionalText(formData.get("phone")),

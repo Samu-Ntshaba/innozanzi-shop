@@ -13,7 +13,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   return <div className="min-h-screen bg-[#eef1f4]">
     <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-slate-300 bg-white px-4 shadow-sm lg:px-6">
-      <div className="flex min-w-0 items-center gap-3 sm:gap-4"><BrandLogo className="w-28 sm:w-32"/><span className="hidden border-l border-slate-300 pl-4 text-sm font-semibold text-slate-700 min-[420px]:block">Business Suite</span></div>
+      <div className="flex min-w-0 items-center gap-3 sm:gap-4"><BrandLogo className="w-28 sm:w-32" priority/><span className="hidden border-l border-slate-300 pl-4 text-sm font-semibold text-slate-700 min-[420px]:block">Business Suite</span></div>
       <div className="flex items-center gap-3 text-xs text-slate-600 sm:gap-4"><span className="hidden sm:block"><strong className="text-slate-900">Production</strong> · ZAR</span><span className="hidden max-w-52 truncate md:block">{user.email}</span><form action={logoutAction}><button className="font-semibold text-sky-700">Sign out</button></form></div>
     </header>
     <AdminWorkspace
