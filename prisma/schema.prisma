@@ -317,6 +317,23 @@ enum CampaignStatus {
   SENT
 }
 
+enum ComboCampaignType {
+  DAILY
+  WEEKLY
+  MONTHLY
+  CUSTOM
+}
+
+enum ComboCampaignStatus {
+  DRAFT
+  SCHEDULED
+  ACTIVE
+  PAUSED
+  EXPIRED
+  CANCELLED
+  SOLD_OUT
+}
+
 enum PartnershipTrack {
   ECOMMERCE
   BUSINESS_PROCUREMENT
@@ -1169,6 +1186,7 @@ model Product {
   transportItems        TransportItem[]
   transportAllocations  TransportCostAllocation[]
   returnReplacements    ReturnReplacement[]
+  comboItems            ComboCampaignItem[]
 
   @@index([status, publishedAt])
   @@index([categoryId, status, createdAt])
@@ -1692,10 +1710,135 @@ model QuotationRequest {
   items              QuotationRequestItem[]
   attachments        QuotationRequestAttachment[]
   quotations         Quotation[]
+  comboSnapshot      ComboQuotationSnapshot?
 
   @@index([status, createdAt])
   @@index([userId, createdAt])
   @@index([email, createdAt])
+}
+
+model ComboCampaign {
+  id                     String              @id @default(uuid()) @db.Uuid
+  slug                   String              @unique
+  name                   String
+  headline               String
+  description            String              @db.Text
+  benefits               String?             @db.Text
+  type                   ComboCampaignType
+  status                 ComboCampaignStatus @default(DRAFT)
+  startsAt               DateTime
+  endsAt                 DateTime
+  targetAudience         String
+  normalPrice            Decimal             @db.Decimal(19, 4)
+  comboPrice             Decimal             @db.Decimal(19, 4)
+  estimatedCost          Decimal             @db.Decimal(19, 4)
+  serviceCost            Decimal             @default(0) @db.Decimal(19, 4)
+  deliveryCost           Decimal             @default(0) @db.Decimal(19, 4)
+  paymentCost            Decimal             @default(0) @db.Decimal(19, 4)
+  grossProfit            Decimal             @db.Decimal(19, 4)
+  profitMargin           Decimal             @db.Decimal(9, 4)
+  imageUrl               String?
+  mobileImageUrl         String?
+  callToAction           String              @default("Request a Quote")
+  emailSubject           String?
+  emailPreview           String?
+  emailBody              String?             @db.Text
+  sliderHeadline         String?
+  sliderText             String?
+  socialCaption          String?             @db.Text
+  sliderVisible          Boolean             @default(false)
+  featured               Boolean             @default(false)
+  aiGenerated            Boolean             @default(false)
+  deliveryIncluded       Boolean             @default(false)
+  vatIncluded            Boolean             @default(true)
+  requiresApproval       Boolean             @default(false)
+  approvedAt             DateTime?
+  approvedById           String?             @db.Uuid
+  createdById            String?             @db.Uuid
+  updatedById            String?             @db.Uuid
+  marketingBlockId       String?             @db.Uuid
+  emailCampaignId        String?             @db.Uuid
+  isTestData             Boolean             @default(false)
+  createdAt              DateTime            @default(now())
+  updatedAt              DateTime            @updatedAt
+  items                  ComboCampaignItem[]
+  events                 ComboCampaignEvent[]
+  quotationSnapshots     ComboQuotationSnapshot[]
+
+  @@index([status, startsAt, endsAt])
+  @@index([type, status])
+  @@index([featured, status])
+}
+
+model ComboCampaignItem {
+  id              String        @id @default(uuid()) @db.Uuid
+  campaignId      String        @db.Uuid
+  productId       String        @db.Uuid
+  quantity        Int
+  productName     String
+  sku             String
+  unitNormalPrice Decimal       @db.Decimal(19, 4)
+  unitCost         Decimal       @db.Decimal(19, 4)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  campaign        ComboCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  product         Product       @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@unique([campaignId, productId])
+  @@index([productId])
+}
+
+model ComboQuotationSnapshot {
+  id                   String           @id @default(uuid()) @db.Uuid
+  campaignId           String           @db.Uuid
+  quotationRequestId   String           @unique @db.Uuid
+  campaignName         String
+  normalPrice          Decimal          @db.Decimal(19, 4)
+  comboPrice           Decimal          @db.Decimal(19, 4)
+  discountAmount       Decimal          @db.Decimal(19, 4)
+  estimatedCost        Decimal          @db.Decimal(19, 4)
+  expectedGrossProfit  Decimal          @db.Decimal(19, 4)
+  items                Json
+  createdAt            DateTime         @default(now())
+  campaign             ComboCampaign    @relation(fields: [campaignId], references: [id], onDelete: Restrict)
+  quotationRequest     QuotationRequest @relation(fields: [quotationRequestId], references: [id], onDelete: Cascade)
+
+  @@index([campaignId, createdAt])
+}
+
+model ComboCampaignEvent {
+  id         String        @id @default(uuid()) @db.Uuid
+  campaignId String        @db.Uuid
+  type       String
+  channel    String?
+  value      Decimal?      @db.Decimal(19, 4)
+  data       Json?
+  createdAt  DateTime      @default(now())
+  campaign   ComboCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@index([campaignId, type, createdAt])
+  @@index([type, createdAt])
+}
+
+model ComboCampaignSetting {
+  id                         String   @id @default("default")
+  minimumProfitAmount        Decimal  @default(1) @db.Decimal(19, 4)
+  minimumProfitMargin        Decimal  @default(1) @db.Decimal(9, 4)
+  maximumDiscountPercent     Decimal  @default(50) @db.Decimal(9, 4)
+  lowMarginRequiresApproval  Boolean  @default(true)
+  maximumProducts            Int      @default(5)
+  maximumActiveCampaigns     Int      @default(5)
+  dailyEnabled               Boolean  @default(false)
+  weeklyEnabled              Boolean  @default(false)
+  monthlyEnabled             Boolean  @default(false)
+  automaticPublication       Boolean  @default(false)
+  automaticEmail             Boolean  @default(false)
+  automaticSlider            Boolean  @default(false)
+  targetProfitMargin         Decimal  @default(10) @db.Decimal(9, 4)
+  prioritisedCategoryIds     String[] @default([])
+  excludedCategoryIds        String[] @default([])
+  createdAt                  DateTime @default(now())
+  updatedAt                  DateTime @updatedAt
 }
 
 model QuotationRequestItem {

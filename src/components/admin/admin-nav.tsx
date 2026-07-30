@@ -20,7 +20,7 @@ export const adminNavGroups: readonly NavGroup[] = [
   ] },
   { label: "Marketing", icon: Megaphone, sections: [
     { links: [["Overview", "/admin/marketing"], ["Analytics", "/admin/marketing/analytics"]] },
-    { label: "Content", links: [["Homepage", "/admin/marketing/homepage"], ["Blog", "/admin/marketing/blog"], ["Website popups", "/admin/marketing/popups"], ["Media library", "/admin/marketing/media"], ["Email marketing", "/admin/email-marketing"]] },
+    { label: "Content", links: [["Homepage", "/admin/marketing/homepage"], ["Product Combo Campaigns", "/admin/marketing/combos"], ["Blog", "/admin/marketing/blog"], ["Website popups", "/admin/marketing/popups"], ["Media library", "/admin/marketing/media"], ["Email marketing", "/admin/email-marketing"]] },
     { label: "Search & discovery", links: [["Global SEO", "/admin/marketing/seo"], ["Page SEO", "/admin/marketing/page-seo"], ["SEO audit", "/admin/marketing/audit"], ["Redirects", "/admin/marketing/redirects"]] },
   ] },
   { label: "Operations", icon: Boxes, sections: [
@@ -61,6 +61,7 @@ export const adminRoutePermissions: Record<string, string> = {
   "/admin/marketing": "marketing.dashboard.view",
   "/admin/marketing/analytics": "marketing.analytics.view",
   "/admin/marketing/homepage": "marketing.content.view",
+  "/admin/marketing/combos": "combos.view",
   "/admin/marketing/blog": "marketing.content.view",
   "/admin/marketing/popups": "marketing.content.view",
   "/admin/marketing/media": "marketing.media.manage",
