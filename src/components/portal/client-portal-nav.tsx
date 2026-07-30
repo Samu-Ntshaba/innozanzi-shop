@@ -5,9 +5,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const groups=[
-  {label:"Workspace",items:[{label:"Overview",href:"/portal",module:null,icon:House},{label:"Browse products",href:"/shop",module:"PRODUCTS",icon:ShoppingBag}]},
-  {label:"Procurement",items:[{label:"Quotation requests",href:"/account/quotations",module:"QUOTATIONS",icon:ClipboardList},{label:"Orders",href:"/account/orders",module:"ORDERS",icon:Boxes},{label:"Delivery tracking",href:"/account/orders",module:"DELIVERIES",icon:PackageCheck}]},
-  {label:"Service & records",items:[{label:"Returns & refunds",href:"/account/returns",module:"RETURNS",icon:RotateCcw},{label:"Support centre",href:"/account/support",module:"SUPPORT",icon:Headphones},{label:"Documents",href:"/account",module:"DOCUMENTS",icon:FileText},{label:"Training & guidance",href:"/account/support",module:"TRAINING",icon:BookOpenCheck}]},
+  {label:"Workspace",items:[{label:"Overview",href:"/portal",module:null,icon:House},{label:"Business catalogue",href:"/portal/products",module:"PRODUCTS",icon:ShoppingBag}]},
+  {label:"Procurement",items:[{label:"Request a quotation",href:"/portal/requests/new",module:"QUOTATIONS",icon:ClipboardList},{label:"Quotations",href:"/portal/quotations",module:"QUOTATIONS",icon:FileText},{label:"Orders",href:"/portal/orders",module:"ORDERS",icon:Boxes},{label:"Delivery tracking",href:"/portal/deliveries",module:"DELIVERIES",icon:PackageCheck}]},
+  {label:"Service & records",items:[{label:"Returns & refunds",href:"/portal/returns",module:"RETURNS",icon:RotateCcw},{label:"Support centre",href:"/portal/support",module:"SUPPORT",icon:Headphones},{label:"Documents",href:"/portal/documents",module:"DOCUMENTS",icon:FileText},{label:"Training & guidance",href:"/portal/training",module:"TRAINING",icon:BookOpenCheck}]},
 ] as const;
 
 export function ClientPortalNav({modules}:{modules:string[]}){
