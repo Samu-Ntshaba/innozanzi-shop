@@ -36,7 +36,7 @@ export const adminNavGroups: readonly NavGroup[] = [
   ] },
   { label: "System", icon: Settings2, sections: [
     { label: "Records", links: [["Document centre", "/admin/documents"], ["Content", "/admin/content"], ["Reviews", "/admin/reviews"]] },
-    { label: "Administration", links: [["Access control", "/admin/access-control"], ["Audit log", "/admin/audit-log"], ["Test mode", "/admin/test-mode"]] },
+    { label: "Administration", links: [["Access control", "/admin/access-control"], ["Audit log", "/admin/audit-log"], ["Demo products", "/admin/products"]] },
   ] },
 ] as const;
 

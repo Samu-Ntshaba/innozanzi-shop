@@ -113,6 +113,7 @@ enum AddressType {
 
 enum ProductStatus {
   DRAFT
+  DEMO
   PUBLISHED
   ARCHIVED
 }
