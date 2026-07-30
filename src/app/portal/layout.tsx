@@ -1,5 +1,4 @@
-import Link from "next/link";
-import { Bell, ExternalLink, Headphones, LogOut, ShieldCheck } from "lucide-react";
+import { Bell, LogOut, ShieldCheck } from "lucide-react";
 import { BrandLogo } from "@/components/brand-logo";
 import { ClientPortalNav } from "@/components/portal/client-portal-nav";
 import { logoutAction } from "@/app/(auth)/actions";
@@ -19,7 +18,6 @@ export default async function PortalLayout({children}:{children:React.ReactNode}
       <aside className="border-b border-slate-950 bg-[#0b2745] text-white lg:sticky lg:top-16 lg:h-[calc(100vh-4rem)] lg:overflow-y-auto lg:border-b-0 lg:border-r lg:border-r-slate-900">
         <div className="border-b border-white/10 px-5 py-5"><div className="flex items-center justify-between"><p className="text-[10px] font-bold uppercase tracking-[.18em] text-sky-300">Your workspace</p><span className="rounded border border-amber-300/20 bg-amber-300/10 px-2 py-1 text-[9px] font-bold text-amber-200">{portal.tier}</span></div><p className="mt-2 truncate text-sm font-semibold">{context.user.name??context.user.email}</p><p className="mt-0.5 truncate text-xs text-slate-400">{context.user.email}</p></div>
         <ClientPortalNav modules={portal.modules}/>
-        <div className="m-4 rounded-lg border border-sky-300/15 bg-sky-300/[.06] p-4"><Headphones className="size-5 text-sky-300"/><p className="mt-3 text-sm font-semibold">Need help?</p><p className="mt-1 text-xs leading-5 text-slate-300">Your Innozanzi support team is available for product, quotation and delivery assistance.</p><Link className="mt-3 inline-flex items-center gap-1 text-xs font-bold text-sky-300 hover:text-white" href="/portal/support">Contact support <ExternalLink className="size-3"/></Link></div>
       </aside>
       <main className="min-w-0 p-4 sm:p-6 lg:p-8 xl:p-10">{children}</main>
     </div>
