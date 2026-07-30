@@ -9,7 +9,6 @@ export function ProductCard({ product }: { product: ProductCardData }) {
   return (
     <article className="group flex h-full flex-col overflow-hidden rounded-lg border border-slate-200 bg-white transition hover:border-slate-400 hover:shadow-md">
       <Link href={`/products/${product.slug}`} className="relative block aspect-square overflow-hidden bg-white">
-        {product.status==="DEMO"?<span className="absolute left-3 top-3 z-10 rounded-full bg-amber-300 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-slate-950 shadow-sm">Demo</span>:null}
         {image ? <Image src={image.path} alt={image.altText ?? product.name} fill sizes="(max-width: 479px) 100vw, (max-width: 1023px) 50vw, 25vw" className="object-contain p-4 transition duration-300 group-hover:scale-105 sm:p-5" /> : <div className="grid h-full place-items-center bg-slate-50 px-3 text-center text-xs text-slate-400">Product image coming soon</div>}
       </Link>
       <div className="flex min-w-0 flex-1 flex-col border-t border-slate-100 p-4">

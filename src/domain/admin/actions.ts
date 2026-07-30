@@ -84,9 +84,9 @@ export async function createSupplier(formData: FormData) {
 
 export async function setProductStatus(formData: FormData) {
   const context = await requirePermission("products.update");
-  const { id, status } = z.object({ id: z.string().uuid(), status: z.enum(["DRAFT", "DEMO", "PUBLISHED", "ARCHIVED"]) }).parse(Object.fromEntries(formData));
+  const { id, status } = z.object({ id: z.string().uuid(), status: z.enum(["DRAFT", "PUBLISHED", "ARCHIVED"]) }).parse(Object.fromEntries(formData));
   const before = await prisma.product.findUniqueOrThrow({ where: { id }, select: { status: true } });
-  const product = await prisma.product.update({ where: { id }, data: { status, publishedAt: ["PUBLISHED","DEMO"].includes(status) ? new Date() : undefined } });
+  const product = await prisma.product.update({ where: { id }, data: { status, publishedAt: status === "PUBLISHED" ? new Date() : undefined } });
   await audit(context.user.id, "product.status", "Product", id, before, { status: product.status });
   revalidatePath("/admin/products");
 }

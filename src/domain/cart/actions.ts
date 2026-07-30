@@ -4,7 +4,6 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { getAuthContext } from "@/domain/auth/session";
 import { getCurrentCart, getOrCreateCart } from "./service";
 
 const addSchema = z.object({ productId: z.string().uuid(), variantId: z.string().uuid().optional(), quantity: z.coerce.number().int().min(1).max(99) });
@@ -15,11 +14,10 @@ export async function addToCartAction(formData: FormData) {
   if (!parsed.success) redirect("/cart?error=invalid-item");
 
   const product = await prisma.product.findFirst({
-    where: { id: parsed.data.productId, status: {in:["PUBLISHED","DEMO"]}, deletedAt: null },
+    where: { id: parsed.data.productId, status: "PUBLISHED", deletedAt: null },
     include: { variants: { where: { id: parsed.data.variantId, isActive: true }, include: { inventory: true } }, inventory: { where: { variantId: null }, take: 1 } },
   });
   if (!product || (product.variants.length > 0 && !parsed.data.variantId)) redirect("/cart?error=unavailable");
-  if(product.status==="DEMO"&&!(await getAuthContext())?.isSuperAdministrator)redirect(`/products/${product.slug}?notice=demo`);
   const inventory = parsed.data.variantId ? product.variants[0]?.inventory : product.inventory[0];
   const available = inventory ? inventory.onHand - inventory.reserved : 0;
   if (available < parsed.data.quantity) redirect("/cart?error=stock");
