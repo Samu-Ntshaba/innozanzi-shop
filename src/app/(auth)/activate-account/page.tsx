@@ -1,7 +1,7 @@
 import { activateInvitedUser } from "@/domain/auth/invitations";
 import { requireActivationUser } from "@/domain/auth/session";
-
-const input = "mt-1 h-12 w-full rounded-lg border border-slate-300 px-3 text-base";
+import { AuthShell, authInputClass } from "@/components/auth/auth-shell";
+import Link from "next/link";
 
 export default async function ActivateAccountPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
   const context = await requireActivationUser();
@@ -9,16 +9,13 @@ export default async function ActivateAccountPage({ searchParams }: { searchPara
   const errorMessage = error === "password-reused"
     ? "Choose a new password that is different from the temporary password."
     : "Check that both new-password fields match and use at least 12 characters with uppercase, lowercase and a number.";
-  return <main className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-5 shadow-xl sm:p-8">
-    <p className="text-sm font-bold uppercase tracking-wider text-sky-700">Mandatory activation</p>
-    <h1 className="mt-2 text-3xl font-black text-slate-950">Choose your permanent password</h1>
-    <p className="mt-3 text-sm leading-6 text-slate-600">Signed in as {context.user.email}. You cannot access protected pages until this step is complete.</p>
+  return <AuthShell eyebrow="Secure account activation" title="Choose your permanent password" description={`Signed in as ${context.user.email}. Complete this final security step to open your workspace.`} footer={<>Need assistance? <Link className="font-bold text-sky-700 hover:underline" href="/contact">Contact Innozanzi support</Link></>}>
     {error && <p className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">{errorMessage}</p>}
-    <form action={activateInvitedUser} className="mt-6 grid gap-4">
-      <label className="text-sm font-medium">New password<input className={input} name="password" type="password" autoComplete="new-password" minLength={12} required /></label>
-      <label className="text-sm font-medium">Confirm new password<input className={input} name="confirmPassword" type="password" autoComplete="new-password" minLength={12} required /></label>
-      <p className="text-xs leading-5 text-slate-500">Use at least 12 characters with uppercase, lowercase and a number.</p>
-      <button className="min-h-12 rounded-lg bg-[#071b33] px-5 font-bold text-white">Save password and continue</button>
+    <form action={activateInvitedUser} className="mt-6 grid gap-5">
+      <label className="text-sm font-semibold text-slate-800">New password<input className={authInputClass} name="password" type="password" autoComplete="new-password" minLength={12} required /></label>
+      <label className="text-sm font-semibold text-slate-800">Confirm new password<input className={authInputClass} name="confirmPassword" type="password" autoComplete="new-password" minLength={12} required /></label>
+      <div className="rounded-lg border border-sky-100 bg-sky-50 p-3 text-xs leading-5 text-slate-600"><strong className="text-slate-800">Password requirements:</strong> at least 12 characters containing uppercase, lowercase and a number.</div>
+      <button className="min-h-12 rounded-lg bg-[#0a6ed1] px-5 font-bold text-white shadow-sm transition hover:bg-[#085caf]">Activate account and continue</button>
     </form>
-  </main>;
+  </AuthShell>;
 }
