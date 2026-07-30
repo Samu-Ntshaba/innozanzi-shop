@@ -118,7 +118,9 @@ export async function activateInvitedUser(formData: FormData) {
   } catch (error) {
     console.error("Account activated, but the internal activation notification failed.", error);
   }
-  redirect(context.user.roles.includes("customer") ? "/account" : "/admin");
+  const portal=await prisma.clientPortal.findFirst({where:{primaryUserId:invitation.user.id,status:"ACTIVE"},select:{id:true}});
+  if(portal)await prisma.clientPortal.update({where:{id:portal.id},data:{invitationStatus:"ACCEPTED",activatedAt, lastLoginAt:activatedAt}});
+  redirect(portal?"/portal":context.user.roles.includes("customer") ? "/account" : "/admin");
 }
 
 export async function resendUserInvitation(formData: FormData) {

@@ -24,6 +24,8 @@ function value(formData: FormData, key: string) {
 }
 
 async function defaultLandingPage(userId: string) {
+  const portal = await prisma.clientPortal.findFirst({ where: { primaryUserId: userId, status: "ACTIVE" }, select: { id: true } });
+  if (portal) return "/portal";
   const staffGrant = await prisma.userRole.findFirst({
     where: { userId, role: { permissions: { some: { effect: "ALLOW" } } } },
     select: { userId: true },
