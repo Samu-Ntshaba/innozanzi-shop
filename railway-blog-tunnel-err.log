@@ -12,3 +12,4 @@ PostgreSQL tunnel open — point an external client at:
 
 Press Ctrl+C to close the tunnel.
 
+client_loop: send disconnect: Connection reset

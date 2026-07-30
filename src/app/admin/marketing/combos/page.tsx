@@ -4,14 +4,16 @@ import { requirePermission } from "@/domain/auth/session";
 import { generateComboDraft,saveComboSettings } from "@/domain/combos/actions";
 import { prisma } from "@/lib/prisma";
 
-export default async function ComboCampaigns(){
+export default async function ComboCampaigns({searchParams}:{searchParams:Promise<{notice?:string}>}){
   await requirePermission("combos.view");
+  const {notice}=await searchParams;
   const[campaigns,settings,events]=await Promise.all([
     prisma.comboCampaign.findMany({include:{_count:{select:{items:true,events:true,quotationSnapshots:true}}},orderBy:{updatedAt:"desc"},take:100}),
     prisma.comboCampaignSetting.upsert({where:{id:"default"},update:{},create:{id:"default"}}),
     prisma.comboCampaignEvent.groupBy({by:["type"],_count:true}),
   ]);
   return <AdminPage title="Product Combo Campaigns" description="Build profitable multi-product offers using the existing catalogue, quotation, email and homepage systems." actions={<Link className={buttonClass} href="/admin/marketing/combos/new">Create combo</Link>}>
+    {notice==="catalogue-not-ready"?<div role="alert" className="border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950"><strong>Combo draft not generated.</strong> Add stock and a verified cost price to at least two published catalogue products, then try again.</div>:null}
     <Panel title="AI-assisted recommendation" description="AI may choose only stocked catalogue products with verified costs. It always creates a protected draft."><form action={generateComboDraft} className="grid gap-3 md:grid-cols-[180px_1fr_auto]"><select className={inputClass} name="type"><option>DAILY</option><option>WEEKLY</option><option>MONTHLY</option></select><input className={inputClass} name="audience" defaultValue="Small businesses" required/><button className={buttonClass}>Generate draft</button></form></Panel>
     <div className="grid gap-3 sm:grid-cols-4">{[["Campaigns",campaigns.length],["Active",campaigns.filter(x=>x.status==="ACTIVE").length],["Quote requests",events.find(x=>x.type==="QUOTATION_REQUEST")?._count??0],["Minimum margin",`${Number(settings.minimumProfitMargin)}%`]].map(([label,value])=><Panel key={String(label)}><p className="text-sm text-slate-500">{label}</p><p className="mt-1 text-2xl font-bold">{value}</p></Panel>)}</div>
     <Panel title="Campaigns"><div className="overflow-x-auto"><table className={tableClass}><thead><tr><th>Campaign</th><th>Type</th><th>Status</th><th>Products</th><th>Price / profit</th><th>Performance</th><th></th></tr></thead><tbody>{campaigns.map(x=><tr key={x.id}><td><strong>{x.name}</strong><small className="block">{x.startsAt.toLocaleDateString("en-ZA")}–{x.endsAt.toLocaleDateString("en-ZA")}</small></td><td>{x.type}</td><td><StatusBadge value={x.status}/></td><td>{x._count.items}</td><td>R {Number(x.comboPrice).toFixed(2)}<small className="block">{Number(x.profitMargin).toFixed(1)}% margin</small></td><td>{x._count.quotationSnapshots} quotes · {x._count.events} events</td><td><Link className={secondaryButtonClass} href={`/admin/marketing/combos/${x.id}`}>Manage</Link></td></tr>)}</tbody></table></div></Panel>
