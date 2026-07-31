@@ -1331,26 +1331,50 @@ model ProductDocument {
 model Supplier {
   id                String             @id @default(uuid()) @db.Uuid
   companyName       String
+  registrationNo    String?
+  vatNo             String?
   contactPerson     String?
   email             String?
   phone             String?
+  accountsContact   String?
+  accountsEmail     String?
+  accountsPhone     String?
   accountNumber     String?
   resellerId        String?
   paymentTerms      String?
   creditLimit       Decimal?           @db.Decimal(19, 4)
   website           String?
+  physicalAddress   String?            @db.Text
+  branchAddress     String?            @db.Text
   notes             String?            @db.Text
   isActive          Boolean            @default(true)
   deletedAt         DateTime?
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
   products          SupplierProduct[]
+  documents         SupplierDocument[]
   rfqLineItems      RfqLineItem[]
   distributorClaims DistributorClaim[]
   transports        TransportRecord[]
 
   @@index([isActive, companyName])
   @@index([deletedAt])
+}
+
+model SupplierDocument {
+  id           String           @id @default(uuid()) @db.Uuid
+  supplierId   String           @db.Uuid
+  documentId   String           @unique @db.Uuid
+  type         String
+  title        String
+  expiryDate   DateTime?
+  notes        String?          @db.Text
+  createdAt    DateTime         @default(now())
+  supplier     Supplier         @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  document     UploadedDocument @relation(fields: [documentId], references: [id], onDelete: Restrict)
+
+  @@index([supplierId, createdAt])
+  @@index([type, expiryDate])
 }
 
 model SupplierProduct {
@@ -2188,6 +2212,7 @@ model UploadedDocument {
   reimbursementReceipt      StaffTransportReimbursement?
   transportProviderDocument TransportProviderDocument?
   partnershipOfflineChange  PartnershipChange?
+  supplierDocument          SupplierDocument?
 }
 
 model BusinessDocument {

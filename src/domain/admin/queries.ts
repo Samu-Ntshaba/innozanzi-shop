@@ -28,7 +28,7 @@ export async function getAdminDashboard() {
 export const getAdminProducts = () => prisma.product.findMany({ where: { deletedAt: null }, include: { category: true, brand: true, inventory: true }, orderBy: { updatedAt: "desc" }, take: 100 });
 export const getAdminCategories = () => prisma.category.findMany({ include: { _count: { select: { products: true, children: true, couponCategories: true } } }, orderBy: [{ displayOrder: "asc" }, { name: "asc" }] });
 export const getAdminBrands = () => prisma.brand.findMany({ include: { _count: { select: { products: true } } }, orderBy: { name: "asc" } });
-export const getAdminSuppliers = () => prisma.supplier.findMany({ where: { deletedAt: null }, include: { _count: { select: { products: true } } }, orderBy: { companyName: "asc" } });
+export const getAdminSuppliers = () => prisma.supplier.findMany({ where: { deletedAt: null }, include: { _count: { select: { products: true, documents:true } } }, orderBy: { companyName: "asc" } });
 export const getAdminInventory = () => prisma.inventory.findMany({ include: { product: { select: { name: true, sku: true } }, variant: { select: { name: true } } }, orderBy: { updatedAt: "desc" }, take: 150 });
 export const getAdminOrders = () => prisma.order.findMany({ include: { _count: { select: { items: true } } }, orderBy: { createdAt: "desc" }, take: 100 });
 export const getAdminPayments = () => prisma.paymentProof.findMany({ include: { payment: { include: { order: { select: { orderNumber: true, email: true } } } } }, orderBy: { createdAt: "desc" }, take: 100 });
