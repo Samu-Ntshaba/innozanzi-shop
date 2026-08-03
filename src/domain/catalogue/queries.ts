@@ -13,20 +13,22 @@ const productCardSelect = {
 
 export async function getHomepageCatalogue() {
   try {
-    const [categories, featured, newest, specials, popular, brands,supplierNewest] = await Promise.all([
-      prisma.category.findMany({ where: { isActive: true }, orderBy: { displayOrder: "asc" }, take: 8, select: { id: true, name: true, slug: true, description: true, imagePath: true } }),
+    const [supplierCategories, featured, newest, specials, popular, brands,supplierNewest,total,inStock] = await Promise.all([
+      prisma.supplierCatalogueProduct.groupBy({by:["category"],where:{active:true,category:{not:null}},_count:true,orderBy:{_count:{category:"desc"}},take:8}),
       prisma.product.findMany({ where: { status: "PUBLISHED", deletedAt: null,isTestData:false, isFeatured: true }, take: 8, orderBy: { updatedAt: "desc" }, select: productCardSelect }),
       prisma.product.findMany({ where: { status: "PUBLISHED", deletedAt: null,isTestData:false, isNew: true }, take: 8, orderBy: { publishedAt: "desc" }, select: productCardSelect }),
       prisma.product.findMany({ where: { status: "PUBLISHED", deletedAt: null,isTestData:false, isSpecial: true }, take: 8, orderBy: { updatedAt: "desc" }, select: productCardSelect }),
       prisma.product.findMany({ where: { status: "PUBLISHED", deletedAt: null,isTestData:false, isPopular: true }, take: 8, orderBy: { updatedAt: "desc" }, select: productCardSelect }),
       prisma.brand.findMany({ where: { isActive: true }, orderBy: { name: "asc" }, take: 12, select: { id: true, name: true, slug: true, logoPath: true } }),
       prisma.supplierCatalogueProduct.findMany({where:{active:true,images:{isEmpty:false}},orderBy:{sourceUpdatedAt:"desc"},take:8,select:{id:true,name:true,slug:true,supplierSku:true,availability:true,brand:true,category:true,images:true}}),
+      prisma.supplierCatalogueProduct.count({where:{active:true}}),prisma.supplierCatalogueProduct.count({where:{active:true,availability:"IN_STOCK"}}),
     ]);
+    const categories=supplierCategories.map((x,index)=>({id:`supplier-${index}`,name:x.category!,slug:x.category!,description:`${x._count.toLocaleString("en-ZA")} catalogue products`,imagePath:null}));
     const supplierCards=supplierNewest.map(p=>({id:p.id,name:p.name,slug:p.slug,sku:p.supplierSku,stockStatus:p.availability==="IN_STOCK"?"IN_STOCK":"OUT_OF_STOCK",brand:p.brand?{name:p.brand,slug:p.brand}:null,category:{name:p.category??"Catalogue",slug:p.category??"catalogue"},images:p.images.slice(0,1).map(path=>({path,altText:p.name})),source:"supplier" as const}));
-    return { categories, featured:featured.length?featured:supplierCards.slice(0,4), newest:supplierCards, specials, popular, brands };
+    return { categories, featured:featured.length?featured:supplierCards.slice(0,4), newest:supplierCards, specials, popular, brands,total,inStock };
   } catch (error) {
     console.error("Catalogue unavailable", error);
-    return { categories: [], featured: [], newest: [], specials: [], popular: [], brands: [] };
+    return { categories: [], featured: [], newest: [], specials: [], popular: [], brands: [],total:0,inStock:0 };
   }
 }
 

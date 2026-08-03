@@ -33,6 +33,8 @@ export default async function HomePage() {
     <main className="bg-white">
       <HeroSlider />
 
+      <section className="border-b border-slate-200 bg-sky-50"><div className="mx-auto grid max-w-7xl gap-5 px-4 py-7 sm:px-6 lg:grid-cols-[1fr_520px] lg:items-center lg:px-8"><div><p className="text-xs font-bold uppercase tracking-widest text-sky-800">Live business technology catalogue</p><h2 className="mt-2 text-2xl font-semibold text-slate-950">{catalogue.total.toLocaleString("en-ZA")} products ready to quote</h2><p className="mt-1 text-sm text-slate-600">{catalogue.inStock.toLocaleString("en-ZA")} currently available from our authorised supplier, with stock refreshed automatically.</p></div><form action="/shop" className="flex overflow-hidden rounded-xl border border-slate-300 bg-white shadow-sm"><input aria-label="Search the catalogue" className="min-h-14 min-w-0 flex-1 px-4 outline-none" name="search" placeholder="Search product, brand, SKU or category"/><button className="bg-[#071b33] px-6 font-semibold text-white">Search</button></form></div></section>
+
       <section className="border-b border-slate-200 bg-white" aria-label="Why businesses choose Innozanzi">
         <div className="mx-auto grid max-w-5xl grid-cols-1 divide-y divide-slate-200 px-4 min-[480px]:grid-cols-3 min-[480px]:divide-x min-[480px]:divide-y-0 sm:px-6">
           {trustItems.map(({ icon: Icon, title, body }) => (
