@@ -26,13 +26,13 @@ export const adminNavGroups: readonly NavGroup[] = [
   { label: "Operations", icon: Boxes, sections: [
     { label: "Order fulfilment", links: [["Orders", "/admin/orders"], ["Payments", "/admin/payments"], ["Delivery notes", "/admin/delivery-notes"], ["Logistics & transport", "/admin/logistics"]] },
     { label: "Returns", links: [["Returns & refunds", "/admin/returns"], ["Return fulfilment", "/admin/returns/fulfilment"], ["Distributor claims", "/admin/returns/claims"], ["Return documents", "/admin/returns/documents"]] },
-    { label: "Supply", links: [["Inventory", "/admin/inventory"], ["Suppliers", "/admin/suppliers"]] },
+    { label: "Supply", links: [["Inventory", "/admin/inventory"], ["Suppliers", "/admin/suppliers"], ["Supplier feeds", "/admin/syntech"]] },
   ] },
   { label: "Catalogue", icon: Boxes, sections: [
     { links: [["Products", "/admin/products"], ["Categories", "/admin/categories"], ["Brands", "/admin/brands"], ["Promotions", "/admin/promotions"]] },
   ] },
   { label: "Reports & intelligence", icon: BarChart3, sections: [
-    { links: [["Business reports", "/admin/reports"], ["Return profitability", "/admin/returns/profitability"], ["Syntech AI Sync", "/admin/syntech"]] },
+    { links: [["Business reports", "/admin/reports"], ["Return profitability", "/admin/returns/profitability"]] },
   ] },
   { label: "System", icon: Settings2, sections: [
     { label: "Records", links: [["Document centre", "/admin/documents"], ["Content", "/admin/content"], ["Reviews", "/admin/reviews"]] },
@@ -87,6 +87,7 @@ export const adminRoutePermissions: Record<string, string> = {
   "/admin/reports": "reports.view",
   "/admin/returns/profitability": "returns.financial.view",
   "/admin/syntech": "products.update",
+  "/admin/syntech/products": "products.view",
   "/admin/documents": "documents.history.view",
   "/admin/content": "settings.manage",
   "/admin/reviews": "products.update",

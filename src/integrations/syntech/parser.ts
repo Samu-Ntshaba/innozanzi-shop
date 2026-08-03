@@ -1,7 +1,29 @@
-export type SyntechItem = { sku: string; name: string; category: string; brand?: string; description?: string; price?: number; stock: number; imageUrl?: string };
-const clean = (value: unknown) => String(value ?? "").trim();
-const first = (row: Record<string, string>, keys: string[]) => { const found = Object.entries(row).find(([key]) => keys.includes(key.toLowerCase().replace(/[^a-z0-9]/g, ""))); return clean(found?.[1]); };
-function parseCsvLine(line: string) { const values:string[]=[]; let value="",quoted=false; for(let i=0;i<line.length;i++){const char=line[i];if(char==='"'){if(quoted&&line[i+1]==='"'){value+='"';i++}else quoted=!quoted}else if(char===","&&!quoted){values.push(value);value=""}else value+=char}values.push(value);return values; }
-function parseCsv(input: string) { const lines=input.replace(/^\uFEFF/,"").split(/\r?\n/).filter(Boolean); const headers=parseCsvLine(lines.shift()??""); return lines.map(line=>Object.fromEntries(parseCsvLine(line).map((value,index)=>[headers[index]??String(index),value]))); }
-function parseXml(input:string){const blocks=[...input.matchAll(/<(?:product|item|record)\b[^>]*>([\s\S]*?)<\/(?:product|item|record)>/gi)].map(m=>m[1]);return blocks.map(block=>Object.fromEntries([...block.matchAll(/<([a-zA-Z0-9_-]+)[^>]*>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/\1>/g)].map(m=>[m[1],m[2].replace(/<[^>]+>/g,"").trim()])))}
-export function parseSyntechFeed(input:string,contentType=""){const rows=contentType.includes("xml")||input.trimStart().startsWith("<")?parseXml(input):parseCsv(input);return rows.map((row):SyntechItem=>({sku:first(row,["sku","itemcode","syntechitemcode","code"]),name:first(row,["name","productname","title"]),category:first(row,["category","productcategory","categories"])||"Uncategorised",brand:first(row,["brand","manufacturer"]),description:first(row,["description","shortdescription"]),price:Number(first(row,["price","sellingprice","rrp","dealerprice"]).replace(/[^0-9.-]/g,""))||undefined,stock:Number(first(row,["stock","stockonhand","quantity","qty"]).replace(/[^0-9.-]/g,""))||0,imageUrl:first(row,["image","imageurl","mainimage","picture"])||undefined})).filter(item=>item.sku&&item.name)}
+import { z } from "zod";
+
+const flexible = z.union([z.string(), z.number(), z.boolean(), z.null()]);
+const productSchema = z.object({
+  sku: z.string().trim().min(1), name: z.string().trim().optional(), price: z.number().optional(),
+  rrp_incl: z.number().optional(), recommended_margin: z.number().optional(), promo_price: flexible.optional(),
+  promo_starts: flexible.optional(), promo_ends: flexible.optional(), cptstock: z.number().optional(),
+  jhbstock: z.number().optional(), dbnstock: z.number().optional(), nextshipmenteta: flexible.optional(),
+  url: z.string().optional(), description: z.string().optional(), shortdesc: z.string().optional(),
+  weight: z.number().optional(), length: z.number().optional(), width: z.number().optional(), height: z.number().optional(),
+  featured_image: z.string().optional(), additional_images: z.array(z.string()).optional(), categories: z.string().optional(),
+  categoriesalt: z.string().optional(), categorytree: z.string().optional(), categorytreealt: z.string().optional(),
+  attributes: z.record(z.string(), z.unknown()).optional(), last_modified: z.string().optional(),
+}).passthrough();
+const feedSchema = z.object({syntechstock:z.object({count:z.number(),currency:z.string(),products:z.array(productSchema)})});
+
+export type SyntechFeedProduct = z.infer<typeof productSchema>;
+export type SyntechFeed = z.infer<typeof feedSchema>;
+export const parseSyntechFeed = (input:string):SyntechFeed => feedSchema.parse(JSON.parse(input));
+export const isFullSyntechProduct = (row:SyntechFeedProduct) => Boolean(row.name);
+export function parseFeedDate(value:unknown){
+  if(typeof value!=="string"||!value.trim())return null;
+  const date=new Date(value.includes("T")?value:`${value.replace(" ","T")}+02:00`);
+  return Number.isNaN(date.valueOf())?null:date;
+}
+export function stringAttribute(attributes:Record<string,unknown>|undefined,...keys:string[]){
+  for(const key of keys){const value=attributes?.[key];if(typeof value==="string"||typeof value==="number")return String(value)}
+  return null;
+}

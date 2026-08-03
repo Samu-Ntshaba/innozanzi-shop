@@ -1,13 +1,2 @@
-import { describe, expect, it } from "vitest";
-import { parseSyntechFeed } from "../../src/integrations/syntech/parser";
-
-describe("Syntech feed parser", () => {
-  it("normalizes CSV reseller feed columns", () => {
-    const items = parseSyntechFeed('Syntech Item Code,Product Name,Category,Brand,Selling Price,Stock On Hand,Image URL\nABC-1,"Business Laptop",Computers,Dell,R 100.00,7,https://example.com/a.jpg', "text/csv");
-    expect(items[0]).toMatchObject({ sku: "ABC-1", name: "Business Laptop", category: "Computers", brand: "Dell", price: 100, stock: 7 });
-  });
-  it("normalizes XML reseller feed fields", () => {
-    const items = parseSyntechFeed("<products><product><itemcode>SSD-1</itemcode><name>Portable SSD</name><category>Storage</category><qty>4</qty></product></products>", "application/xml");
-    expect(items[0]).toMatchObject({ sku: "SSD-1", name: "Portable SSD", category: "Storage", stock: 4 });
-  });
-});
+import{describe,expect,it}from"vitest";import{isFullSyntechProduct,parseSyntechFeed}from"../../src/integrations/syntech/parser";
+describe("Syntech JSON feed",()=>{it("parses the full feed envelope",()=>{const feed=parseSyntechFeed(JSON.stringify({syntechstock:{count:1,currency:"ZAR",products:[{sku:"ABC",name:"Product",price:10,cptstock:1,jhbstock:2,dbnstock:0,attributes:{brand:"Brand"}}]}}));expect(feed.syntechstock.products[0].sku).toBe("ABC");expect(isFullSyntechProduct(feed.syntechstock.products[0])).toBe(true)});it("accepts compact incremental records",()=>{const feed=parseSyntechFeed(JSON.stringify({syntechstock:{count:1,currency:"ZAR",products:[{sku:"ABC",price:10,cptstock:0,jhbstock:0,dbnstock:0,last_modified:"2026-08-03 10:00:00"}]}}));expect(isFullSyntechProduct(feed.syntechstock.products[0])).toBe(false)})});

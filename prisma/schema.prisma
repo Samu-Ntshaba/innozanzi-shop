@@ -857,7 +857,7 @@ model User {
   partnershipAgreementSignatures  PartnershipAgreementSignature[]  @relation("PartnershipAgreementSigner")
   partnershipChangesRequested     PartnershipChange[]              @relation("PartnershipChangeRequester")
   partnershipChangesApproved      PartnershipChange[]              @relation("PartnershipChangeApprover")
-  customerNotesAuthored           CustomerNote[]                    @relation("CustomerNoteAuthor")
+  customerNotesAuthored           CustomerNote[]                   @relation("CustomerNoteAuthor")
 
   @@index([status, createdAt])
   @@index([deletedAt])
@@ -974,7 +974,7 @@ model CustomerProfile {
   firstName        String?
   lastName         String?
   marketingConsent Boolean         @default(false)
-  source           String           @default("WEBSITE")
+  source           String          @default("WEBSITE")
   customFields     Json?
   createdAt        DateTime        @default(now())
   updatedAt        DateTime        @updatedAt
@@ -1329,7 +1329,7 @@ model ProductDocument {
 }
 
 model Supplier {
-  id                String             @id @default(uuid()) @db.Uuid
+  id                String                     @id @default(uuid()) @db.Uuid
   companyName       String
   registrationNo    String?
   vatNo             String?
@@ -1342,36 +1342,135 @@ model Supplier {
   accountNumber     String?
   resellerId        String?
   paymentTerms      String?
-  creditLimit       Decimal?           @db.Decimal(19, 4)
+  creditLimit       Decimal?                   @db.Decimal(19, 4)
   website           String?
-  physicalAddress   String?            @db.Text
-  branchAddress     String?            @db.Text
-  notes             String?            @db.Text
-  isActive          Boolean            @default(true)
+  physicalAddress   String?                    @db.Text
+  branchAddress     String?                    @db.Text
+  notes             String?                    @db.Text
+  isActive          Boolean                    @default(true)
   deletedAt         DateTime?
-  createdAt         DateTime           @default(now())
-  updatedAt         DateTime           @updatedAt
+  createdAt         DateTime                   @default(now())
+  updatedAt         DateTime                   @updatedAt
   products          SupplierProduct[]
   documents         SupplierDocument[]
   rfqLineItems      RfqLineItem[]
   distributorClaims DistributorClaim[]
   transports        TransportRecord[]
+  feeds             SupplierFeed[]
+  catalogueProducts SupplierCatalogueProduct[]
+  syncRuns          SupplierSyncRun[]
 
   @@index([isActive, companyName])
   @@index([deletedAt])
 }
 
+model SupplierFeed {
+  id                    String                     @id @default(uuid()) @db.Uuid
+  supplierId            String                     @db.Uuid
+  provider              String
+  adapter               String
+  fullFeedUrl           String
+  updateFeedUrl         String?
+  enabled               Boolean                    @default(true)
+  scheduleMinutes       Int                        @default(30)
+  lastFullSyncAt        DateTime?
+  lastIncrementalSyncAt DateTime?
+  nextSyncAt            DateTime?
+  lastSuccessAt         DateTime?
+  lastError             String?                    @db.Text
+  createdAt             DateTime                   @default(now())
+  updatedAt             DateTime                   @updatedAt
+  supplier              Supplier                   @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  products              SupplierCatalogueProduct[]
+  syncRuns              SupplierSyncRun[]
+
+  @@unique([supplierId, provider])
+  @@index([enabled, nextSyncAt])
+}
+
+model SupplierCatalogueProduct {
+  id                String       @id @default(uuid()) @db.Uuid
+  feedId            String       @db.Uuid
+  supplierId        String       @db.Uuid
+  supplierProductId String
+  supplierSku       String
+  manufacturerSku   String?
+  name              String
+  slug              String       @unique
+  brand             String?
+  category          String?
+  categoryPath      String?
+  description       String?      @db.Text
+  shortDescription  String?      @db.Text
+  specifications    Json?
+  images            String[]     @default([])
+  supplierUrl       String?
+  stock             Int          @default(0)
+  stockByLocation   Json?
+  availability      String
+  costPrice         Decimal?     @db.Decimal(19, 4)
+  recommendedRetail Decimal?     @db.Decimal(19, 4)
+  promotionalPrice  Decimal?     @db.Decimal(19, 4)
+  promotionStartsAt DateTime?
+  promotionEndsAt   DateTime?
+  currency          String       @default("ZAR") @db.Char(3)
+  weightGrams       Decimal?     @db.Decimal(12, 3)
+  lengthCm          Decimal?     @db.Decimal(12, 3)
+  widthCm           Decimal?     @db.Decimal(12, 3)
+  heightCm          Decimal?     @db.Decimal(12, 3)
+  warranty          String?
+  barcode           String?
+  nextShipmentAt    DateTime?
+  sourceUpdatedAt   DateTime?
+  lastSeenAt        DateTime     @default(now())
+  active            Boolean      @default(true)
+  raw               Json?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+  feed              SupplierFeed @relation(fields: [feedId], references: [id], onDelete: Cascade)
+  supplier          Supplier     @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+
+  @@unique([feedId, supplierProductId])
+  @@index([active, name])
+  @@index([active, category])
+  @@index([active, brand])
+  @@index([supplierSku])
+}
+
+model SupplierSyncRun {
+  id              String       @id @default(uuid()) @db.Uuid
+  feedId          String       @db.Uuid
+  supplierId      String       @db.Uuid
+  mode            String
+  status          String
+  startedAt       DateTime     @default(now())
+  finishedAt      DateTime?
+  recordsReceived Int          @default(0)
+  recordsAdded    Int          @default(0)
+  recordsUpdated  Int          @default(0)
+  recordsRemoved  Int          @default(0)
+  recordsSkipped  Int          @default(0)
+  error           String?      @db.Text
+  diagnostics     Json?
+  triggeredById   String?      @db.Uuid
+  feed            SupplierFeed @relation(fields: [feedId], references: [id], onDelete: Cascade)
+  supplier        Supplier     @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+
+  @@index([feedId, startedAt])
+  @@index([status, startedAt])
+}
+
 model SupplierDocument {
-  id           String           @id @default(uuid()) @db.Uuid
-  supplierId   String           @db.Uuid
-  documentId   String           @unique @db.Uuid
-  type         String
-  title        String
-  expiryDate   DateTime?
-  notes        String?          @db.Text
-  createdAt    DateTime         @default(now())
-  supplier     Supplier         @relation(fields: [supplierId], references: [id], onDelete: Cascade)
-  document     UploadedDocument @relation(fields: [documentId], references: [id], onDelete: Restrict)
+  id         String           @id @default(uuid()) @db.Uuid
+  supplierId String           @db.Uuid
+  documentId String           @unique @db.Uuid
+  type       String
+  title      String
+  expiryDate DateTime?
+  notes      String?          @db.Text
+  createdAt  DateTime         @default(now())
+  supplier   Supplier         @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  document   UploadedDocument @relation(fields: [documentId], references: [id], onDelete: Restrict)
 
   @@index([supplierId, createdAt])
   @@index([type, expiryDate])
@@ -1768,52 +1867,52 @@ model QuotationRequest {
 }
 
 model ComboCampaign {
-  id                     String              @id @default(uuid()) @db.Uuid
-  slug                   String              @unique
-  name                   String
-  headline               String
-  description            String              @db.Text
-  benefits               String?             @db.Text
-  type                   ComboCampaignType
-  status                 ComboCampaignStatus @default(DRAFT)
-  startsAt               DateTime
-  endsAt                 DateTime
-  targetAudience         String
-  normalPrice            Decimal             @db.Decimal(19, 4)
-  comboPrice             Decimal             @db.Decimal(19, 4)
-  estimatedCost          Decimal             @db.Decimal(19, 4)
-  serviceCost            Decimal             @default(0) @db.Decimal(19, 4)
-  deliveryCost           Decimal             @default(0) @db.Decimal(19, 4)
-  paymentCost            Decimal             @default(0) @db.Decimal(19, 4)
-  grossProfit            Decimal             @db.Decimal(19, 4)
-  profitMargin           Decimal             @db.Decimal(9, 4)
-  imageUrl               String?
-  mobileImageUrl         String?
-  callToAction           String              @default("Request a Quote")
-  emailSubject           String?
-  emailPreview           String?
-  emailBody              String?             @db.Text
-  sliderHeadline         String?
-  sliderText             String?
-  socialCaption          String?             @db.Text
-  sliderVisible          Boolean             @default(false)
-  featured               Boolean             @default(false)
-  aiGenerated            Boolean             @default(false)
-  deliveryIncluded       Boolean             @default(false)
-  vatIncluded            Boolean             @default(true)
-  requiresApproval       Boolean             @default(false)
-  approvedAt             DateTime?
-  approvedById           String?             @db.Uuid
-  createdById            String?             @db.Uuid
-  updatedById            String?             @db.Uuid
-  marketingBlockId       String?             @db.Uuid
-  emailCampaignId        String?             @db.Uuid
-  isTestData             Boolean             @default(false)
-  createdAt              DateTime            @default(now())
-  updatedAt              DateTime            @updatedAt
-  items                  ComboCampaignItem[]
-  events                 ComboCampaignEvent[]
-  quotationSnapshots     ComboQuotationSnapshot[]
+  id                 String                   @id @default(uuid()) @db.Uuid
+  slug               String                   @unique
+  name               String
+  headline           String
+  description        String                   @db.Text
+  benefits           String?                  @db.Text
+  type               ComboCampaignType
+  status             ComboCampaignStatus      @default(DRAFT)
+  startsAt           DateTime
+  endsAt             DateTime
+  targetAudience     String
+  normalPrice        Decimal                  @db.Decimal(19, 4)
+  comboPrice         Decimal                  @db.Decimal(19, 4)
+  estimatedCost      Decimal                  @db.Decimal(19, 4)
+  serviceCost        Decimal                  @default(0) @db.Decimal(19, 4)
+  deliveryCost       Decimal                  @default(0) @db.Decimal(19, 4)
+  paymentCost        Decimal                  @default(0) @db.Decimal(19, 4)
+  grossProfit        Decimal                  @db.Decimal(19, 4)
+  profitMargin       Decimal                  @db.Decimal(9, 4)
+  imageUrl           String?
+  mobileImageUrl     String?
+  callToAction       String                   @default("Request a Quote")
+  emailSubject       String?
+  emailPreview       String?
+  emailBody          String?                  @db.Text
+  sliderHeadline     String?
+  sliderText         String?
+  socialCaption      String?                  @db.Text
+  sliderVisible      Boolean                  @default(false)
+  featured           Boolean                  @default(false)
+  aiGenerated        Boolean                  @default(false)
+  deliveryIncluded   Boolean                  @default(false)
+  vatIncluded        Boolean                  @default(true)
+  requiresApproval   Boolean                  @default(false)
+  approvedAt         DateTime?
+  approvedById       String?                  @db.Uuid
+  createdById        String?                  @db.Uuid
+  updatedById        String?                  @db.Uuid
+  marketingBlockId   String?                  @db.Uuid
+  emailCampaignId    String?                  @db.Uuid
+  isTestData         Boolean                  @default(false)
+  createdAt          DateTime                 @default(now())
+  updatedAt          DateTime                 @updatedAt
+  items              ComboCampaignItem[]
+  events             ComboCampaignEvent[]
+  quotationSnapshots ComboQuotationSnapshot[]
 
   @@index([status, startsAt, endsAt])
   @@index([type, status])
@@ -1828,7 +1927,7 @@ model ComboCampaignItem {
   productName     String
   sku             String
   unitNormalPrice Decimal       @db.Decimal(19, 4)
-  unitCost         Decimal       @db.Decimal(19, 4)
+  unitCost        Decimal       @db.Decimal(19, 4)
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
   campaign        ComboCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
@@ -1839,19 +1938,19 @@ model ComboCampaignItem {
 }
 
 model ComboQuotationSnapshot {
-  id                   String           @id @default(uuid()) @db.Uuid
-  campaignId           String           @db.Uuid
-  quotationRequestId   String           @unique @db.Uuid
-  campaignName         String
-  normalPrice          Decimal          @db.Decimal(19, 4)
-  comboPrice           Decimal          @db.Decimal(19, 4)
-  discountAmount       Decimal          @db.Decimal(19, 4)
-  estimatedCost        Decimal          @db.Decimal(19, 4)
-  expectedGrossProfit  Decimal          @db.Decimal(19, 4)
-  items                Json
-  createdAt            DateTime         @default(now())
-  campaign             ComboCampaign    @relation(fields: [campaignId], references: [id], onDelete: Restrict)
-  quotationRequest     QuotationRequest @relation(fields: [quotationRequestId], references: [id], onDelete: Cascade)
+  id                  String           @id @default(uuid()) @db.Uuid
+  campaignId          String           @db.Uuid
+  quotationRequestId  String           @unique @db.Uuid
+  campaignName        String
+  normalPrice         Decimal          @db.Decimal(19, 4)
+  comboPrice          Decimal          @db.Decimal(19, 4)
+  discountAmount      Decimal          @db.Decimal(19, 4)
+  estimatedCost       Decimal          @db.Decimal(19, 4)
+  expectedGrossProfit Decimal          @db.Decimal(19, 4)
+  items               Json
+  createdAt           DateTime         @default(now())
+  campaign            ComboCampaign    @relation(fields: [campaignId], references: [id], onDelete: Restrict)
+  quotationRequest    QuotationRequest @relation(fields: [quotationRequestId], references: [id], onDelete: Cascade)
 
   @@index([campaignId, createdAt])
 }
@@ -1871,24 +1970,24 @@ model ComboCampaignEvent {
 }
 
 model ComboCampaignSetting {
-  id                         String   @id @default("default")
-  minimumProfitAmount        Decimal  @default(1) @db.Decimal(19, 4)
-  minimumProfitMargin        Decimal  @default(1) @db.Decimal(9, 4)
-  maximumDiscountPercent     Decimal  @default(50) @db.Decimal(9, 4)
-  lowMarginRequiresApproval  Boolean  @default(true)
-  maximumProducts            Int      @default(5)
-  maximumActiveCampaigns     Int      @default(5)
-  dailyEnabled               Boolean  @default(false)
-  weeklyEnabled              Boolean  @default(false)
-  monthlyEnabled             Boolean  @default(false)
-  automaticPublication       Boolean  @default(false)
-  automaticEmail             Boolean  @default(false)
-  automaticSlider            Boolean  @default(false)
-  targetProfitMargin         Decimal  @default(10) @db.Decimal(9, 4)
-  prioritisedCategoryIds     String[] @default([])
-  excludedCategoryIds        String[] @default([])
-  createdAt                  DateTime @default(now())
-  updatedAt                  DateTime @updatedAt
+  id                        String   @id @default("default")
+  minimumProfitAmount       Decimal  @default(1) @db.Decimal(19, 4)
+  minimumProfitMargin       Decimal  @default(1) @db.Decimal(9, 4)
+  maximumDiscountPercent    Decimal  @default(50) @db.Decimal(9, 4)
+  lowMarginRequiresApproval Boolean  @default(true)
+  maximumProducts           Int      @default(5)
+  maximumActiveCampaigns    Int      @default(5)
+  dailyEnabled              Boolean  @default(false)
+  weeklyEnabled             Boolean  @default(false)
+  monthlyEnabled            Boolean  @default(false)
+  automaticPublication      Boolean  @default(false)
+  automaticEmail            Boolean  @default(false)
+  automaticSlider           Boolean  @default(false)
+  targetProfitMargin        Decimal  @default(10) @db.Decimal(9, 4)
+  prioritisedCategoryIds    String[] @default([])
+  excludedCategoryIds       String[] @default([])
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
 }
 
 model QuotationRequestItem {
@@ -1899,6 +1998,10 @@ model QuotationRequestItem {
   productName        String?
   requestedQuantity  Int
   notes              String?
+  supplierId         String?          @db.Uuid
+  supplierProductId  String?
+  supplierSku        String?
+  productSnapshot    Json?
   createdAt          DateTime         @default(now())
   updatedAt          DateTime         @updatedAt
   quotationRequest   QuotationRequest @relation(fields: [quotationRequestId], references: [id], onDelete: Cascade)
