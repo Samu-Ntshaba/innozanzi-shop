@@ -14,6 +14,7 @@
     "start": "next start",
     "automation:emails": "tsx scripts/process-email-automation.ts",
     "automation:suppliers": "tsx scripts/process-supplier-sync.ts",
+    "automation:combos": "tsx scripts/process-combo-automation.ts",
     "lint": "eslint",
     "test": "vitest run",
     "test:watch": "vitest",

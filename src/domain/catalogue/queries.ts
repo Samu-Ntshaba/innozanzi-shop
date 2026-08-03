@@ -27,15 +27,17 @@ export async function getHomepageCatalogue() {
       prisma.brand.findMany({ where: { isActive: true }, orderBy: { name: "asc" }, take: 12, select: { id: true, name: true, slug: true, logoPath: true } }),
       prisma.supplierCatalogueProduct.findMany({where:{active:true,images:{isEmpty:false}},orderBy:{sourceUpdatedAt:"desc"},take:8,select:supplierCardSelect}),
       prisma.supplierCatalogueProduct.count({where:{active:true}}),prisma.supplierCatalogueProduct.count({where:{active:true,availability:"IN_STOCK"}}),
-      prisma.supplierCatalogueProduct.findMany({where:{...merchandiseWhere,category:"Computers",OR:[{categoryPath:{contains:"Creator",mode:"insensitive"}},{categoryPath:{contains:"Notebooks",mode:"insensitive"}},{name:{contains:"workstation",mode:"insensitive"}}]},orderBy:{costPrice:"desc"},take:4,select:supplierCardSelect}),
-      prisma.supplierCatalogueProduct.findMany({where:{...merchandiseWhere,category:"Computer peripherals",OR:[{categoryPath:{contains:"Office monitors",mode:"insensitive"}},{name:{contains:"ProArt",mode:"insensitive"}},{name:{contains:"UltraFine",mode:"insensitive"}}]},orderBy:{costPrice:"desc"},take:4,select:supplierCardSelect}),
-      prisma.supplierCatalogueProduct.findMany({where:{...merchandiseWhere,OR:[{category:"Networking & security"},{categoryPath:{contains:"Network attached storage",mode:"insensitive"}}]},orderBy:{costPrice:"desc"},take:4,select:supplierCardSelect}),
+      prisma.supplierCatalogueProduct.findMany({where:{...merchandiseWhere,category:"Computers",OR:[{categoryPath:{contains:"Creator",mode:"insensitive"}},{categoryPath:{contains:"Notebooks",mode:"insensitive"}},{name:{contains:"workstation",mode:"insensitive"}}]},orderBy:{costPrice:"desc"},take:12,select:supplierCardSelect}),
+      prisma.supplierCatalogueProduct.findMany({where:{...merchandiseWhere,category:"Computer peripherals",OR:[{categoryPath:{contains:"Office monitors",mode:"insensitive"}},{name:{contains:"ProArt",mode:"insensitive"}},{name:{contains:"UltraFine",mode:"insensitive"}}]},orderBy:{costPrice:"desc"},take:12,select:supplierCardSelect}),
+      prisma.supplierCatalogueProduct.findMany({where:{...merchandiseWhere,OR:[{category:"Networking & security"},{categoryPath:{contains:"Network attached storage",mode:"insensitive"}}]},orderBy:{costPrice:"desc"},take:12,select:supplierCardSelect}),
       prisma.supplierCatalogueProduct.findMany({where:{...merchandiseWhere,category:"Power"},orderBy:{costPrice:"desc"},take:4,select:supplierCardSelect}),
     ]);
     const categories=supplierCategories.map((x,index)=>({id:`supplier-${index}`,name:x.category!,slug:x.category!,description:`${x._count.toLocaleString("en-ZA")} catalogue products`,imagePath:null}));
     const supplierCards=supplierNewest.map(supplierCard);
-    const curated={businessComputers:businessComputers.map(supplierCard),professionalDisplays:professionalDisplays.map(supplierCard),networkAndStorage:networkAndStorage.map(supplierCard),powerContinuity:powerContinuity.map(supplierCard)};
-    const heroProducts=[curated.businessComputers[0],curated.professionalDisplays[0],curated.networkAndStorage[0]??curated.powerContinuity[0]].filter((x):x is ProductCardData=>Boolean(x));
+    const computerCards=businessComputers.map(supplierCard),displayCards=professionalDisplays.map(supplierCard),infrastructureCards=networkAndStorage.map(supplierCard);
+    const curated={businessComputers:computerCards.slice(0,4),professionalDisplays:displayCards.slice(0,4),networkAndStorage:infrastructureCards.slice(0,4),powerContinuity:powerContinuity.map(supplierCard)};
+    const rotation=Math.floor(Date.now()/(3*86_400_000));
+    const heroProducts=[computerCards[rotation%computerCards.length],displayCards[rotation%displayCards.length],infrastructureCards[rotation%infrastructureCards.length]??curated.powerContinuity[rotation%curated.powerContinuity.length]].filter((x):x is ProductCardData=>Boolean(x));
     return { categories, featured:featured.length?featured:supplierCards.slice(0,4), newest:supplierCards, specials, popular, brands,total,inStock,...curated,heroProducts };
   } catch (error) {
     console.error("Catalogue unavailable", error);

@@ -9,6 +9,7 @@ import { prisma } from "@/lib/prisma";
 import { getOpenAIClient } from "@/lib/openai";
 import { calculateComboPricing,validateComboPricing } from "./calculations";
 import { assertComboTransition } from "./lifecycle";
+import { runComboAutomation } from "./automation";
 
 const slugify=(value:string)=>value.toLowerCase().normalize("NFKD").replace(/[^\w\s-]/g,"").trim().replace(/[\s_-]+/g,"-").slice(0,90);
 const date=z.coerce.date();
@@ -73,12 +74,12 @@ export async function saveComboCampaign(formData:FormData){
 export async function setComboStatus(formData:FormData){
   const{id,status,reason}=z.object({id:z.string().uuid(),status:z.enum(["SCHEDULED","ACTIVE","PAUSED","CANCELLED"]),reason:z.string().trim().max(500).optional()}).parse(Object.fromEntries(formData));
   const ctx=await requirePermission(status==="PAUSED"?"combos.pause":"combos.publish");
-  const campaign=await prisma.comboCampaign.findUniqueOrThrow({where:{id},include:{items:{include:{product:{include:{inventory:true}}}}}});
+  const campaign=await prisma.comboCampaign.findUniqueOrThrow({where:{id},include:{items:{include:{product:{include:{inventory:true}},supplierCatalogueProduct:true}}}});
   assertComboTransition(campaign.status,status);
   const config=await settings();
   const pricing=calculateComboPricing({items:campaign.items.map(x=>({quantity:x.quantity,normalPrice:x.unitNormalPrice,cost:x.unitCost})),comboPrice:campaign.comboPrice,serviceCost:campaign.serviceCost,deliveryCost:campaign.deliveryCost,paymentCost:campaign.paymentCost});
   const warnings=validateComboPricing(pricing,config);
-  const unavailable=campaign.items.filter(x=>x.product.status!=="PUBLISHED"||x.product.inventory.reduce((n,i)=>n+Math.max(0,i.onHand-i.reserved),0)<x.quantity);
+  const unavailable=campaign.items.filter(x=>x.supplierCatalogueProduct?(!x.supplierCatalogueProduct.active||x.supplierCatalogueProduct.stock<x.quantity):(!x.product||x.product.status!=="PUBLISHED"||x.product.inventory.reduce((n,i)=>n+Math.max(0,i.onHand-i.reserved),0)<x.quantity));
   if(["SCHEDULED","ACTIVE"].includes(status)&&(warnings.length||unavailable.length))throw new Error([...warnings,...unavailable.map(x=>`${x.productName} is unavailable.`)].join(" "));
   await prisma.$transaction(async tx=>{
     await tx.comboCampaign.update({where:{id},data:{status,approvedAt:["SCHEDULED","ACTIVE"].includes(status)?new Date():campaign.approvedAt,approvedById:["SCHEDULED","ACTIVE"].includes(status)?ctx.user.id:campaign.approvedById}});
@@ -107,12 +108,20 @@ export async function saveComboSettings(formData:FormData){
   revalidatePath("/admin/marketing/combos");
 }
 
+export async function runComboAutomationNow(){
+  const ctx=await requirePermission("combos.automation.manage");
+  const result=await runComboAutomation();
+  await prisma.auditLog.create({data:{actorId:ctx.user.id,action:"combo.automation.force-run",entityType:"ComboCampaignSetting",entityId:"default",after:result}});
+  revalidatePath("/");revalidatePath("/combos");revalidatePath("/admin/marketing/combos");
+  redirect(`/admin/marketing/combos?notice=automation-ran&created=${result.created.length}&changed=${result.statusesChanged}`);
+}
+
 export async function requestComboQuotation(formData:FormData){
   const ctx=await requireUser();const id=z.string().uuid().parse(formData.get("id"));
-  const campaign=await prisma.comboCampaign.findFirstOrThrow({where:{id,status:"ACTIVE",startsAt:{lte:new Date()},endsAt:{gt:new Date()}},include:{items:{include:{product:{include:{inventory:true}}}}}});
-  for(const item of campaign.items)if(item.product.inventory.reduce((n,i)=>n+Math.max(0,i.onHand-i.reserved),0)<item.quantity)throw new Error(`${item.productName} is no longer available.`);
+  const campaign=await prisma.comboCampaign.findFirstOrThrow({where:{id,status:"ACTIVE",startsAt:{lte:new Date()},endsAt:{gt:new Date()}},include:{items:{include:{product:{include:{inventory:true}},supplierCatalogueProduct:true}}}});
+  for(const item of campaign.items){const available=item.supplierCatalogueProduct?item.supplierCatalogueProduct.active&&item.supplierCatalogueProduct.stock>=item.quantity:Boolean(item.product&&item.product.inventory.reduce((n,i)=>n+Math.max(0,i.onHand-i.reserved),0)>=item.quantity);if(!available)throw new Error(`${item.productName} is no longer available.`)}
   const requestNumber=`QR-${Date.now().toString(36).toUpperCase()}`;
-  const request=await prisma.quotationRequest.create({data:{requestNumber,userId:ctx.user.id,contactName:ctx.user.name??ctx.user.email,email:ctx.user.email,requirements:`Combo campaign: ${campaign.name}`,items:{create:campaign.items.map(x=>({productId:x.productId,productName:x.productName,requestedQuantity:x.quantity}))},comboSnapshot:{create:{campaignId:campaign.id,campaignName:campaign.name,normalPrice:campaign.normalPrice,comboPrice:campaign.comboPrice,discountAmount:new Decimal(campaign.normalPrice.toString()).minus(campaign.comboPrice.toString()),estimatedCost:campaign.estimatedCost,expectedGrossProfit:campaign.grossProfit,items:campaign.items.map(x=>({productId:x.productId,name:x.productName,sku:x.sku,quantity:x.quantity,unitNormalPrice:x.unitNormalPrice.toString(),unitCost:x.unitCost.toString()}))}}}});
+  const request=await prisma.quotationRequest.create({data:{requestNumber,userId:ctx.user.id,contactName:ctx.user.name??ctx.user.email,email:ctx.user.email,requirements:`Combo campaign: ${campaign.name}`,items:{create:campaign.items.map(x=>({productId:x.productId,productName:x.productName,requestedQuantity:x.quantity,supplierId:x.supplierCatalogueProduct?.supplierId,supplierProductId:x.supplierCatalogueProduct?.supplierProductId,supplierSku:x.supplierCatalogueProduct?.supplierSku,productSnapshot:x.supplierCatalogueProduct?{name:x.productName,sku:x.sku,comboUnitPrice:x.unitNormalPrice.toString()}:undefined}))},comboSnapshot:{create:{campaignId:campaign.id,campaignName:campaign.name,normalPrice:campaign.normalPrice,comboPrice:campaign.comboPrice,discountAmount:new Decimal(campaign.normalPrice.toString()).minus(campaign.comboPrice.toString()),estimatedCost:campaign.estimatedCost,expectedGrossProfit:campaign.grossProfit,items:campaign.items.map(x=>({productId:x.productId,supplierCatalogueProductId:x.supplierCatalogueProductId,name:x.productName,sku:x.sku,quantity:x.quantity,unitNormalPrice:x.unitNormalPrice.toString(),unitCost:x.unitCost.toString()}))}}}});
   await prisma.comboCampaignEvent.create({data:{campaignId:id,type:"QUOTATION_REQUEST",channel:"WEBSITE",data:{quotationRequestId:request.id,userId:ctx.user.id}}});
   redirect(`/account/quotations?submitted=${requestNumber}`);
 }
