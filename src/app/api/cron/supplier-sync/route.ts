@@ -1,5 +1,6 @@
 import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
-import { syncSyntechFeed } from "@/integrations/syntech/feed";
+import { prisma } from "@/lib/prisma";
+import { syncSyntechFeed, type SyncMode } from "@/integrations/syntech/feed";
 const valid=(request:Request)=>{const expected=process.env.CRON_SECRET;const supplied=request.headers.get("authorization")?.replace(/^Bearer\s+/i,"");if(!expected||!supplied||expected.length!==supplied.length)return false;return timingSafeEqual(Buffer.from(expected),Buffer.from(supplied))};
-export async function POST(request:Request){if(!valid(request))return NextResponse.json({error:"Unauthorized"},{status:401});try{return NextResponse.json(await syncSyntechFeed("INCREMENTAL"))}catch(error){return NextResponse.json({error:error instanceof Error?error.message:"Supplier sync failed"},{status:500})}}
+export async function POST(request:Request){if(!valid(request))return NextResponse.json({error:"Unauthorized"},{status:401});const active=await prisma.supplierSyncRun.findFirst({where:{status:"RUNNING",startedAt:{gt:new Date(Date.now()-30*60_000)}}});if(active)return NextResponse.json({status:"already-running",runId:active.id},{status:202});const feed=await prisma.supplierFeed.findFirst({where:{provider:"SYNTECH"},select:{lastFullSyncAt:true}});const requested=new URL(request.url).searchParams.get("mode")?.toUpperCase();const stale=!feed?.lastFullSyncAt||Date.now()-feed.lastFullSyncAt.getTime()>24*60*60_000;const mode:SyncMode=requested==="FULL"||stale?"FULL":"INCREMENTAL";try{return NextResponse.json({mode,...await syncSyntechFeed(mode)})}catch(error){return NextResponse.json({mode,error:error instanceof Error?error.message:"Supplier sync failed"},{status:500})}}

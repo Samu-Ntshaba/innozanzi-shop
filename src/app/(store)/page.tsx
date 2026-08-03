@@ -54,6 +54,7 @@ export default async function HomePage() {
       </section>
 
       <ProductSection products={catalogue.featured} />
+      <ProductSection eyebrow="Fresh from our authorised supplier" title="Latest technology" products={catalogue.newest} href="/shop?sort=newest" />
 
       <section className="mx-auto max-w-7xl px-4 pb-4 sm:px-6 lg:px-8"><Link className="flex items-center justify-between rounded-xl bg-[#071b33] px-6 py-5 text-white" href="/combos"><span><strong className="block text-lg">Product Combo Deals</strong><span className="text-sm text-sky-100">Explore daily, weekly and monthly technology packages</span></span><span className="font-bold">View combos →</span></Link></section>
 

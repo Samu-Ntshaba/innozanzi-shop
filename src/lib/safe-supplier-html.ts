@@ -1,0 +1,1 @@
+export function safeSupplierHtml(value:string|null){if(!value)return"";return value.replace(/<(script|style|iframe|object|embed)[^>]*>[\s\S]*?<\/\1>/gi,"").replace(/\son\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi,"").replace(/javascript:/gi,"")}

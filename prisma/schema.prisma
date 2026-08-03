@@ -1535,18 +1535,34 @@ model InventoryMovement {
 }
 
 model Cart {
-  id        String     @id @default(uuid()) @db.Uuid
-  userId    String?    @db.Uuid
-  token     String?    @unique
-  status    CartStatus @default(ACTIVE)
-  expiresAt DateTime?
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
-  user      User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  items     CartItem[]
+  id            String             @id @default(uuid()) @db.Uuid
+  userId        String?            @db.Uuid
+  token         String?            @unique
+  status        CartStatus         @default(ACTIVE)
+  expiresAt     DateTime?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  user          User?              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items         CartItem[]
+  supplierItems SupplierCartItem[]
 
   @@index([userId, status])
   @@index([status, expiresAt])
+}
+
+model SupplierCartItem {
+  id                String   @id @default(uuid()) @db.Uuid
+  cartId            String   @db.Uuid
+  supplierId        String   @db.Uuid
+  supplierProductId String
+  supplierSku       String
+  quantity          Int
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  cart              Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
+
+  @@unique([cartId, supplierId, supplierProductId])
+  @@index([supplierId, supplierProductId])
 }
 
 model CartItem {

@@ -18,6 +18,7 @@ export async function getCurrentCart() {
   return prisma.cart.findFirst({
     where: { status: "ACTIVE", ...(userId ? { userId } : { token }) },
     include: {
+      supplierItems: { orderBy:{createdAt:"asc"} },
       items: {
         orderBy: { createdAt: "asc" },
         include: {

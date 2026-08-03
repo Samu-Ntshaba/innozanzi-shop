@@ -13,22 +13,24 @@ const productCardSelect = {
 
 export async function getHomepageCatalogue() {
   try {
-    const [categories, featured, newest, specials, popular, brands] = await Promise.all([
+    const [categories, featured, newest, specials, popular, brands,supplierNewest] = await Promise.all([
       prisma.category.findMany({ where: { isActive: true }, orderBy: { displayOrder: "asc" }, take: 8, select: { id: true, name: true, slug: true, description: true, imagePath: true } }),
       prisma.product.findMany({ where: { status: "PUBLISHED", deletedAt: null,isTestData:false, isFeatured: true }, take: 8, orderBy: { updatedAt: "desc" }, select: productCardSelect }),
       prisma.product.findMany({ where: { status: "PUBLISHED", deletedAt: null,isTestData:false, isNew: true }, take: 8, orderBy: { publishedAt: "desc" }, select: productCardSelect }),
       prisma.product.findMany({ where: { status: "PUBLISHED", deletedAt: null,isTestData:false, isSpecial: true }, take: 8, orderBy: { updatedAt: "desc" }, select: productCardSelect }),
       prisma.product.findMany({ where: { status: "PUBLISHED", deletedAt: null,isTestData:false, isPopular: true }, take: 8, orderBy: { updatedAt: "desc" }, select: productCardSelect }),
       prisma.brand.findMany({ where: { isActive: true }, orderBy: { name: "asc" }, take: 12, select: { id: true, name: true, slug: true, logoPath: true } }),
+      prisma.supplierCatalogueProduct.findMany({where:{active:true,images:{isEmpty:false}},orderBy:{sourceUpdatedAt:"desc"},take:8,select:{id:true,name:true,slug:true,supplierSku:true,availability:true,brand:true,category:true,images:true}}),
     ]);
-    return { categories, featured, newest, specials, popular, brands };
+    const supplierCards=supplierNewest.map(p=>({id:p.id,name:p.name,slug:p.slug,sku:p.supplierSku,stockStatus:p.availability==="IN_STOCK"?"IN_STOCK":"OUT_OF_STOCK",brand:p.brand?{name:p.brand,slug:p.brand}:null,category:{name:p.category??"Catalogue",slug:p.category??"catalogue"},images:p.images.slice(0,1).map(path=>({path,altText:p.name})),source:"supplier" as const}));
+    return { categories, featured:featured.length?featured:supplierCards.slice(0,4), newest:supplierCards, specials, popular, brands };
   } catch (error) {
     console.error("Catalogue unavailable", error);
     return { categories: [], featured: [], newest: [], specials: [], popular: [], brands: [] };
   }
 }
 
-export async function getCatalogue(input: { search?: string; category?: string; brand?: string; sort?: string; page?: number }) {
+export async function getCatalogue(input: { search?: string; category?: string; brand?: string; availability?:string; promotion?:string; sort?: string; page?: number }) {
   const page = Math.max(1, input.page ?? 1);
   const pageSize = 12;
   const where = {
@@ -42,7 +44,7 @@ export async function getCatalogue(input: { search?: string; category?: string; 
   const orderBy = input.sort === "name" ? { name: "asc" as const } : { publishedAt: "desc" as const };
 
   try {
-    const supplierWhere={active:true,...(input.search?{OR:[{name:{contains:input.search,mode:"insensitive" as const}},{supplierSku:{contains:input.search,mode:"insensitive" as const}},{manufacturerSku:{contains:input.search,mode:"insensitive" as const}},{brand:{contains:input.search,mode:"insensitive" as const}},{category:{contains:input.search,mode:"insensitive" as const}}]}:{}),...(input.category?{category:{equals:input.category,mode:"insensitive" as const}}:{}),...(input.brand?{brand:{equals:input.brand,mode:"insensitive" as const}}:{})};
+    const supplierWhere={active:true,...(input.search?{OR:[{name:{contains:input.search,mode:"insensitive" as const}},{supplierSku:{contains:input.search,mode:"insensitive" as const}},{manufacturerSku:{contains:input.search,mode:"insensitive" as const}},{brand:{contains:input.search,mode:"insensitive" as const}},{category:{contains:input.search,mode:"insensitive" as const}}]}:{}),...(input.category?{category:{equals:input.category,mode:"insensitive" as const}}:{}),...(input.brand?{brand:{equals:input.brand,mode:"insensitive" as const}}:{}),...(input.availability==="in-stock"?{availability:"IN_STOCK"}:{}),...(input.promotion==="active"?{promotionalPrice:{not:null}}:{})};
     const [supplierTotal,manualTotal,supplierCategories,supplierBrands,manualCategories,manualBrands]=await Promise.all([
       prisma.supplierCatalogueProduct.count({where:supplierWhere}),prisma.product.count({where}),
       prisma.supplierCatalogueProduct.findMany({where:{active:true,category:{not:null}},distinct:["category"],select:{category:true},orderBy:{category:"asc"}}),
@@ -50,7 +52,7 @@ export async function getCatalogue(input: { search?: string; category?: string; 
       prisma.category.findMany({where:{isActive:true},orderBy:{name:"asc"},select:{name:true,slug:true}}),prisma.brand.findMany({where:{isActive:true},orderBy:{name:"asc"},select:{name:true,slug:true}})
     ]);
     const skip=(page-1)*pageSize;const supplierTake=Math.max(0,Math.min(pageSize,supplierTotal-skip));const manualSkip=Math.max(0,skip-supplierTotal);const [supplierProducts,manualProducts]=await Promise.all([
-      supplierTake?prisma.supplierCatalogueProduct.findMany({where:supplierWhere,orderBy:input.sort==="name"?{name:"asc"}:{sourceUpdatedAt:"desc"},skip,take:supplierTake,select:{id:true,name:true,slug:true,supplierSku:true,availability:true,brand:true,category:true,images:true}}):[],
+      supplierTake?prisma.supplierCatalogueProduct.findMany({where:supplierWhere,orderBy:input.sort==="name"?{name:"asc"}:input.sort==="stock"?{stock:"desc"}:input.sort==="oldest"?{sourceUpdatedAt:"asc"}:{sourceUpdatedAt:"desc"},skip,take:supplierTake,select:{id:true,name:true,slug:true,supplierSku:true,availability:true,brand:true,category:true,images:true}}):[],
       supplierTake<pageSize?prisma.product.findMany({where,orderBy,skip:manualSkip,take:pageSize-supplierTake,select:productCardSelect}):[]
     ]);
     const products=[...supplierProducts.map(p=>({id:p.id,name:p.name,slug:p.slug,sku:p.supplierSku,stockStatus:p.availability==="IN_STOCK"?"IN_STOCK":"OUT_OF_STOCK",brand:p.brand?{name:p.brand,slug:p.brand.toLowerCase()}:null,category:{name:p.category??"Catalogue",slug:p.category??"catalogue"},images:p.images.slice(0,1).map(path=>({path,altText:p.name})),source:"supplier" as const})),...manualProducts];

@@ -13,6 +13,7 @@
     "build": "prisma generate && next build",
     "start": "next start",
     "automation:emails": "tsx scripts/process-email-automation.ts",
+    "automation:suppliers": "tsx scripts/process-supplier-sync.ts",
     "lint": "eslint",
     "test": "vitest run",
     "test:watch": "vitest",

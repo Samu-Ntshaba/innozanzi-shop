@@ -9,3 +9,5 @@ Verified against both official JSON endpoints on 3 August 2026.
 The application stores a refreshable supplier catalogue cache, not duplicate internal `Product` records. Supplier costs and RRP are retained for authorised administration and quotation decisions but are never returned by public catalogue queries. Images remain on Syntech's CDN. Full sync builds or recovers the cache and deactivates absent records. Incremental sync updates commercial and availability fields only, preserving the full-feed descriptive record.
 
 Required deployment secrets are `SYNTECH_FULL_FEED_URL`, `SYNTECH_UPDATE_FEED_URL`, and `CRON_SECRET`. Schedule `POST /api/cron/supplier-sync` with `Authorization: Bearer <CRON_SECRET>` for routine incremental updates.
+
+For Railway Cron, run `npm run automation:suppliers` every 30 minutes. The job uses incremental updates normally and automatically performs a full refresh when the last successful full sync is more than 24 hours old, ensuring newly listed and discontinued products are discovered without repeatedly downloading the full feed.

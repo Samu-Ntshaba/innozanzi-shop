@@ -9,7 +9,7 @@ export async function StoreHeader() {
   let cartCount = 0;
   try {
     const cart = await getCurrentCart();
-    cartCount = cart?.items.reduce((total, item) => total + item.quantity, 0) ?? 0;
+    cartCount = cart ? cart.items.reduce((total, item) => total + item.quantity, 0)+cart.supplierItems.reduce((total,item)=>total+item.quantity,0) : 0;
   } catch (error) {
     console.error("Cart count unavailable", error);
   }
