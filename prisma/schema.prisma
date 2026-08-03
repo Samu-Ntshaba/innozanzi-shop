@@ -1925,6 +1925,8 @@ model ComboCampaign {
   marketingBlockId   String?                  @db.Uuid
   emailCampaignId    String?                  @db.Uuid
   isTestData         Boolean                  @default(false)
+  marketResearch     Json?
+  marketCheckedAt    DateTime?
   createdAt          DateTime                 @default(now())
   updatedAt          DateTime                 @updatedAt
   items              ComboCampaignItem[]
