@@ -11,24 +11,35 @@ const productCardSelect = {
   images: { where: { isPrimary: true }, take: 1, select: { path: true, altText: true } },
 } as const;
 
+const supplierCardSelect = {id:true,name:true,slug:true,supplierSku:true,availability:true,brand:true,category:true,images:true} as const;
+type SupplierCardRow = {id:string;name:string;slug:string;supplierSku:string;availability:string;brand:string|null;category:string|null;images:string[]};
+const supplierCard = (p:SupplierCardRow):ProductCardData => ({id:p.id,name:p.name,slug:p.slug,sku:p.supplierSku,stockStatus:p.availability==="IN_STOCK"?"IN_STOCK":"OUT_OF_STOCK",brand:p.brand?{name:p.brand,slug:p.brand.toLowerCase()}:null,category:{name:p.category??"Catalogue",slug:p.category??"catalogue"},images:p.images.slice(0,1).map(path=>({path,altText:p.name})),source:"supplier"});
+
 export async function getHomepageCatalogue() {
   try {
-    const [supplierCategories, featured, newest, specials, popular, brands,supplierNewest,total,inStock] = await Promise.all([
+    const merchandiseWhere={active:true,availability:"IN_STOCK" as const,images:{isEmpty:false}};
+    const [supplierCategories, featured, newest, specials, popular, brands,supplierNewest,total,inStock,businessComputers,professionalDisplays,networkAndStorage,powerContinuity] = await Promise.all([
       prisma.supplierCatalogueProduct.groupBy({by:["category"],where:{active:true,category:{not:null}},_count:true,orderBy:{_count:{category:"desc"}},take:8}),
       prisma.product.findMany({ where: { status: "PUBLISHED", deletedAt: null,isTestData:false, isFeatured: true }, take: 8, orderBy: { updatedAt: "desc" }, select: productCardSelect }),
       prisma.product.findMany({ where: { status: "PUBLISHED", deletedAt: null,isTestData:false, isNew: true }, take: 8, orderBy: { publishedAt: "desc" }, select: productCardSelect }),
       prisma.product.findMany({ where: { status: "PUBLISHED", deletedAt: null,isTestData:false, isSpecial: true }, take: 8, orderBy: { updatedAt: "desc" }, select: productCardSelect }),
       prisma.product.findMany({ where: { status: "PUBLISHED", deletedAt: null,isTestData:false, isPopular: true }, take: 8, orderBy: { updatedAt: "desc" }, select: productCardSelect }),
       prisma.brand.findMany({ where: { isActive: true }, orderBy: { name: "asc" }, take: 12, select: { id: true, name: true, slug: true, logoPath: true } }),
-      prisma.supplierCatalogueProduct.findMany({where:{active:true,images:{isEmpty:false}},orderBy:{sourceUpdatedAt:"desc"},take:8,select:{id:true,name:true,slug:true,supplierSku:true,availability:true,brand:true,category:true,images:true}}),
+      prisma.supplierCatalogueProduct.findMany({where:{active:true,images:{isEmpty:false}},orderBy:{sourceUpdatedAt:"desc"},take:8,select:supplierCardSelect}),
       prisma.supplierCatalogueProduct.count({where:{active:true}}),prisma.supplierCatalogueProduct.count({where:{active:true,availability:"IN_STOCK"}}),
+      prisma.supplierCatalogueProduct.findMany({where:{...merchandiseWhere,category:"Computers",OR:[{categoryPath:{contains:"Creator",mode:"insensitive"}},{categoryPath:{contains:"Notebooks",mode:"insensitive"}},{name:{contains:"workstation",mode:"insensitive"}}]},orderBy:{costPrice:"desc"},take:4,select:supplierCardSelect}),
+      prisma.supplierCatalogueProduct.findMany({where:{...merchandiseWhere,category:"Computer peripherals",OR:[{categoryPath:{contains:"Office monitors",mode:"insensitive"}},{name:{contains:"ProArt",mode:"insensitive"}},{name:{contains:"UltraFine",mode:"insensitive"}}]},orderBy:{costPrice:"desc"},take:4,select:supplierCardSelect}),
+      prisma.supplierCatalogueProduct.findMany({where:{...merchandiseWhere,OR:[{category:"Networking & security"},{categoryPath:{contains:"Network attached storage",mode:"insensitive"}}]},orderBy:{costPrice:"desc"},take:4,select:supplierCardSelect}),
+      prisma.supplierCatalogueProduct.findMany({where:{...merchandiseWhere,category:"Power"},orderBy:{costPrice:"desc"},take:4,select:supplierCardSelect}),
     ]);
     const categories=supplierCategories.map((x,index)=>({id:`supplier-${index}`,name:x.category!,slug:x.category!,description:`${x._count.toLocaleString("en-ZA")} catalogue products`,imagePath:null}));
-    const supplierCards=supplierNewest.map(p=>({id:p.id,name:p.name,slug:p.slug,sku:p.supplierSku,stockStatus:p.availability==="IN_STOCK"?"IN_STOCK":"OUT_OF_STOCK",brand:p.brand?{name:p.brand,slug:p.brand}:null,category:{name:p.category??"Catalogue",slug:p.category??"catalogue"},images:p.images.slice(0,1).map(path=>({path,altText:p.name})),source:"supplier" as const}));
-    return { categories, featured:featured.length?featured:supplierCards.slice(0,4), newest:supplierCards, specials, popular, brands,total,inStock };
+    const supplierCards=supplierNewest.map(supplierCard);
+    const curated={businessComputers:businessComputers.map(supplierCard),professionalDisplays:professionalDisplays.map(supplierCard),networkAndStorage:networkAndStorage.map(supplierCard),powerContinuity:powerContinuity.map(supplierCard)};
+    const heroProducts=[curated.businessComputers[0],curated.professionalDisplays[0],curated.networkAndStorage[0]??curated.powerContinuity[0]].filter((x):x is ProductCardData=>Boolean(x));
+    return { categories, featured:featured.length?featured:supplierCards.slice(0,4), newest:supplierCards, specials, popular, brands,total,inStock,...curated,heroProducts };
   } catch (error) {
     console.error("Catalogue unavailable", error);
-    return { categories: [], featured: [], newest: [], specials: [], popular: [], brands: [],total:0,inStock:0 };
+    return { categories: [], featured: [], newest: [], specials: [], popular: [], brands: [],total:0,inStock:0,businessComputers:[],professionalDisplays:[],networkAndStorage:[],powerContinuity:[],heroProducts:[] };
   }
 }
 
@@ -54,10 +65,10 @@ export async function getCatalogue(input: { search?: string; category?: string; 
       prisma.category.findMany({where:{isActive:true},orderBy:{name:"asc"},select:{name:true,slug:true}}),prisma.brand.findMany({where:{isActive:true},orderBy:{name:"asc"},select:{name:true,slug:true}})
     ]);
     const skip=(page-1)*pageSize;const supplierTake=Math.max(0,Math.min(pageSize,supplierTotal-skip));const manualSkip=Math.max(0,skip-supplierTotal);const [supplierProducts,manualProducts]=await Promise.all([
-      supplierTake?prisma.supplierCatalogueProduct.findMany({where:supplierWhere,orderBy:input.sort==="name"?{name:"asc"}:input.sort==="stock"?{stock:"desc"}:input.sort==="oldest"?{sourceUpdatedAt:"asc"}:{sourceUpdatedAt:"desc"},skip,take:supplierTake,select:{id:true,name:true,slug:true,supplierSku:true,availability:true,brand:true,category:true,images:true}}):[],
+      supplierTake?prisma.supplierCatalogueProduct.findMany({where:supplierWhere,orderBy:input.sort==="name"?{name:"asc"}:input.sort==="stock"?{stock:"desc"}:input.sort==="oldest"?{sourceUpdatedAt:"asc"}:{sourceUpdatedAt:"desc"},skip,take:supplierTake,select:supplierCardSelect}):[],
       supplierTake<pageSize?prisma.product.findMany({where,orderBy,skip:manualSkip,take:pageSize-supplierTake,select:productCardSelect}):[]
     ]);
-    const products=[...supplierProducts.map(p=>({id:p.id,name:p.name,slug:p.slug,sku:p.supplierSku,stockStatus:p.availability==="IN_STOCK"?"IN_STOCK":"OUT_OF_STOCK",brand:p.brand?{name:p.brand,slug:p.brand.toLowerCase()}:null,category:{name:p.category??"Catalogue",slug:p.category??"catalogue"},images:p.images.slice(0,1).map(path=>({path,altText:p.name})),source:"supplier" as const})),...manualProducts];
+    const products=[...supplierProducts.map(supplierCard),...manualProducts];
     const total=supplierTotal+manualTotal;const categories=[...supplierCategories.map(x=>({name:x.category!,slug:x.category!})),...manualCategories];const brands=[...supplierBrands.map(x=>({name:x.brand!,slug:x.brand!})),...manualBrands];
     return {products,total,page,pages:Math.max(1,Math.ceil(total/pageSize)),categories,brands};
   } catch (error) {

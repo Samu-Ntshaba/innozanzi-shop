@@ -26,12 +26,13 @@ const trustItems = [
 
 export default async function HomePage() {
   const catalogue = await getHomepageCatalogue();
+  const preferredCategories=["Computers","Networking & security","Power","Computer peripherals","TV & audio","Software"];
   const categories = catalogue.categories.length
-    ? catalogue.categories.slice(0, 6)
+    ? preferredCategories.map(name=>catalogue.categories.find(category=>category.name===name)).filter((category):category is (typeof catalogue.categories)[number]=>Boolean(category))
     : fallbackCategories;
   return (
     <main className="bg-white">
-      <HeroSlider />
+      <HeroSlider products={catalogue.heroProducts}/>
 
       <section className="border-b border-slate-200 bg-sky-50"><div className="mx-auto grid max-w-7xl gap-5 px-4 py-7 sm:px-6 lg:grid-cols-[1fr_520px] lg:items-center lg:px-8"><div><p className="text-xs font-bold uppercase tracking-widest text-sky-800">Live business technology catalogue</p><h2 className="mt-2 text-2xl font-semibold text-slate-950">{catalogue.total.toLocaleString("en-ZA")} products ready to quote</h2><p className="mt-1 text-sm text-slate-600">{catalogue.inStock.toLocaleString("en-ZA")} currently available from our authorised supplier, with stock refreshed automatically.</p></div><form action="/shop" className="flex overflow-hidden rounded-xl border border-slate-300 bg-white shadow-sm"><input aria-label="Search the catalogue" className="min-h-14 min-w-0 flex-1 px-4 outline-none" name="search" placeholder="Search product, brand, SKU or category"/><button className="bg-[#071b33] px-6 font-semibold text-white">Search</button></form></div></section>
 
@@ -55,8 +56,14 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <ProductSection products={catalogue.featured} />
-      <ProductSection eyebrow="Fresh from our authorised supplier" title="Latest technology" products={catalogue.newest} href="/shop?sort=newest" />
+      <div className="bg-slate-50/70">
+        <ProductSection eyebrow="Computing built for business" title="Business computers & workstations" products={catalogue.businessComputers} href="/shop?category=Computers&availability=in-stock" />
+      </div>
+      <ProductSection eyebrow="Productivity at full resolution" title="Professional displays" products={catalogue.professionalDisplays} href="/shop?category=Computer%20peripherals&availability=in-stock" />
+      <div className="bg-slate-50/70">
+        <ProductSection eyebrow="The backbone of modern operations" title="Networking, storage & security" products={catalogue.networkAndStorage} href="/shop?category=Networking%20%26%20security&availability=in-stock" />
+      </div>
+      <ProductSection eyebrow="Keep critical work running" title="Power & business continuity" products={catalogue.powerContinuity} href="/shop?category=Power&availability=in-stock" />
 
       <section className="mx-auto max-w-7xl px-4 pb-4 sm:px-6 lg:px-8"><Link className="flex items-center justify-between rounded-xl bg-[#071b33] px-6 py-5 text-white" href="/combos"><span><strong className="block text-lg">Product Combo Deals</strong><span className="text-sm text-sky-100">Explore daily, weekly and monthly technology packages</span></span><span className="font-bold">View combos →</span></Link></section>
 
