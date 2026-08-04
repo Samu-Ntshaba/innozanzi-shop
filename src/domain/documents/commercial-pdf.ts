@@ -299,3 +299,48 @@ export function commercialPdf(input: CommercialPdfInput, branding: DocumentBrand
   output.push(Buffer.from(`xref\n0 ${maxId + 1}\n0000000000 65535 f \n${offsets.slice(1).map((offset) => `${String(offset).padStart(10, "0")} 00000 n \n`).join("")}trailer << /Size ${maxId + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`));
   return Buffer.concat(output);
 }
+
+type GuidePage={title:string;intro?:string;steps:Array<{heading:string;body:string}>};
+
+export function adminSystemGuidePdf(branding:DocumentBranding=defaultDocumentBranding){
+  const pages:GuidePage[]=[
+    {title:"1. The complete customer journey",intro:"Use one workflow for website, telephone, email, WhatsApp and walk-in customers.",steps:[
+      {heading:"1  Request",body:"The customer selects products online, or staff open Admin > Quotations > New quotation and capture the request."},
+      {heading:"2  Provisional quotation",body:"The system records the requested products, price, stock and supplier snapshot. This is not a request for payment."},
+      {heading:"3  Final review",body:"Staff confirm quantity, selling price, delivery, discount, terms and approved banking details, then email the final PDF."},
+      {heading:"4  Customer decision",body:"The customer accepts or rejects the exact final version and amount in their account."},
+      {heading:"5  Payment verification",body:"The customer pays online or uploads EFT proof. An order becomes active only after payment is verified."},
+      {heading:"6  Fulfilment and delivery",body:"Staff process or source products, pack the order, arrange delivery and record delivery evidence."},
+    ]},
+    {title:"2. Capture and prepare a quotation",intro:"Do not create separate processes for online and offline customers.",steps:[
+      {heading:"Online request",body:"The customer signs in, adds products, confirms contact details and requests a priced quotation. Open it from Admin > Quotations."},
+      {heading:"Telephone or offline request",body:"Open Admin > Quotations > New quotation. Enter name, email, optional phone and company, requested lines and only essential notes."},
+      {heading:"New customers",body:"The system matches customers by email. If none exists, it creates a customer record automatically. Do not create a duplicate customer first."},
+      {heading:"Review the provisional quote",body:"Open the quotation. Confirm every product, quantity, internal cost, availability and customer unit price. Never expose internal cost to the customer."},
+      {heading:"Issue the final quote",body:"Add delivery or discount only when required. Confirm terms and banking details, then select Approve and email final quotation."},
+      {heading:"Email check",body:"The customer receives the PDF and support is copied. If delivery fails, check the email outbox and retry the failed notification."},
+    ]},
+    {title:"3. Acceptance and payment",intro:"Never begin fulfilment because a quote was issued or proof was merely uploaded.",steps:[
+      {heading:"Customer acceptance",body:"The customer opens Quotations, reviews the final PDF and selects Accept quote. Acceptance stores the exact version and amount."},
+      {heading:"Staff-assisted acceptance",body:"If the customer cannot use the portal, help them access their account. Do not record acceptance without clear customer authority and an audit trail."},
+      {heading:"Online payment",body:"After acceptance, the customer can choose Pay securely online. Paystack must return to shop.innozanzi.co.za."},
+      {heading:"EFT payment",body:"After acceptance, the customer uploads proof for the exact quotation total. Open Admin > Payments and verify the actual bank receipt before approval."},
+      {heading:"Verification boundary",body:"Approving payment rechecks local or supplier availability, activates the order, records source snapshots and emails the customer and support."},
+      {heading:"Do not proceed when",body:"The amount differs, the quote expired, stock changed, proof is unclear, the bank receipt is missing, or the accepted version no longer matches."},
+    ]},
+    {title:"4. Fulfilment, delivery and daily control",intro:"Keep customer-facing status accurate; each meaningful update sends email.",steps:[
+      {heading:"Process",body:"Open Admin > Orders. Move a verified order through Processing, Sourcing items when needed, Items received, Packing and Ready for delivery."},
+      {heading:"Source supplier items",body:"Use the supplier and SKU stored on the order line. Confirm availability and purchasing references without replacing the historical quotation snapshot."},
+      {heading:"Arrange delivery",body:"Create or open the delivery note, confirm delivery address and responsible staff, then schedule the courier and tracking details."},
+      {heading:"Complete delivery",body:"Record Dispatched, In transit and Delivered accurately. Upload proof of delivery or other evidence before completing the order."},
+      {heading:"Daily checks",body:"Review Overview, Quotations, Payments and Orders. Resolve failed email notifications, expired quotes, stock exceptions and overdue deliveries."},
+      {heading:"Golden rule",body:"If the system status, email, document and real-world event disagree, stop and correct the record before moving to the next stage."},
+    ]},
+  ];
+  const logo=decodeLogo();const pageCount=pages.length;const pageIds=pages.map((_,i)=>3+i);const regularFontId=3+pageCount;const boldFontId=regularFontId+1;const logoId=logo?boldFontId+1:null;const alphaId=logo?boldFontId+2:null;const firstContentId=boldFontId+(logo?3:1);const contentIds=pages.map((_,i)=>firstContentId+i);const objects=new Map<number,string|Buffer>();
+  objects.set(1,"<< /Type /Catalog /Pages 2 0 R >>");objects.set(2,`<< /Type /Pages /Kids [${pageIds.map(id=>`${id} 0 R`).join(" ")}] /Count ${pageCount} >>`);objects.set(regularFontId,"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>");objects.set(boldFontId,"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>");
+  if(logo&&logoId&&alphaId){objects.set(alphaId,Buffer.concat([Buffer.from(`<< /Type /XObject /Subtype /Image /Width ${logo.width} /Height ${logo.height} /ColorSpace /DeviceGray /BitsPerComponent 8 /Filter /FlateDecode /Length ${logo.alpha.length} >>\nstream\n`),logo.alpha,Buffer.from("\nendstream")]));objects.set(logoId,Buffer.concat([Buffer.from(`<< /Type /XObject /Subtype /Image /Width ${logo.width} /Height ${logo.height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /FlateDecode /SMask ${alphaId} 0 R /Length ${logo.rgb.length} >>\nstream\n`),logo.rgb,Buffer.from("\nendstream")]))}
+  const headerInput:CommercialPdfInput={title:"ADMIN SYSTEM GUIDE",number:"QUOTE TO DELIVERY",customer:"",email:"",issueDate:new Date(),lines:[]};
+  pages.forEach((page,index)=>{const commands=[...pageHeader(headerInput,branding,index+1,pageCount,Boolean(logo)),...pageFooter(branding,index+1,pageCount)];let y=704;commands.push(text(page.title,MARGIN,y,18,"F2",NAVY));y-=25;if(page.intro){wrap(page.intro,PAGE_WIDTH-MARGIN*2,9.5).forEach(line=>{commands.push(text(line,MARGIN,y,9.5,"F1",SLATE));y-=13});y-=8}for(const step of page.steps){commands.push(rect(MARGIN,y-4,4,18,BLUE));commands.push(text(step.heading,MARGIN+14,y,11,"F2",NAVY));y-=18;for(const line of wrap(step.body,PAGE_WIDTH-MARGIN*2-14,9)){commands.push(text(line,MARGIN+14,y,9,"F1",SLATE));y-=12}y-=14}const stream=commands.join("\n");const resources=`/Font << /F1 ${regularFontId} 0 R /F2 ${boldFontId} 0 R >>${logoId?` /XObject << /Logo ${logoId} 0 R >>`:""}`;objects.set(pageIds[index],`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${PAGE_WIDTH} ${PAGE_HEIGHT}] /Resources << ${resources} >> /Contents ${contentIds[index]} 0 R >>`);objects.set(contentIds[index],`<< /Length ${Buffer.byteLength(stream)} >>\nstream\n${stream}\nendstream`)});
+  const maxId=Math.max(...objects.keys());const output:Buffer[]=[Buffer.from("%PDF-1.4\n%\xE2\xE3\xCF\xD3\n","binary")];const offsets=[0];let length=output[0].length;for(let id=1;id<=maxId;id++){const body=objects.get(id);if(!body)throw new Error(`Missing PDF object ${id}`);offsets[id]=length;const object=Buffer.concat([Buffer.from(`${id} 0 obj\n`),Buffer.isBuffer(body)?body:Buffer.from(body),Buffer.from("\nendobj\n")]);output.push(object);length+=object.length}const xref=length;output.push(Buffer.from(`xref\n0 ${maxId+1}\n0000000000 65535 f \n${offsets.slice(1).map(offset=>`${String(offset).padStart(10,"0")} 00000 n \n`).join("")}trailer << /Size ${maxId+1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`));return Buffer.concat(output);
+}

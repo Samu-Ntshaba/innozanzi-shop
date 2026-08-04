@@ -115,5 +115,6 @@ export function AdminNav({ permissions = [], isSuperAdministrator = false }: Adm
         </div>
       </details>;
     })}
+    {(isSuperAdministrator||grants.has("reports.view"))?<div className="mt-4 border-t border-white/10 pt-3"><Link className="flex min-h-10 items-center rounded-lg px-3 text-sm font-semibold text-sky-300 hover:bg-white/[.07] hover:text-white" href="/api/admin/system-guide" target="_blank">Download system guide PDF</Link></div>:null}
   </nav>;
 }
