@@ -3,12 +3,15 @@ import Link from "next/link";
 import { BrandLogo } from "@/components/brand-logo";
 import { getCurrentCart } from "@/domain/cart/service";
 import { combosEnabled } from "@/domain/combos/settings";
-
-const categories = [["Laptops", "laptops"], ["Power & UPS", "ups-and-power"], ["Networking", "networking"]] as const;
+import { prisma } from "@/lib/prisma";
 
 export async function StoreHeader() {
   let cartCount = 0;
-  const showCombos=await combosEnabled();
+  const [showCombos,supplierCategories]=await Promise.all([
+    combosEnabled(),
+    prisma.supplierCatalogueProduct.groupBy({by:["category"],where:{active:true,category:{not:null}},_count:true,orderBy:{_count:{category:"desc"}},take:4}).catch(()=>[]),
+  ]);
+  const categories=supplierCategories.map(item=>item.category).filter((name):name is string=>Boolean(name));
   try {
     const cart = await getCurrentCart();
     cartCount = cart ? cart.items.reduce((total, item) => total + item.quantity, 0)+cart.supplierItems.reduce((total,item)=>total+item.quantity,0) : 0;
@@ -44,7 +47,7 @@ export async function StoreHeader() {
     <nav aria-label="Product categories" className="mx-auto hidden h-11 max-w-7xl items-center gap-7 border-t border-slate-100 px-6 lg:flex lg:px-8">
       <Link className="text-sm font-semibold text-sky-800" href="/shop">All products</Link>
       {showCombos?<Link className="text-sm font-semibold text-amber-700" href="/combos">Combo deals</Link>:null}
-      {categories.map(([label, slug]) => <Link key={slug} className="text-sm font-medium text-slate-600 hover:text-slate-950" href={`/categories/${slug}`}>{label}</Link>)}
+      {categories.map(category => <Link key={category} className="text-sm font-medium text-slate-600 hover:text-slate-950" href={`/categories/${encodeURIComponent(category)}`}>{category}</Link>)}
       <Link className="ml-auto text-sm font-medium text-slate-600 hover:text-slate-950" href="/blog">Insights</Link>
     </nav>
   </header>;
