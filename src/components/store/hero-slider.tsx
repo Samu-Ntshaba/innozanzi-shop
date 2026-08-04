@@ -36,13 +36,10 @@ export function HeroSlider({products}:{products:ProductCardData[]}) {
               <div className="mt-7 flex flex-wrap gap-3"><Link className="inline-flex min-h-12 items-center rounded-lg bg-white px-5 font-semibold text-[#071b33] hover:bg-sky-50" href={href}>View featured product<ArrowRight className="ml-2 size-4"/></Link><Link className="inline-flex min-h-12 items-center rounded-lg border border-white/30 px-5 font-semibold text-white hover:bg-white/10" href="/shop">Browse catalogue</Link></div>
             </div>
           </div>
-          <Link href={href} className="relative mx-4 mb-4 min-h-64 overflow-hidden rounded-xl border border-white/20 bg-white shadow-2xl sm:mx-6 sm:mb-6 lg:m-5 lg:ml-0">
-            <div className="absolute inset-x-7 bottom-32 top-7 sm:inset-x-12 sm:bottom-36 sm:top-10">
-              <div className="relative h-[88%] overflow-hidden rounded-t-xl border-[6px] border-b-4 border-slate-800 bg-gradient-to-br from-slate-50 to-slate-200 shadow-2xl sm:border-[8px]">
-                <span aria-hidden="true" className="absolute left-1/2 top-1 z-10 size-1.5 -translate-x-1/2 rounded-full bg-slate-500 ring-1 ring-slate-950"/>
-                {product.images[0]?<Image src={product.images[0].path} alt={product.name} fill priority={index===0} sizes="(max-width: 1023px) 100vw, 48vw" className="object-contain p-5 sm:p-8"/>:<div className="grid h-full place-items-center"><PackageSearch className="size-16 text-slate-300"/></div>}
-              </div>
-              <div aria-hidden="true" className="mx-auto h-3 w-[108%] -translate-x-[4%] rounded-b-[50%] bg-gradient-to-b from-slate-300 to-slate-500 shadow-lg"><div className="mx-auto h-1 w-20 rounded-b bg-slate-600/60"/></div>
+          <Link href={href} className="relative mx-4 mb-4 min-h-64 overflow-hidden rounded-xl border-[7px] border-slate-800 bg-gradient-to-br from-white to-slate-100 shadow-2xl sm:mx-6 sm:mb-6 sm:border-[9px] lg:m-5 lg:ml-0">
+            <span aria-hidden="true" className="absolute left-1/2 top-1 z-10 size-1.5 -translate-x-1/2 rounded-full bg-slate-500 ring-1 ring-slate-950"/>
+            <div className="absolute inset-0 bottom-28 sm:bottom-32">
+              {product.images[0]?<Image src={product.images[0].path} alt={product.name} fill priority={index===0} sizes="(max-width: 1023px) 100vw, 48vw" className="object-contain p-2 sm:p-4"/>:<div className="grid h-full place-items-center"><PackageSearch className="size-16 text-slate-300"/></div>}
             </div>
             <div className="absolute inset-x-4 bottom-4 rounded-lg border border-slate-200 bg-white/95 p-4 shadow-lg backdrop-blur sm:inset-x-6 sm:bottom-6"><p className="text-xs font-bold uppercase tracking-wide text-sky-800">{product.brand?.name??product.category.name}</p><h2 className="mt-1 line-clamp-2 text-base font-semibold text-slate-950 sm:text-lg">{product.name}</h2><p className="mt-1 text-xs text-slate-500">SKU: {product.sku} · Pricing by quotation</p></div>
           </Link>
