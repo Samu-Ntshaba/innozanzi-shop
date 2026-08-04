@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { enqueueEmail } from "@/integrations/email/outbox";
 import type { EmailMessage } from "@/integrations/email/provider";
+import { supportEmail } from "@/lib/support";
 
 export const STAFF_EMAIL_EVENTS = [
   ["USER_CREATED", "New user created", "A new account is created or invited."],
@@ -32,12 +33,7 @@ export async function staffEmailRecipients(eventKey: StaffEmailEvent) {
 export async function sendStaffEmail(eventKey: StaffEmailEvent, message: EmailMessage) {
   const recipients = await staffEmailRecipients(eventKey);
   if (!recipients.length) {
-    const fallback = process.env.SUPPORT_EMAIL?.trim().toLowerCase();
-    if (!fallback) {
-      console.warn(`No staff role subscribes to ${eventKey}; notification skipped.`);
-      return [];
-    }
-    recipients.push({ id: "", email: fallback });
+    recipients.push({ id: "", email: supportEmail });
   }
   return Promise.all(recipients.map((recipient) => enqueueEmail({
     ...message,
