@@ -6,7 +6,15 @@ import { prisma } from "@/lib/prisma";
 import { ProductGallery } from "@/components/store/product-gallery";
 import { ProductCard } from "@/components/store/product-card";
 import { safeSupplierHtml } from "@/lib/safe-supplier-html";
+import type { Metadata } from "next";
+import { entityMetadata } from "@/domain/marketing/seo";
 export const dynamic="force-dynamic";
+export async function generateMetadata({params}:{params:Promise<{slug:string}>}):Promise<Metadata>{
+  const product=await prisma.supplierCatalogueProduct.findFirst({where:{slug:(await params).slug,active:true}});
+  if(!product)return{robots:{index:false,follow:false}};
+  const plain=(product.shortDescription??product.description??"").replace(/<[^>]+>/g," ").replace(/\s+/g," ").trim();
+  return entityMetadata({entityType:"SUPPLIER_PRODUCT",entityId:product.id,path:`/supplier-products/${product.slug}`,title:`${product.name} | Business quotation`,description:plain.slice(0,160)||`Request a business quotation for ${product.name}. Innozanzi confirms availability, delivery and support across South Africa.`,image:product.images[0],keywords:[product.name,product.supplierSku,product.manufacturerSku??"",product.brand??"",product.category??"","South Africa"]});
+}
 export default async function SupplierProductPage({params}:{params:Promise<{slug:string}>}){
   const product=await prisma.supplierCatalogueProduct.findFirst({where:{slug:(await params).slug,active:true},include:{supplier:{select:{companyName:true}}}});if(!product)notFound();
   const specs=product.specifications&&typeof product.specifications==="object"&&!Array.isArray(product.specifications)?Object.entries(product.specifications as Record<string,unknown>):[];
