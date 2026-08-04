@@ -24,6 +24,14 @@ body {
   color: var(--foreground);
 }
 
+html { -webkit-text-size-adjust: 100%; }
+button, a, input, select, textarea { touch-action: manipulation; }
+
+@media (max-width: 639px) {
+  input, select, textarea { font-size: 16px; }
+  .storefront main { scroll-margin-top: 8rem; }
+}
+
 .storefront {
   color: #0f1f33;
   font-family: var(--font-sans);

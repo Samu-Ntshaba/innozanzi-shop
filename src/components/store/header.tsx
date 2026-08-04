@@ -30,7 +30,7 @@ export async function StoreHeader() {
           <Link className="block rounded-md px-4 py-3 text-sm font-semibold text-sky-800 hover:bg-slate-50" href="/blog">Insights</Link>
         </nav>
       </details>
-      <BrandLogo className="w-32 min-[380px]:w-36 sm:w-44" priority />
+      <BrandLogo className="w-28 min-[380px]:w-36 sm:w-44" priority />
       <form action="/shop" className="order-last w-full basis-full sm:order-none sm:flex-1 sm:basis-auto">
         <label className="flex w-full items-center overflow-hidden rounded-md border border-slate-300 bg-white focus-within:border-sky-700 focus-within:ring-1 focus-within:ring-sky-700">
           <input className="h-11 min-w-0 flex-1 px-4 text-sm outline-none" name="search" placeholder="Search products" />
