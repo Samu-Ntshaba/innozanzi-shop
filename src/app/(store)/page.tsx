@@ -7,6 +7,7 @@ import { subscribeNewsletter } from "@/domain/communications/actions";
 import { entityMetadata } from "@/domain/marketing/seo";
 import type { Metadata } from "next";
 import { combosEnabled } from "@/domain/combos/settings";
+import { BrandPartners } from "@/components/store/brand-partners";
 
 export const dynamic = "force-dynamic";
 export async function generateMetadata():Promise<Metadata>{return entityMetadata({entityType:"STATIC_PAGE",entityId:"homepage",path:"/",title:"Innozanzi — Technology That Moves Business Forward",description:"Fast quotations. Expert advice. Nationwide delivery, installation and ongoing support for your business.",image:"/social/innozanzi-share.png"})}
@@ -33,6 +34,8 @@ export default async function HomePage() {
           ))}
         </div>
       </section>
+
+      <BrandPartners />
 
       <div className="bg-slate-50/70">
         <ProductSection eyebrow="Computing built for business" title="Business computers & workstations" products={catalogue.businessComputers} href="/shop?category=business-computers&availability=in-stock" />
