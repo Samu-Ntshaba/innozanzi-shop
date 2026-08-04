@@ -24,7 +24,7 @@ export function HeroSlider({products}:{products:ProductCardData[]}) {
   const show=(index:number)=>setActive((index+products.length)%products.length);
   return <section aria-roledescription="carousel" aria-label="Featured business technology" className="border-b border-slate-200 bg-[#f2f6fa]">
     <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 sm:py-6 lg:px-8">
-      <div className="relative min-h-[34rem] overflow-hidden rounded-2xl bg-[#06182e] shadow-xl shadow-slate-900/10 sm:min-h-[31rem]">
+      <div className="relative min-h-[32rem] overflow-hidden rounded-2xl border border-slate-800 bg-[#06182e] shadow-xl shadow-slate-900/10 sm:min-h-[30rem]">
         {products.map((product,index)=>{const copy=merchandising[index]??merchandising[2];const href=`/supplier-products/${product.slug}`;return <article aria-hidden={active!==index} className={cn("absolute inset-0 grid transition-opacity duration-500 lg:grid-cols-[1.02fr_.98fr]",active===index?"z-10 opacity-100":"pointer-events-none opacity-0")} key={product.id}>
           <div className="relative flex flex-col justify-center px-6 pb-24 pt-9 text-white sm:px-10 lg:px-14 lg:pb-20">
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(14,165,233,.18),transparent_36%)]"/>
@@ -36,7 +36,7 @@ export function HeroSlider({products}:{products:ProductCardData[]}) {
               <div className="mt-7 flex flex-wrap gap-3"><Link className="inline-flex min-h-12 items-center rounded-lg bg-white px-5 font-semibold text-[#071b33] hover:bg-sky-50" href={href}>View featured product<ArrowRight className="ml-2 size-4"/></Link><Link className="inline-flex min-h-12 items-center rounded-lg border border-white/30 px-5 font-semibold text-white hover:bg-white/10" href="/shop">Browse catalogue</Link></div>
             </div>
           </div>
-          <Link href={href} className="relative mx-4 mb-4 min-h-64 overflow-hidden rounded-xl bg-white sm:mx-6 sm:mb-6 lg:m-5 lg:ml-0">
+          <Link href={href} className="relative mx-4 mb-4 min-h-64 overflow-hidden rounded-xl border border-white/20 bg-white shadow-2xl sm:mx-6 sm:mb-6 lg:m-5 lg:ml-0">
             {product.images[0]?<Image src={product.images[0].path} alt={product.name} fill priority={index===0} sizes="(max-width: 1023px) 100vw, 48vw" className="object-contain p-7 sm:p-10"/>:<div className="grid h-full place-items-center"><PackageSearch className="size-16 text-slate-300"/></div>}
             <div className="absolute inset-x-4 bottom-4 rounded-lg border border-slate-200 bg-white/95 p-4 shadow-lg backdrop-blur sm:inset-x-6 sm:bottom-6"><p className="text-xs font-bold uppercase tracking-wide text-sky-800">{product.brand?.name??product.category.name}</p><h2 className="mt-1 line-clamp-2 text-base font-semibold text-slate-950 sm:text-lg">{product.name}</h2><p className="mt-1 text-xs text-slate-500">SKU: {product.sku} · Pricing by quotation</p></div>
           </Link>

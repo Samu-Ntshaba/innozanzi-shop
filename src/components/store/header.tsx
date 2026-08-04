@@ -9,7 +9,7 @@ export async function StoreHeader() {
   let cartCount = 0;
   const [showCombos,supplierCategories]=await Promise.all([
     combosEnabled(),
-    prisma.supplierCatalogueProduct.groupBy({by:["category"],where:{active:true,category:{not:null}},_count:true,orderBy:{_count:{category:"desc"}},take:4}).catch(()=>[]),
+    prisma.supplierCatalogueProduct.groupBy({by:["category"],where:{active:true,category:{not:null},images:{isEmpty:false}},_count:true,orderBy:{_count:{category:"desc"}},take:4}).catch(()=>[]),
   ]);
   const categories=supplierCategories.map(item=>item.category).filter((name):name is string=>Boolean(name));
   try {
@@ -24,6 +24,8 @@ export async function StoreHeader() {
         <summary aria-label="Open menu" style={{ listStyle: "none" }} className="grid size-11 cursor-pointer place-items-center rounded-md border border-slate-300 text-slate-700 [&::-webkit-details-marker]:hidden"><Menu className="size-5" /></summary>
         <nav aria-label="Mobile product navigation" className="absolute left-0 top-[3.25rem] z-50 w-[min(19rem,calc(100vw-1.5rem))] rounded-lg border border-slate-200 bg-white p-2 shadow-lg">
           <Link className="block rounded-md bg-[#071b33] px-4 py-3 font-semibold text-white" href="/shop">All products</Link>
+          {categories.map(category=><Link className="block rounded-md px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50" href={`/categories/${encodeURIComponent(category)}`} key={category}>{category}</Link>)}
+          <Link className="block rounded-md px-4 py-3 text-sm font-semibold text-sky-800 hover:bg-slate-50" href="/categories">More categories</Link>
           {showCombos?<Link className="block rounded-md px-4 py-3 text-sm font-semibold text-sky-800 hover:bg-slate-50" href="/combos">Combo deals</Link>:null}
           <Link className="block rounded-md px-4 py-3 text-sm font-semibold text-sky-800 hover:bg-slate-50" href="/blog">Insights</Link>
         </nav>
@@ -48,6 +50,7 @@ export async function StoreHeader() {
       <Link className="text-sm font-semibold text-sky-800" href="/shop">All products</Link>
       {showCombos?<Link className="text-sm font-semibold text-amber-700" href="/combos">Combo deals</Link>:null}
       {categories.map(category => <Link key={category} className="text-sm font-medium text-slate-600 hover:text-slate-950" href={`/categories/${encodeURIComponent(category)}`}>{category}</Link>)}
+      <Link className="text-sm font-semibold text-sky-800 hover:underline" href="/categories">More categories</Link>
       <Link className="ml-auto text-sm font-medium text-slate-600 hover:text-slate-950" href="/blog">Insights</Link>
     </nav>
   </header>;

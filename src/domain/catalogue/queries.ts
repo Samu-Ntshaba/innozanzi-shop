@@ -18,10 +18,9 @@ const supplierCard = (p:SupplierCardRow):ProductCardData => ({id:p.id,name:p.nam
 export async function getHomepageCatalogue() {
   try {
     const merchandiseWhere={active:true,availability:"IN_STOCK" as const,images:{isEmpty:false}};
-    const [supplierCategories, featured, newest, specials, popular, brands,supplierNewest,total,inStock,businessComputers,professionalDisplays,networkAndStorage,powerContinuity] = await Promise.all([
+    const [supplierCategories, featured, specials, popular, brands,supplierNewest,total,inStock,businessComputers,professionalDisplays,networkAndStorage,powerContinuity] = await Promise.all([
       prisma.supplierCatalogueProduct.groupBy({by:["category"],where:{active:true,category:{not:null}},_count:true,orderBy:{_count:{category:"desc"}},take:8}),
       prisma.product.findMany({ where: { status: "PUBLISHED", deletedAt: null,isTestData:false, isFeatured: true }, take: 8, orderBy: { updatedAt: "desc" }, select: productCardSelect }),
-      prisma.product.findMany({ where: { status: "PUBLISHED", deletedAt: null,isTestData:false, isNew: true }, take: 8, orderBy: { publishedAt: "desc" }, select: productCardSelect }),
       prisma.product.findMany({ where: { status: "PUBLISHED", deletedAt: null,isTestData:false, isSpecial: true }, take: 8, orderBy: { updatedAt: "desc" }, select: productCardSelect }),
       prisma.product.findMany({ where: { status: "PUBLISHED", deletedAt: null,isTestData:false, isPopular: true }, take: 8, orderBy: { updatedAt: "desc" }, select: productCardSelect }),
       prisma.brand.findMany({ where: { isActive: true }, orderBy: { name: "asc" }, take: 12, select: { id: true, name: true, slug: true, logoPath: true } }),
@@ -50,13 +49,14 @@ export async function getCatalogue(input: { search?: string; category?: string; 
   const pageSize = 12;
   const search=input.search?.trim();
   const searchTerms=search?.toLowerCase()==="laptop"?[search,"notebook"]:search?.toLowerCase()==="notebook"?[search,"laptop"]:search?[search]:[];
-  const businessComputers=input.category==="business-computers";
+  let category=input.category?.trim();try{if(category)category=decodeURIComponent(category)}catch{/* Keep the original category. */}
+  const businessComputers=category==="business-computers";
   const where = {
     status: "PUBLISHED" as const,
     deletedAt: null,
     isTestData:false,
     ...(search ? { OR: searchTerms.flatMap(term=>[{ name: { contains: term, mode: "insensitive" as const } }, { sku: { contains: term, mode: "insensitive" as const } },{shortDescription:{contains:term,mode:"insensitive" as const}},{description:{contains:term,mode:"insensitive" as const}},{brand:{name:{contains:term,mode:"insensitive" as const}}},{category:{name:{contains:term,mode:"insensitive" as const}}}]) } : {}),
-    ...(input.category&&!businessComputers ? { category: { slug: input.category } } : {}),
+    ...(category&&!businessComputers ? { category: { slug: category } } : {}),
     ...(input.brand ? { brand: { slug: input.brand } } : {}),
   };
   const orderBy = input.sort === "name" ? { name: "asc" as const } : { publishedAt: "desc" as const };

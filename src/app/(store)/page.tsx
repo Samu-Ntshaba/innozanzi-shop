@@ -23,8 +23,6 @@ export default async function HomePage() {
     <main className="bg-white">
       <HeroSlider products={catalogue.heroProducts}/>
 
-      <section className="border-b border-slate-200 bg-sky-50"><div className="mx-auto flex max-w-7xl flex-col gap-5 px-4 py-7 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8"><div><p className="text-xs font-bold uppercase tracking-widest text-sky-800">Live business technology catalogue</p><h2 className="mt-2 text-2xl font-semibold text-slate-950">{catalogue.total.toLocaleString("en-ZA")} products ready to quote</h2><p className="mt-1 text-sm text-slate-600">{catalogue.inStock.toLocaleString("en-ZA")} currently available from our authorised supplier, with stock refreshed automatically.</p></div><Link className="inline-flex min-h-12 shrink-0 items-center justify-center rounded-lg bg-[#071b33] px-6 font-semibold text-white hover:bg-slate-800" href="/shop">Browse all products →</Link></div></section>
-
       <section className="border-b border-slate-200 bg-white" aria-label="Why businesses choose Innozanzi">
         <div className="mx-auto grid max-w-5xl grid-cols-1 divide-y divide-slate-200 px-4 min-[480px]:grid-cols-3 min-[480px]:divide-x min-[480px]:divide-y-0 sm:px-6">
           {trustItems.map(({ icon: Icon, title, body }) => (
