@@ -103,7 +103,8 @@ export async function publishComboChannels(formData:FormData){
 export async function saveComboSettings(formData:FormData){
   const ctx=await requirePermission("combos.automation.manage");
   const data=z.object({minimumProfitAmount:z.coerce.number().min(0),minimumProfitMargin:z.coerce.number().min(0).max(100),maximumDiscountPercent:z.coerce.number().min(0).max(100),maximumProducts:z.coerce.number().int().min(2).max(10),maximumActiveCampaigns:z.coerce.number().int().min(1).max(50),targetProfitMargin:z.coerce.number().min(0).max(100)}).parse(Object.fromEntries(formData));
-  await prisma.comboCampaignSetting.upsert({where:{id:"default"},update:{...data,dailyEnabled:formData.get("dailyEnabled")==="on",weeklyEnabled:formData.get("weeklyEnabled")==="on",monthlyEnabled:formData.get("monthlyEnabled")==="on",automaticPublication:formData.get("automaticPublication")==="on",automaticEmail:formData.get("automaticEmail")==="on",automaticSlider:formData.get("automaticSlider")==="on"},create:{id:"default",...data}});
+  const toggles={automationEnabled:formData.get("automationEnabled")==="on",dailyEnabled:formData.get("dailyEnabled")==="on",weeklyEnabled:formData.get("weeklyEnabled")==="on",monthlyEnabled:formData.get("monthlyEnabled")==="on",automaticPublication:formData.get("automaticPublication")==="on",automaticEmail:formData.get("automaticEmail")==="on",automaticSlider:formData.get("automaticSlider")==="on"};
+  await prisma.comboCampaignSetting.upsert({where:{id:"default"},update:{...data,...toggles},create:{id:"default",...data,...toggles}});
   await prisma.auditLog.create({data:{actorId:ctx.user.id,action:"combo.settings.update",entityType:"ComboCampaignSetting",entityId:"default",after:data}});
   revalidatePath("/admin/marketing/combos");
 }

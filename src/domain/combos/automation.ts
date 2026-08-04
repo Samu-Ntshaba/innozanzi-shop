@@ -61,7 +61,8 @@ async function createAutomatedCombo(type:AutomationType,now:Date,targetMargin:De
 }
 
 export async function runComboAutomation(now=new Date()){
-  const config=await prisma.comboCampaignSetting.upsert({where:{id:"default"},update:{},create:{id:"default",dailyEnabled:true,weeklyEnabled:true,monthlyEnabled:true,automaticPublication:true,automaticSlider:true,minimumProfitMargin:5,targetProfitMargin:10}});
+  const config=await prisma.comboCampaignSetting.upsert({where:{id:"default"},update:{},create:{id:"default"}});
+  if(!config.automationEnabled)return{enabled:false,checked:0,statusesChanged:0,created:[],activeBeforeRun:0,sliderRotationWindow:Math.floor(now.getTime()/(3*DAY))};
   const campaigns=await prisma.comboCampaign.findMany({where:{status:{in:["SCHEDULED","ACTIVE","PAUSED","SOLD_OUT"]}},include:{items:{include:{product:{include:{inventory:true}},supplierCatalogueProduct:true}}}});
   let changed=0;
   for(const campaign of campaigns){
@@ -93,5 +94,5 @@ export async function runComboAutomation(now=new Date()){
   const active=await prisma.comboCampaign.count({where:{status:{in:["ACTIVE","SCHEDULED"]},endsAt:{gt:now},isTestData:false}});
   const capacity=Math.max(0,config.maximumActiveCampaigns-active);const created=[];
   for(const type of enabled.slice(0,capacity)){const campaign=await createAutomatedCombo(type,now,new Decimal(config.targetProfitMargin.toString()),config.automaticPublication,config.automaticSlider);if(campaign){created.push({id:campaign.id,type:campaign.type,name:campaign.name,status:campaign.status,comboPrice:campaign.comboPrice.toString(),profitMargin:campaign.profitMargin.toString()});await prisma.comboCampaignEvent.create({data:{campaignId:campaign.id,type:"AUTOMATICALLY_CREATED",channel:"AUTOMATION"}})}}
-  return{checked:campaigns.length,statusesChanged:changed,created,activeBeforeRun:active,sliderRotationWindow:Math.floor(now.getTime()/(3*DAY))};
+  return{enabled:true,checked:campaigns.length,statusesChanged:changed,created,activeBeforeRun:active,sliderRotationWindow:Math.floor(now.getTime()/(3*DAY))};
 }

@@ -48,18 +48,21 @@ export async function getHomepageCatalogue() {
 export async function getCatalogue(input: { search?: string; category?: string; brand?: string; availability?:string; promotion?:string; sort?: string; page?: number }) {
   const page = Math.max(1, input.page ?? 1);
   const pageSize = 12;
+  const search=input.search?.trim();
+  const searchTerms=search?.toLowerCase()==="laptop"?[search,"notebook"]:search?.toLowerCase()==="notebook"?[search,"laptop"]:search?[search]:[];
+  const businessComputers=input.category==="business-computers";
   const where = {
     status: "PUBLISHED" as const,
     deletedAt: null,
     isTestData:false,
-    ...(input.search ? { OR: [{ name: { contains: input.search, mode: "insensitive" as const } }, { sku: { contains: input.search, mode: "insensitive" as const } }] } : {}),
-    ...(input.category ? { category: { slug: input.category } } : {}),
+    ...(search ? { OR: searchTerms.flatMap(term=>[{ name: { contains: term, mode: "insensitive" as const } }, { sku: { contains: term, mode: "insensitive" as const } },{shortDescription:{contains:term,mode:"insensitive" as const}},{description:{contains:term,mode:"insensitive" as const}},{brand:{name:{contains:term,mode:"insensitive" as const}}},{category:{name:{contains:term,mode:"insensitive" as const}}}]) } : {}),
+    ...(input.category&&!businessComputers ? { category: { slug: input.category } } : {}),
     ...(input.brand ? { brand: { slug: input.brand } } : {}),
   };
   const orderBy = input.sort === "name" ? { name: "asc" as const } : { publishedAt: "desc" as const };
 
   try {
-    const supplierWhere={active:true,...(input.search?{OR:[{name:{contains:input.search,mode:"insensitive" as const}},{supplierSku:{contains:input.search,mode:"insensitive" as const}},{manufacturerSku:{contains:input.search,mode:"insensitive" as const}},{brand:{contains:input.search,mode:"insensitive" as const}},{category:{contains:input.search,mode:"insensitive" as const}}]}:{}),...(input.category?{category:{equals:input.category,mode:"insensitive" as const}}:{}),...(input.brand?{brand:{equals:input.brand,mode:"insensitive" as const}}:{}),...(input.availability==="in-stock"?{availability:"IN_STOCK"}:{}),...(input.promotion==="active"?{promotionalPrice:{not:null}}:{})};
+    const supplierWhere={active:true,AND:[...(search?[{OR:searchTerms.flatMap(term=>[{name:{contains:term,mode:"insensitive" as const}},{supplierSku:{contains:term,mode:"insensitive" as const}},{manufacturerSku:{contains:term,mode:"insensitive" as const}},{brand:{contains:term,mode:"insensitive" as const}},{category:{contains:term,mode:"insensitive" as const}},{categoryPath:{contains:term,mode:"insensitive" as const}},{description:{contains:term,mode:"insensitive" as const}},{shortDescription:{contains:term,mode:"insensitive" as const}}])}]:[]),...(businessComputers?[{category:"Computers",OR:[{categoryPath:{contains:"Creator",mode:"insensitive" as const}},{categoryPath:{contains:"Notebooks",mode:"insensitive" as const}},{name:{contains:"workstation",mode:"insensitive" as const}}]}]:input.category?[{category:{equals:input.category,mode:"insensitive" as const}}]:[])],...(input.brand?{brand:{equals:input.brand,mode:"insensitive" as const}}:{}),...(input.availability==="in-stock"?{availability:"IN_STOCK"}:{}),...(input.promotion==="active"?{promotionalPrice:{not:null}}:{})};
     const [supplierTotal,manualTotal,supplierCategories,supplierBrands,manualCategories,manualBrands]=await Promise.all([
       prisma.supplierCatalogueProduct.count({where:supplierWhere}),prisma.product.count({where}),
       prisma.supplierCatalogueProduct.findMany({where:{active:true,category:{not:null}},distinct:["category"],select:{category:true},orderBy:{category:"asc"}}),

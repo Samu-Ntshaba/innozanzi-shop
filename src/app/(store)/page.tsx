@@ -57,7 +57,7 @@ export default async function HomePage() {
       </section>
 
       <div className="bg-slate-50/70">
-        <ProductSection eyebrow="Computing built for business" title="Business computers & workstations" products={catalogue.businessComputers} href="/shop?category=Computers&availability=in-stock" />
+        <ProductSection eyebrow="Computing built for business" title="Business computers & workstations" products={catalogue.businessComputers} href="/shop?category=business-computers&availability=in-stock" />
       </div>
       <ProductSection eyebrow="Productivity at full resolution" title="Professional displays" products={catalogue.professionalDisplays} href="/shop?category=Computer%20peripherals&availability=in-stock" />
       <div className="bg-slate-50/70">

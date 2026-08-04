@@ -1993,6 +1993,7 @@ model ComboCampaignEvent {
 
 model ComboCampaignSetting {
   id                        String   @id @default("default")
+  automationEnabled         Boolean  @default(false)
   minimumProfitAmount       Decimal  @default(1) @db.Decimal(19, 4)
   minimumProfitMargin       Decimal  @default(1) @db.Decimal(9, 4)
   maximumDiscountPercent    Decimal  @default(50) @db.Decimal(9, 4)

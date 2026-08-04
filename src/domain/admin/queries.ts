@@ -25,7 +25,7 @@ export async function getAdminDashboard() {
   return {products,orders,customers,pendingPayments,lowStock,openRequests,quotesToApprove,outstandingInvoices,awaitingPayment,expiredQuotes,verifiedPayments,activeOrders,deliveriesInProgress,completedOrders,partnershipApplications,unassignedPartnerRequests,openHelpDesk,pipeline:pipeline._sum.grandTotal?.toString()??"0",revenue:revenue._sum.grandTotal?.toString()??"0"};
 }
 
-export const getAdminProducts = () => prisma.product.findMany({ where: { deletedAt: null }, include: { category: true, brand: true, inventory: true }, orderBy: { updatedAt: "desc" }, take: 100 });
+export const getAdminProducts = () => prisma.product.findMany({ where: { deletedAt: null }, include: { category: true, brand: true, inventory: true }, orderBy: { updatedAt: "desc" } });
 export const getAdminCategories = () => prisma.category.findMany({ include: { _count: { select: { products: true, children: true, couponCategories: true } } }, orderBy: [{ displayOrder: "asc" }, { name: "asc" }] });
 export const getAdminBrands = () => prisma.brand.findMany({ include: { _count: { select: { products: true } } }, orderBy: { name: "asc" } });
 export const getAdminSuppliers = () => prisma.supplier.findMany({ where: { deletedAt: null }, include: { _count: { select: { products: true, documents:true } } }, orderBy: { companyName: "asc" } });
