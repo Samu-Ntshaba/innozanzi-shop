@@ -10,6 +10,7 @@ import { getOpenAIClient } from "@/lib/openai";
 import { calculateComboPricing,validateComboPricing } from "./calculations";
 import { assertComboTransition } from "./lifecycle";
 import { runComboAutomation } from "./automation";
+import { combosEnabled } from "./settings";
 
 const slugify=(value:string)=>value.toLowerCase().normalize("NFKD").replace(/[^\w\s-]/g,"").trim().replace(/[\s_-]+/g,"-").slice(0,90);
 const date=z.coerce.date();
@@ -118,6 +119,7 @@ export async function runComboAutomationNow(){
 }
 
 export async function requestComboQuotation(formData:FormData){
+  if(!await combosEnabled())throw new Error("Combo deals are currently unavailable.");
   const ctx=await requireUser();const id=z.string().uuid().parse(formData.get("id"));
   const campaign=await prisma.comboCampaign.findFirstOrThrow({where:{id,status:"ACTIVE",startsAt:{lte:new Date()},endsAt:{gt:new Date()}},include:{items:{include:{product:{include:{inventory:true}},supplierCatalogueProduct:true}}}});
   for(const item of campaign.items){const available=item.supplierCatalogueProduct?item.supplierCatalogueProduct.active&&item.supplierCatalogueProduct.stock>=item.quantity:Boolean(item.product&&item.product.inventory.reduce((n,i)=>n+Math.max(0,i.onHand-i.reserved),0)>=item.quantity);if(!available)throw new Error(`${item.productName} is no longer available.`)}

@@ -2,9 +2,11 @@ import Image from "next/image";
 import { notFound } from "next/navigation";
 import { requestComboQuotation } from "@/domain/combos/actions";
 import { prisma } from "@/lib/prisma";
+import { combosEnabled } from "@/domain/combos/settings";
 
 export const dynamic="force-dynamic";
 export default async function ComboDetail({params}:{params:Promise<{slug:string}>}){
+  if(!await combosEnabled())notFound();
   const now=new Date(),slug=(await params).slug;
   const campaign=await prisma.comboCampaign.findFirst({where:{slug,status:"ACTIVE",startsAt:{lte:now},endsAt:{gt:now},isTestData:false},include:{items:{include:{product:{include:{images:true,inventory:true}},supplierCatalogueProduct:true}}}});
   if(!campaign)notFound();

@@ -2,11 +2,13 @@ import { Headphones, Menu, Search, ShoppingCart, UserRound } from "lucide-react"
 import Link from "next/link";
 import { BrandLogo } from "@/components/brand-logo";
 import { getCurrentCart } from "@/domain/cart/service";
+import { combosEnabled } from "@/domain/combos/settings";
 
 const categories = [["Laptops", "laptops"], ["Power & UPS", "ups-and-power"], ["Networking", "networking"]] as const;
 
 export async function StoreHeader() {
   let cartCount = 0;
+  const showCombos=await combosEnabled();
   try {
     const cart = await getCurrentCart();
     cartCount = cart ? cart.items.reduce((total, item) => total + item.quantity, 0)+cart.supplierItems.reduce((total,item)=>total+item.quantity,0) : 0;
@@ -19,7 +21,7 @@ export async function StoreHeader() {
         <summary aria-label="Open menu" style={{ listStyle: "none" }} className="grid size-11 cursor-pointer place-items-center rounded-md border border-slate-300 text-slate-700 [&::-webkit-details-marker]:hidden"><Menu className="size-5" /></summary>
         <nav aria-label="Mobile product navigation" className="absolute left-0 top-[3.25rem] z-50 w-[min(19rem,calc(100vw-1.5rem))] rounded-lg border border-slate-200 bg-white p-2 shadow-lg">
           <Link className="block rounded-md bg-[#071b33] px-4 py-3 font-semibold text-white" href="/shop">All products</Link>
-          <Link className="block rounded-md px-4 py-3 text-sm font-semibold text-sky-800 hover:bg-slate-50" href="/combos">Combo deals</Link>
+          {showCombos?<Link className="block rounded-md px-4 py-3 text-sm font-semibold text-sky-800 hover:bg-slate-50" href="/combos">Combo deals</Link>:null}
           <Link className="block rounded-md px-4 py-3 text-sm font-semibold text-sky-800 hover:bg-slate-50" href="/blog">Insights</Link>
         </nav>
       </details>
@@ -41,7 +43,7 @@ export async function StoreHeader() {
     </div>
     <nav aria-label="Product categories" className="mx-auto hidden h-11 max-w-7xl items-center gap-7 border-t border-slate-100 px-6 lg:flex lg:px-8">
       <Link className="text-sm font-semibold text-sky-800" href="/shop">All products</Link>
-      <Link className="text-sm font-semibold text-amber-700" href="/combos">Combo deals</Link>
+      {showCombos?<Link className="text-sm font-semibold text-amber-700" href="/combos">Combo deals</Link>:null}
       {categories.map(([label, slug]) => <Link key={slug} className="text-sm font-medium text-slate-600 hover:text-slate-950" href={`/categories/${slug}`}>{label}</Link>)}
       <Link className="ml-auto text-sm font-medium text-slate-600 hover:text-slate-950" href="/blog">Insights</Link>
     </nav>

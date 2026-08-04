@@ -7,6 +7,7 @@ import { getHomepageCatalogue } from "@/domain/catalogue/queries";
 import { subscribeNewsletter } from "@/domain/communications/actions";
 import { entityMetadata } from "@/domain/marketing/seo";
 import type { Metadata } from "next";
+import { combosEnabled } from "@/domain/combos/settings";
 
 export const dynamic = "force-dynamic";
 export async function generateMetadata():Promise<Metadata>{return entityMetadata({entityType:"STATIC_PAGE",entityId:"homepage",path:"/",title:"Innozanzi — Technology That Moves Business Forward",description:"Fast quotations. Expert advice. Nationwide delivery, installation and ongoing support for your business.",image:"/social/innozanzi-share.png"})}
@@ -25,7 +26,7 @@ const trustItems = [
 ];
 
 export default async function HomePage() {
-  const catalogue = await getHomepageCatalogue();
+  const [catalogue,showCombos] = await Promise.all([getHomepageCatalogue(),combosEnabled()]);
   const preferredCategories=["Computers","Networking & security","Power","Computer peripherals","TV & audio","Software"];
   const categories = catalogue.categories.length
     ? preferredCategories.map(name=>catalogue.categories.find(category=>category.name===name)).filter((category):category is (typeof catalogue.categories)[number]=>Boolean(category))
@@ -65,7 +66,7 @@ export default async function HomePage() {
       </div>
       <ProductSection eyebrow="Keep critical work running" title="Power & business continuity" products={catalogue.powerContinuity} href="/shop?category=Power&availability=in-stock" />
 
-      <section className="mx-auto max-w-7xl px-4 pb-4 sm:px-6 lg:px-8"><Link className="flex items-center justify-between rounded-xl bg-[#071b33] px-6 py-5 text-white" href="/combos"><span><strong className="block text-lg">Product Combo Deals</strong><span className="text-sm text-sky-100">Explore daily, weekly and monthly technology packages</span></span><span className="font-bold">View combos →</span></Link></section>
+      {showCombos?<section className="mx-auto max-w-7xl px-4 pb-4 sm:px-6 lg:px-8"><Link className="flex items-center justify-between rounded-xl bg-[#071b33] px-6 py-5 text-white" href="/combos"><span><strong className="block text-lg">Product Combo Deals</strong><span className="text-sm text-sky-100">Explore daily, weekly and monthly technology packages</span></span><span className="font-bold">View combos →</span></Link></section>:null}
 
       <section className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
         <div id="newsletter" className="scroll-mt-24 rounded-xl border border-slate-200 bg-slate-50 px-5 py-8 text-left sm:px-8 sm:py-9 sm:text-center"><h2 className="text-2xl font-semibold text-slate-950">Deals, new arrivals and ICT advice</h2><p className="mt-2 text-sm leading-6 text-slate-600">Useful product and technology updates, without the noise.</p><form action={subscribeNewsletter} className="mx-auto mt-6 grid max-w-xl gap-3 sm:grid-cols-[1fr_auto]"><input aria-label="Email address" className="h-14 w-full min-w-0 rounded-lg border border-slate-300 bg-white px-4 text-base outline-none focus:border-sky-700 focus:ring-2 focus:ring-sky-700/20" name="email" type="email" inputMode="email" autoComplete="email" placeholder="Email address" required /><button className="h-14 w-full rounded-lg bg-[#071b33] px-7 text-base font-semibold text-white hover:bg-slate-800 sm:w-auto" type="submit">Subscribe</button></form></div>
