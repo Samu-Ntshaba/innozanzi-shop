@@ -12,6 +12,11 @@ export async function processPaymentEvent(provider: "PAYSTACK" | "YOCO", event: 
     if (event.amount && Number(event.amount) !== Number(payment.amount)) throw new Error("Payment amount mismatch");
     if(event.status==="PAID"){
       for(const item of payment.order.items){
+        if(item.sourceType==="SUPPLIER"){
+          const source=await tx.supplierCatalogueProduct.findFirst({where:{id:item.sourceId??undefined,active:true}});
+          if(!source||source.stock<item.quantity)throw new Error(`Supplier availability changed for paid item ${item.productName}.`);
+          continue;
+        }
         if(!item.productId)throw new Error(`${item.productName} is not linked to inventory.`);
         const inventory=await tx.inventory.findFirst({where:{productId:item.productId,variantId:item.variantId??null}});
         if(!inventory||inventory.onHand-inventory.reserved<item.quantity)throw new Error(`Insufficient inventory for paid item ${item.productName}.`);

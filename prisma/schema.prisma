@@ -1670,6 +1670,14 @@ model OrderItem {
   vatRate       Decimal         @db.Decimal(7, 4)
   vatTotal      Decimal         @db.Decimal(19, 4)
   lineTotal     Decimal         @db.Decimal(19, 4)
+  sourceType    String          @default("LOCAL")
+  sourceId      String?
+  supplierId    String?         @db.Uuid
+  supplierSku   String?
+  sourceSnapshot Json?
+  pricingRule   String?
+  markupPercent Decimal?        @db.Decimal(7, 4)
+  stockSnapshot Int?
   createdAt     DateTime        @default(now())
   updatedAt     DateTime        @updatedAt
   order         Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
@@ -1679,6 +1687,7 @@ model OrderItem {
 
   @@index([orderId])
   @@index([productId])
+  @@index([sourceType, sourceId])
 }
 
 model OrderAddress {
@@ -2077,6 +2086,10 @@ model Quotation {
   pdfPath            String?
   issuedAt           DateTime?
   acceptedAt         DateTime?
+  acceptedVersion    Int?
+  acceptedAmount     Decimal?                  @db.Decimal(19, 4)
+  acceptedById       String?                   @db.Uuid
+  acceptanceMetadata Json?
   finalApprovedAt    DateTime?
   paymentReference   String?
   bankDetails        String?                  @db.Text
@@ -2286,6 +2299,14 @@ model QuotationItem {
   vatTotal      Decimal         @db.Decimal(19, 4)
   lineTotal     Decimal         @db.Decimal(19, 4)
   notes         String?
+  sourceType    String          @default("LOCAL")
+  sourceId      String?
+  supplierId    String?         @db.Uuid
+  supplierSku   String?
+  sourceSnapshot Json?
+  pricingRule   String?
+  markupPercent Decimal?        @db.Decimal(7, 4)
+  stockSnapshot Int?
   createdAt     DateTime        @default(now())
   updatedAt     DateTime        @updatedAt
   quotation     Quotation       @relation(fields: [quotationId], references: [id], onDelete: Cascade)
@@ -2294,6 +2315,7 @@ model QuotationItem {
 
   @@index([quotationId])
   @@index([productId])
+  @@index([sourceType, sourceId])
 }
 
 model QuotationVersion {

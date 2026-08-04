@@ -22,7 +22,7 @@ export async function getCurrentCart() {
       items: {
         orderBy: { createdAt: "asc" },
         include: {
-          product: { include: { images: { where: { isPrimary: true }, take: 1 }, inventory: { where: { variantId: null }, take: 1 } } },
+          product: { include: { images: { where: { isPrimary: true }, take: 1 }, inventory: { where: { variantId: null }, take: 1 }, suppliers: { where: { isPreferred: true }, take: 1 } } },
           variant: { include: { inventory: true } },
         },
       },
