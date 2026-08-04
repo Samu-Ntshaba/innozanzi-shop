@@ -20,19 +20,13 @@ const requestSchema=z.object({contactName:z.string().trim().min(2),email:z.strin
 
 export async function createManualQuotation(formData: FormData) {
   const ctx = await requirePermission("quotations.manage");
-  const customer = z.object({ contactName: z.string().trim().min(2).max(120), email: z.string().trim().toLowerCase().email(), procurementOfficerId: z.string().uuid(), requirements: z.string().trim().max(3000).optional() }).parse(Object.fromEntries(formData));
-  const procurementOfficer = await prisma.user.findFirst({ where: { id: customer.procurementOfficerId, status: { in: ["ACTIVE", "INVITED"] }, deletedAt: null, roles: { some: { role: { slug: "procurement-officer" } } } }, select: { id: true, name: true, email: true, phone: true } });
-  if (!procurementOfficer) {
-    if (customer.procurementOfficerId !== ctx.user.id) throw new Error("Select an active procurement officer.");
-  }
+  const customer = z.object({ contactName: z.string().trim().min(2).max(120), email: z.string().trim().toLowerCase().email(), phone:z.string().trim().max(40).optional(),companyName:z.string().trim().max(200).optional(),requirements: z.string().trim().max(3000).optional() }).parse(Object.fromEntries(formData));
   const items = Array.from({ length: 8 }, (_, index) => {
     const productName = String(formData.get(`item_${index}_name`) ?? "").trim();
     if (!productName) return null;
     const quantity = z.coerce.number().int().positive().max(10000).parse(formData.get(`item_${index}_quantity`));
     const unitPrice = new Decimal(z.coerce.number().positive().parse(formData.get(`item_${index}_price`))).toDecimalPlaces(2);
-    const taxable = formData.get(`item_${index}_taxable`) === "on";
-    const vatUnit = taxable ? unitPrice.mul(15).div(115).toDecimalPlaces(2) : new Decimal(0);
-    return { productName, sku: String(formData.get(`item_${index}_sku`) ?? "").trim() || null, quantity, unitPrice, vatRate: taxable ? new Decimal("0.15") : new Decimal(0), vatTotal: vatUnit.mul(quantity).toDecimalPlaces(2), lineTotal: unitPrice.mul(quantity).toDecimalPlaces(2) };
+    return { productName, sku: String(formData.get(`item_${index}_sku`) ?? "").trim() || null, quantity, unitPrice, vatRate: new Decimal(0), vatTotal: new Decimal(0), lineTotal: unitPrice.mul(quantity).toDecimalPlaces(2),sourceType:"MANUAL",pricingRule:"STAFF_ENTERED_SELLING_PRICE" };
   }).filter((item): item is NonNullable<typeof item> => Boolean(item));
   if (!items.length) throw new Error("Add at least one quotation line.");
   const grandTotal = items.reduce((sum, item) => sum.plus(item.lineTotal), new Decimal(0)).toDecimalPlaces(2);
@@ -40,14 +34,19 @@ export async function createManualQuotation(formData: FormData) {
   const subtotal = grandTotal.minus(vatTotal).toDecimalPlaces(2);
   const number = quotationNumber();
   const validUntil = new Date(Date.now() + 7 * 86_400_000);
-  const selectedOfficer = procurementOfficer ?? { id: ctx.user.id, name: ctx.user.name, email: ctx.user.email, phone: null };
+  const requestNumber=`MQR-${Date.now().toString(36).toUpperCase()}`;
   const quotation = await prisma.$transaction(async (tx) => {
-    const request = await tx.quotationRequest.create({ data: { requestNumber: `MQR-${Date.now().toString(36).toUpperCase()}`, status: "IN_REVIEW", contactName: customer.contactName, email: customer.email, requirements: customer.requirements || "Manual quotation prepared by Innozanzi.", items: { create: items.map(item => ({ productName: item.productName, requestedQuantity: item.quantity })) } } });
-    const quote = await tx.quotation.create({ data: { quotationNumber: number, quotationRequestId: request.id, origin: "MANUAL", createdById: selectedOfficer.id, status: "PENDING_APPROVAL", kind: "PROVISIONAL", subtotal, vatTotal, grandTotal, validUntil, terms: "Valid for seven days. Subject to availability and final business approval.", notes: customer.requirements || null, items: { create: items } } });
-    await tx.quotationVersion.create({ data: { quotationId: quote.id, version: 1, kind: "PROVISIONAL", createdById: selectedOfficer.id, snapshot: JSON.parse(JSON.stringify({ origin: "MANUAL", customer: { contactName: customer.contactName, email: customer.email }, procurementOfficer: selectedOfficer, validityDays: 7, subtotal: subtotal.toString(), vatTotal: vatTotal.toString(), grandTotal: grandTotal.toString(), items: items.map(item => ({ ...item, unitPrice: item.unitPrice.toString(), vatRate: item.vatRate.toString(), vatTotal: item.vatTotal.toString(), lineTotal: item.lineTotal.toString() })) })) } });
+    let linked=await tx.user.findUnique({where:{email:customer.email},select:{id:true,accountType:true,customerProfile:{select:{id:true}}}});
+    if(linked&&linked.accountType!=="CUSTOMER")throw new Error("That email belongs to an internal account. Use the customer's email address.");
+    if(!linked)linked=await tx.user.create({data:{email:customer.email,name:customer.contactName,phone:customer.phone||null,status:"DISABLED",accountType:"CUSTOMER",customerProfile:{create:{firstName:customer.contactName,source:"ASSISTED_QUOTATION",company:customer.companyName?{create:{companyName:customer.companyName}}:undefined}}},select:{id:true,accountType:true,customerProfile:{select:{id:true}}}});
+    else await tx.user.update({where:{id:linked.id},data:{name:customer.contactName,phone:customer.phone||undefined}});
+    const request = await tx.quotationRequest.create({ data: { requestNumber,userId:linked.id, status: "IN_REVIEW", contactName: customer.contactName, email: customer.email,phone:customer.phone||null,companyName:customer.companyName||null, requirements: customer.requirements || "Staff-assisted quotation request.", items: { create: items.map(item => ({ productName: item.productName, requestedQuantity: item.quantity })) } } });
+    const quote = await tx.quotation.create({ data: { quotationNumber: number, quotationRequestId: request.id,customerId:linked.id, origin: "MANUAL", createdById: ctx.user.id, status: "PENDING_APPROVAL", kind: "PROVISIONAL", subtotal, vatTotal, grandTotal, validUntil, terms: "Valid for seven days. Subject to availability and final business approval.", notes: customer.requirements || null, items: { create: items } } });
+    await tx.quotationVersion.create({ data: { quotationId: quote.id, version: 1, kind: "PROVISIONAL", createdById: ctx.user.id, snapshot: JSON.parse(JSON.stringify({ origin: "MANUAL", customer: { id:linked.id,contactName: customer.contactName, email: customer.email,phone:customer.phone,companyName:customer.companyName }, capturedBy:{id:ctx.user.id,email:ctx.user.email}, validityDays: 7, subtotal: subtotal.toString(), vatTotal: vatTotal.toString(), grandTotal: grandTotal.toString(), items: items.map(item => ({ ...item, unitPrice: item.unitPrice.toString(), vatRate: item.vatRate.toString(), vatTotal: item.vatTotal.toString(), lineTotal: item.lineTotal.toString() })) })) } });
     await tx.auditLog.create({ data: { actorId: ctx.user.id, action: "quotation.manual.create", entityType: "Quotation", entityId: quote.id, after: { quotationNumber: number, customerEmail: customer.email, grandTotal: grandTotal.toString() } } });
     return quote;
   });
+  try{await Promise.all([enqueueEmail(emailTemplates.quotationRequest(customer.email,customer.contactName,requestNumber),quotation.customerId??undefined),sendStaffEmail("QUOTATION_REQUESTED",emailTemplates.quotationSupportAlert(requestNumber,customer.contactName,customer.email,`${number} · staff-assisted · R ${grandTotal.toFixed(2)}`))])}catch(error){console.error("Assisted quotation emails queued for retry",error)}
   revalidatePath("/admin/quotations");
   redirect(`/admin/quotations/${quotation.id}`);
 }

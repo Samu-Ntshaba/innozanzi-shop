@@ -1,6 +1,6 @@
 "use client";
 
-import { BarChart3, Boxes, BriefcaseBusiness, Building2, ChevronRight, Megaphone, Settings2 } from "lucide-react";
+import { Boxes, BriefcaseBusiness, Building2, ChevronRight, Settings2 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -9,34 +9,20 @@ type NavSection = { label?: string; links: readonly NavLink[] };
 type NavGroup = { label: string; icon: typeof Building2; sections: readonly NavSection[] };
 
 export const adminNavGroups: readonly NavGroup[] = [
-  { label: "Customers & sales", icon: Building2, sections: [
-    { links: [["Overview", "/admin"]] },
-    { label: "Customer service", links: [["Customers", "/admin/customers"], ["Ticketing centre", "/admin/help-desk"], ["Operations calendar", "/admin/calendar"]] },
-    { label: "Sales", links: [["Quote pipeline", "/admin/quotations"], ["RFQs & tenders", "/admin/rfqs"], ["Invoices", "/admin/invoices"]] },
+  { label: "Daily work", icon: Building2, sections: [
+    { links: [["Overview", "/admin"], ["Quotations", "/admin/quotations"], ["Orders", "/admin/orders"], ["Payments", "/admin/payments"], ["Customers", "/admin/customers"], ["Customer support", "/admin/help-desk"]] },
   ] },
-  { label: "Partnerships", icon: BriefcaseBusiness, sections: [
-    { links: [["Overview", "/admin/partnerships"]] },
-    { label: "Management", links: [["Applications", "/admin/partnerships/applications"], ["Approved partners", "/admin/partnerships/partners"], ["Partner requests", "/admin/partnerships/requests"], ["Agreements", "/admin/partnerships/agreements"]] },
-  ] },
-  { label: "Marketing", icon: Megaphone, sections: [
-    { links: [["Overview", "/admin/marketing"], ["Analytics", "/admin/marketing/analytics"]] },
-    { label: "Content", links: [["Homepage", "/admin/marketing/homepage"], ["Product Combo Campaigns", "/admin/marketing/combos"], ["Blog", "/admin/marketing/blog"], ["Website popups", "/admin/marketing/popups"], ["Media library", "/admin/marketing/media"], ["Email marketing", "/admin/email-marketing"]] },
-    { label: "Search & discovery", links: [["Global SEO", "/admin/marketing/seo"], ["Page SEO", "/admin/marketing/page-seo"], ["SEO audit", "/admin/marketing/audit"], ["Redirects", "/admin/marketing/redirects"]] },
-  ] },
-  { label: "Operations", icon: Boxes, sections: [
-    { label: "Order fulfilment", links: [["Orders", "/admin/orders"], ["Payments", "/admin/payments"], ["Delivery notes", "/admin/delivery-notes"], ["Logistics & transport", "/admin/logistics"]] },
-    { label: "Returns", links: [["Returns & refunds", "/admin/returns"], ["Return fulfilment", "/admin/returns/fulfilment"], ["Distributor claims", "/admin/returns/claims"], ["Return documents", "/admin/returns/documents"]] },
-    { label: "Supply", links: [["Inventory", "/admin/inventory"], ["Suppliers", "/admin/suppliers"], ["Supplier feeds", "/admin/syntech"]] },
+  { label: "Fulfilment", icon: Boxes, sections: [
+    { links: [["Delivery", "/admin/delivery-notes"], ["Logistics", "/admin/logistics"], ["Returns", "/admin/returns"], ["Inventory", "/admin/inventory"]] },
   ] },
   { label: "Catalogue", icon: Boxes, sections: [
-    { links: [["Products", "/admin/products"], ["Categories", "/admin/categories"], ["Brands", "/admin/brands"], ["Promotions", "/admin/promotions"]] },
+    { links: [["Products", "/admin/products"], ["Suppliers & feeds", "/admin/syntech"], ["Suppliers", "/admin/suppliers"]] },
   ] },
-  { label: "Reports & intelligence", icon: BarChart3, sections: [
-    { links: [["Business reports", "/admin/reports"], ["Return profitability", "/admin/returns/profitability"]] },
+  { label: "Business", icon: BriefcaseBusiness, sections: [
+    { links: [["Invoices", "/admin/invoices"], ["Reports", "/admin/reports"], ["Partnerships", "/admin/partnerships"], ["Marketing", "/admin/marketing"]] },
   ] },
-  { label: "System", icon: Settings2, sections: [
-    { label: "Records", links: [["Document centre", "/admin/documents"], ["Content", "/admin/content"], ["Reviews", "/admin/reviews"]] },
-    { label: "Administration", links: [["Access control", "/admin/access-control"], ["Audit log", "/admin/audit-log"], ["Test mode", "/admin/test-mode"]] },
+  { label: "Settings", icon: Settings2, sections: [
+    { links: [["Website content", "/admin/content"], ["Users & access", "/admin/access-control"], ["Audit log", "/admin/audit-log"]] },
   ] },
 ] as const;
 
