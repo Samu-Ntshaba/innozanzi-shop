@@ -3,12 +3,14 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import { requireUser } from "@/domain/auth/session";
 import { prisma } from "@/lib/prisma";
 import { getCurrentCart, getOrCreateCart } from "./service";
 
 const addSchema = z.object({ productId: z.string().uuid(), variantId: z.string().uuid().optional(), quantity: z.coerce.number().int().min(1).max(99) });
 
 export async function addToCartAction(formData: FormData) {
+  await requireUser();
   const variantValue = formData.get("variantId");
   const parsed = addSchema.safeParse({ productId: formData.get("productId"), variantId: typeof variantValue === "string" && variantValue ? variantValue : undefined, quantity: formData.get("quantity") });
   if (!parsed.success) redirect("/cart?error=invalid-item");
@@ -33,6 +35,7 @@ export async function addToCartAction(formData: FormData) {
 }
 
 export async function updateCartItemAction(formData: FormData) {
+  await requireUser();
   const parsed = z.object({ itemId: z.string().uuid(), quantity: z.coerce.number().int().min(1).max(99) }).safeParse({ itemId: formData.get("itemId"), quantity: formData.get("quantity") });
   if (!parsed.success) return;
   const cart = await getCurrentCart();
@@ -45,6 +48,7 @@ export async function updateCartItemAction(formData: FormData) {
 }
 
 export async function removeCartItemAction(formData: FormData) {
+  await requireUser();
   const itemId = formData.get("itemId");
   if (typeof itemId !== "string") return;
   const cart = await getCurrentCart();
@@ -53,6 +57,6 @@ export async function removeCartItemAction(formData: FormData) {
   revalidatePath("/cart");
 }
 
-export async function addSupplierCartItemAction(formData:FormData){const parsed=z.object({productId:z.string().uuid(),quantity:z.coerce.number().int().min(1).max(999)}).parse(Object.fromEntries(formData));const product=await prisma.supplierCatalogueProduct.findFirstOrThrow({where:{id:parsed.productId,active:true}});const cart=await getOrCreateCart();const existing=await prisma.supplierCartItem.findUnique({where:{cartId_supplierId_supplierProductId:{cartId:cart.id,supplierId:product.supplierId,supplierProductId:product.supplierProductId}}});const quantity=(existing?.quantity??0)+parsed.quantity;if(existing)await prisma.supplierCartItem.update({where:{id:existing.id},data:{quantity}});else await prisma.supplierCartItem.create({data:{cartId:cart.id,supplierId:product.supplierId,supplierProductId:product.supplierProductId,supplierSku:product.supplierSku,quantity}});revalidatePath("/cart");redirect("/cart?status=added")}
-export async function updateSupplierCartItemAction(formData:FormData){const parsed=z.object({itemId:z.string().uuid(),quantity:z.coerce.number().int().min(1).max(999)}).parse(Object.fromEntries(formData));const cart=await getCurrentCart();if(!cart?.supplierItems.some(x=>x.id===parsed.itemId))return;await prisma.supplierCartItem.update({where:{id:parsed.itemId},data:{quantity:parsed.quantity}});revalidatePath("/cart")}
-export async function removeSupplierCartItemAction(formData:FormData){const id=z.string().uuid().parse(formData.get("itemId"));const cart=await getCurrentCart();if(!cart?.supplierItems.some(x=>x.id===id))return;await prisma.supplierCartItem.delete({where:{id}});revalidatePath("/cart")}
+export async function addSupplierCartItemAction(formData:FormData){await requireUser();const parsed=z.object({productId:z.string().uuid(),quantity:z.coerce.number().int().min(1).max(999)}).parse(Object.fromEntries(formData));const product=await prisma.supplierCatalogueProduct.findFirstOrThrow({where:{id:parsed.productId,active:true}});const cart=await getOrCreateCart();const existing=await prisma.supplierCartItem.findUnique({where:{cartId_supplierId_supplierProductId:{cartId:cart.id,supplierId:product.supplierId,supplierProductId:product.supplierProductId}}});const quantity=(existing?.quantity??0)+parsed.quantity;if(existing)await prisma.supplierCartItem.update({where:{id:existing.id},data:{quantity}});else await prisma.supplierCartItem.create({data:{cartId:cart.id,supplierId:product.supplierId,supplierProductId:product.supplierProductId,supplierSku:product.supplierSku,quantity}});revalidatePath("/cart");redirect("/cart?status=added")}
+export async function updateSupplierCartItemAction(formData:FormData){await requireUser();const parsed=z.object({itemId:z.string().uuid(),quantity:z.coerce.number().int().min(1).max(999)}).parse(Object.fromEntries(formData));const cart=await getCurrentCart();if(!cart?.supplierItems.some(x=>x.id===parsed.itemId))return;await prisma.supplierCartItem.update({where:{id:parsed.itemId},data:{quantity:parsed.quantity}});revalidatePath("/cart")}
+export async function removeSupplierCartItemAction(formData:FormData){await requireUser();const id=z.string().uuid().parse(formData.get("itemId"));const cart=await getCurrentCart();if(!cart?.supplierItems.some(x=>x.id===id))return;await prisma.supplierCartItem.delete({where:{id}});revalidatePath("/cart")}

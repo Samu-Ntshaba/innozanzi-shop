@@ -3,12 +3,14 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { removeCartItemAction, updateCartItemAction,removeSupplierCartItemAction,updateSupplierCartItemAction } from "@/domain/cart/actions";
 import { getCurrentCart } from "@/domain/cart/service";
+import { requireUser } from "@/domain/auth/session";
 import { prisma } from "@/lib/prisma";
 
 export const metadata: Metadata = { title: "Your quotation list", robots: { index: false, follow: false } };
 export const dynamic = "force-dynamic";
 
 export default async function CartPage({ searchParams }: { searchParams: Promise<{ error?: string; status?: string }> }) {
+  await requireUser();
   const params = await searchParams;
   const cart = await getCurrentCart();
   const items = cart?.items ?? [];

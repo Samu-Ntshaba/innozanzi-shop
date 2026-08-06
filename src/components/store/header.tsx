@@ -49,7 +49,7 @@ export async function StoreHeader() {
           <Link aria-label="Log in" className="grid size-11 place-items-center whitespace-nowrap rounded-md text-slate-700 hover:bg-slate-50 xl:flex xl:w-auto xl:gap-2 xl:px-3" href="/sign-in"><LogIn className="size-5" /><span className="hidden xl:inline">Log in</span></Link>
           <Link className="hidden min-h-10 items-center gap-2 whitespace-nowrap rounded-md bg-sky-700 px-4 text-sm font-bold text-white hover:bg-sky-800 sm:flex" href="/register"><UserPlus className="size-4" />Sign up</Link>
         </>}
-        <Link aria-label={`Quotation list with ${cartCount} requested item${cartCount === 1 ? "" : "s"}`} className="relative flex size-11 items-center justify-center rounded-md bg-[#071b33] text-white sm:w-auto sm:gap-2 sm:px-4" href="/cart">
+        <Link aria-label={auth ? `Quotation list with ${cartCount} requested item${cartCount === 1 ? "" : "s"}` : "Log in to create a quotation list"} className="relative flex size-11 items-center justify-center rounded-md bg-[#071b33] text-white sm:w-auto sm:gap-2 sm:px-4" href={auth ? "/cart" : "/sign-in"}>
           <ShoppingCart className="size-5" /><span className="hidden sm:inline">Quote</span>
           {cartCount ? <span className="absolute -right-1 -top-1 grid size-5 place-items-center rounded-full bg-sky-600 text-[10px] font-bold text-white">{cartCount > 9 ? "9+" : cartCount}</span> : null}
         </Link>
