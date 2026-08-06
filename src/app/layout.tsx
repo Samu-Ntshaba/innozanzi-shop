@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 
 import "./globals.css";
+import { CookieConsent } from "@/components/cookie-consent";
 import { GoogleAnalytics } from "@/components/google-analytics";
 import { SystemFeedback } from "@/components/system-feedback";
 import { TestModeBanner } from "@/components/test-mode-banner";
@@ -96,6 +97,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <TestModeBanner />
         {children}
         <SystemFeedback />
+        <CookieConsent />
       </body>
     </html>
   );

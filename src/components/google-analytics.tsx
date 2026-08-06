@@ -2,7 +2,8 @@
 
 import Script from "next/script";
 import { usePathname, useSearchParams } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { COOKIE_CONSENT_EVENT, COOKIE_CONSENT_KEY, type CookieConsentChoice } from "@/components/cookie-consent";
 
 declare global {
   interface Window {
@@ -14,16 +15,29 @@ declare global {
 export function GoogleAnalytics({ measurementId }: { measurementId: string }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const [allowed, setAllowed] = useState(false);
 
   useEffect(() => {
-    if (!window.gtag) return;
+    const update = (event?: Event) => {
+      const choice = event instanceof CustomEvent ? event.detail as CookieConsentChoice : window.localStorage.getItem(COOKIE_CONSENT_KEY);
+      setAllowed(choice === "analytics");
+    };
+    update();
+    window.addEventListener(COOKIE_CONSENT_EVENT, update);
+    return () => window.removeEventListener(COOKIE_CONSENT_EVENT, update);
+  }, []);
+
+  useEffect(() => {
+    if (!allowed || !window.gtag) return;
     const query = searchParams.toString();
     window.gtag("event", "page_view", {
       page_location: window.location.href,
       page_path: query ? `${pathname}?${query}` : pathname,
       page_title: document.title,
     });
-  }, [measurementId, pathname, searchParams]);
+  }, [allowed, measurementId, pathname, searchParams]);
+
+  if (!allowed) return null;
 
   return (
     <>
