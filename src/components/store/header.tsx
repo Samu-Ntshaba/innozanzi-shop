@@ -1,13 +1,15 @@
-import { Headphones, Menu, Search, ShoppingCart, UserRound } from "lucide-react";
+import { Headphones, LogIn, Menu, Search, ShoppingCart, UserPlus, UserRound } from "lucide-react";
 import Link from "next/link";
 import { BrandLogo } from "@/components/brand-logo";
 import { getCurrentCart } from "@/domain/cart/service";
 import { combosEnabled } from "@/domain/combos/settings";
+import { getAuthContext } from "@/domain/auth/session";
 import { prisma } from "@/lib/prisma";
 
 export async function StoreHeader() {
   let cartCount = 0;
-  const [showCombos,supplierCategories]=await Promise.all([
+  const [auth,showCombos,supplierCategories]=await Promise.all([
+    getAuthContext(),
     combosEnabled(),
     prisma.supplierCatalogueProduct.groupBy({by:["category"],where:{active:true,category:{not:null},images:{isEmpty:false}},_count:true,orderBy:{_count:{category:"desc"}},take:4}).catch(()=>[]),
   ]);
@@ -28,6 +30,10 @@ export async function StoreHeader() {
           <Link className="block rounded-md px-4 py-3 text-sm font-semibold text-sky-800 hover:bg-slate-50" href="/categories">More categories</Link>
           {showCombos?<Link className="block rounded-md px-4 py-3 text-sm font-semibold text-sky-800 hover:bg-slate-50" href="/combos">Combo deals</Link>:null}
           <Link className="block rounded-md px-4 py-3 text-sm font-semibold text-sky-800 hover:bg-slate-50" href="/blog">Insights</Link>
+          <div className="mt-2 border-t border-slate-200 pt-2">{auth
+            ? <Link className="block rounded-md px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50" href="/account">Account</Link>
+            : <><Link className="block rounded-md px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50" href="/sign-in">Log in</Link><Link className="block rounded-md bg-sky-700 px-4 py-3 text-sm font-bold text-white" href="/register">Sign up</Link></>}
+          </div>
         </nav>
       </details>
       <BrandLogo className="w-28 min-[380px]:w-36 sm:w-44" priority />
@@ -39,7 +45,10 @@ export async function StoreHeader() {
       </form>
       <nav aria-label="Customer shortcuts" className="ml-auto flex items-center gap-1">
         <Link className="hidden items-center gap-2 rounded-md p-2 text-sm font-medium text-slate-700 hover:bg-slate-50 sm:flex" href="/contact"><Headphones className="size-5" /><span className="hidden xl:inline">Help</span></Link>
-        <Link aria-label="Account" className="grid size-11 place-items-center rounded-md text-slate-700 hover:bg-slate-50 xl:flex xl:w-auto xl:gap-2 xl:px-3" href="/account"><UserRound className="size-5" /><span className="hidden xl:inline">Account</span></Link>
+        {auth ? <Link aria-label="Account" className="grid size-11 place-items-center rounded-md text-slate-700 hover:bg-slate-50 xl:flex xl:w-auto xl:gap-2 xl:px-3" href="/account"><UserRound className="size-5" /><span className="hidden xl:inline">Account</span></Link> : <>
+          <Link aria-label="Log in" className="grid size-11 place-items-center rounded-md text-slate-700 hover:bg-slate-50 xl:flex xl:w-auto xl:gap-2 xl:px-3" href="/sign-in"><LogIn className="size-5" /><span className="hidden xl:inline">Log in</span></Link>
+          <Link className="hidden min-h-10 items-center gap-2 rounded-md bg-sky-700 px-3 text-sm font-bold text-white hover:bg-sky-800 sm:flex" href="/register"><UserPlus className="size-4" />Sign up</Link>
+        </>}
         <Link aria-label={`Quotation list with ${cartCount} requested item${cartCount === 1 ? "" : "s"}`} className="relative flex size-11 items-center justify-center rounded-md bg-[#071b33] text-white sm:w-auto sm:gap-2 sm:px-4" href="/cart">
           <ShoppingCart className="size-5" /><span className="hidden sm:inline">Quote</span>
           {cartCount ? <span className="absolute -right-1 -top-1 grid size-5 place-items-center rounded-full bg-sky-600 text-[10px] font-bold text-white">{cartCount > 9 ? "9+" : cartCount}</span> : null}
