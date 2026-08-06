@@ -1,0 +1,222 @@
+{
+  "name": "innonzanzi",
+  "active": false,
+  "settings": {
+    "timezone": "Africa/Johannesburg",
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "nodes": [
+    {
+      "id": "schedule",
+      "name": "Weekdays at 08:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 0],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 8 * * 1-5"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "candidate",
+      "name": "Get product post",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [240, 0],
+      "parameters": {
+        "url": "={{$vars.INNOZANZI_SHOP_URL + '/api/integrations/n8n/linkedin'}}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_SHOP_CREDENTIAL",
+          "name": "Innozanzi API bearer token"
+        }
+      }
+    },
+    {
+      "id": "approval",
+      "name": "Approve by email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [480, 0],
+      "parameters": {
+        "operation": "sendAndWait",
+        "sendTo": "={{$vars.LINKEDIN_APPROVAL_EMAIL}}",
+        "subject": "={{'LinkedIn approval: ' + $json.productName}}",
+        "message": "={{$json.caption + '\n\nProduct image: ' + $json.imageUrl}}",
+        "responseType": "approval",
+        "options": {
+          "approvalType": "double",
+          "limitWaitTime": {
+            "values": {
+              "amount": 20,
+              "unit": "hours"
+            }
+          }
+        }
+      },
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "REPLACE_GMAIL_CREDENTIAL",
+          "name": "Marketing approval email"
+        }
+      }
+    },
+    {
+      "id": "approved",
+      "name": "Approved?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [720, 0],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{$json.data?.approved ?? $json.approved ?? false}}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "publish",
+      "name": "Publish on LinkedIn",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [960, -100],
+      "disabled": true,
+      "notes": "Add the LinkedIn OAuth2 credential and replace the API version before enabling this node.",
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.linkedin.com/rest/posts",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "oAuth2Api",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Linkedin-Version",
+              "value": "={{$vars.LINKEDIN_API_VERSION}}"
+            },
+            {
+              "name": "X-Restli-Protocol-Version",
+              "value": "2.0.0"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{JSON.stringify({author: $vars.LINKEDIN_ORGANIZATION_URN, commentary: $('Get product post').item.json.caption, visibility: 'PUBLIC', distribution: {feedDistribution: 'MAIN_FEED', targetEntities: [], thirdPartyDistributionChannels: []}, lifecycleState: 'PUBLISHED', isReshareDisabledByAuthor: false})}}",
+        "options": {}
+      },
+      "credentials": {
+        "oAuth2Api": {
+          "id": "REPLACE_LINKEDIN_CREDENTIAL",
+          "name": "LinkedIn company page"
+        }
+      }
+    },
+    {
+      "id": "published",
+      "name": "Record published",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1200, -100],
+      "disabled": true,
+      "notes": "Enable this node together with Publish on LinkedIn after a successful private test.",
+      "parameters": {
+        "method": "POST",
+        "url": "={{$vars.INNOZANZI_SHOP_URL + '/api/integrations/n8n/linkedin'}}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{JSON.stringify({candidateId: $('Get product post').item.json.candidateId, status: 'PUBLISHED', caption: $('Get product post').item.json.caption})}}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_SHOP_CREDENTIAL",
+          "name": "Innozanzi API bearer token"
+        }
+      }
+    },
+    {
+      "id": "rejected",
+      "name": "Record rejected",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [960, 120],
+      "parameters": {
+        "method": "POST",
+        "url": "={{$vars.INNOZANZI_SHOP_URL + '/api/integrations/n8n/linkedin'}}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{JSON.stringify({candidateId: $('Get product post').item.json.candidateId, status: 'REJECTED'})}}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_SHOP_CREDENTIAL",
+          "name": "Innozanzi API bearer token"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Weekdays at 08:00": {
+      "main": [[{"node": "Get product post", "type": "main", "index": 0}]]
+    },
+    "Get product post": {
+      "main": [[{"node": "Approve by email", "type": "main", "index": 0}]]
+    },
+    "Approve by email": {
+      "main": [[{"node": "Approved?", "type": "main", "index": 0}]]
+    },
+    "Approved?": {
+      "main": [
+        [{"node": "Publish on LinkedIn", "type": "main", "index": 0}],
+        [{"node": "Record rejected", "type": "main", "index": 0}]
+      ]
+    },
+    "Publish on LinkedIn": {
+      "main": [[{"node": "Record published", "type": "main", "index": 0}]]
+    }
+  },
+  "pinData": {},
+  "versionId": "10000000-0000-4000-8000-000000000001"
+}

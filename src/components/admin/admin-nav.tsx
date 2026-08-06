@@ -1,6 +1,6 @@
 "use client";
 
-import { Boxes, BriefcaseBusiness, Building2, ChevronRight, Settings2 } from "lucide-react";
+import { Boxes, BriefcaseBusiness, Building2, ChevronRight, Megaphone, Settings2 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -19,10 +19,15 @@ export const adminNavGroups: readonly NavGroup[] = [
     { links: [["Products", "/admin/products"], ["Suppliers & feeds", "/admin/syntech"], ["Suppliers", "/admin/suppliers"]] },
   ] },
   { label: "Business", icon: BriefcaseBusiness, sections: [
-    { links: [["Invoices", "/admin/invoices"], ["Reports", "/admin/reports"], ["Partnerships", "/admin/partnerships"], ["Marketing", "/admin/marketing"]] },
+    { links: [["Invoices", "/admin/invoices"], ["Reports", "/admin/reports"], ["Partnerships", "/admin/partnerships"]] },
+  ] },
+  { label: "Marketing", icon: Megaphone, sections: [
+    { links: [["Overview", "/admin/marketing"], ["Analytics", "/admin/marketing/analytics"], ["Product combos", "/admin/marketing/combos"]] },
+    { label: "Content", links: [["Homepage", "/admin/marketing/homepage"], ["Blog", "/admin/marketing/blog"], ["Website popups", "/admin/marketing/popups"], ["Media library", "/admin/marketing/media"], ["Email marketing", "/admin/email-marketing"]] },
+    { label: "Search & discovery", links: [["Global SEO", "/admin/marketing/seo"], ["Page SEO", "/admin/marketing/page-seo"], ["SEO audit", "/admin/marketing/audit"], ["Redirects", "/admin/marketing/redirects"]] },
   ] },
   { label: "Settings", icon: Settings2, sections: [
-    { links: [["Website content", "/admin/content"], ["Users & access", "/admin/access-control"], ["Audit log", "/admin/audit-log"]] },
+    { links: [["Website content", "/admin/content"], ["Staff & access", "/admin/access-control"], ["Audit log", "/admin/audit-log"]] },
   ] },
 ] as const;
 
