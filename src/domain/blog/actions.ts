@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { BLOG_AUDIENCES, BLOG_TOPICS, blogLabel } from "@/domain/blog/constants";
+import { normaliseBlogDraft } from "@/domain/blog/draft";
 import { requirePermission } from "@/domain/auth/session";
 import { getOpenAIClient } from "@/lib/openai";
 import { prisma } from "@/lib/prisma";
@@ -102,8 +103,12 @@ Use recent, reputable primary or authoritative sources. Do not invent prices, st
             type: "object",
             additionalProperties: false,
             properties: {
-              title: { type: "string" }, excerpt: { type: "string" }, content: { type: "string" },
-              coverImageAlt: { type: "string" }, metaTitle: { type: "string" }, metaDescription: { type: "string" },
+              title: { type: "string", minLength: 10, maxLength: 120 },
+              excerpt: { type: "string", minLength: 40, maxLength: 320 },
+              content: { type: "string", minLength: 500, maxLength: 14000 },
+              coverImageAlt: { type: "string", minLength: 10, maxLength: 220 },
+              metaTitle: { type: "string", minLength: 10, maxLength: 70 },
+              metaDescription: { type: "string", minLength: 40, maxLength: 170 },
             },
             required: ["title", "excerpt", "content", "coverImageAlt", "metaTitle", "metaDescription"],
           },
@@ -148,7 +153,9 @@ export async function refreshBlogGeneration(id: string) {
   if (!post) return null;
   const metadata = post.sources && !Array.isArray(post.sources) ? post.sources as GenerationMetadata : null;
   const responseId = metadata?.generation?.responseId;
-  if (!responseId || !["queued", "in_progress"].includes(metadata?.generation?.status ?? "")) return post;
+  const generationStatus = metadata?.generation?.status ?? "";
+  const recoverableValidationFailure = generationStatus === "failed" && /too_big|too_small|expected string/i.test(metadata?.generation?.error ?? "");
+  if (!responseId || (!["queued", "in_progress"].includes(generationStatus) && !recoverableValidationFailure)) return post;
   try {
     const response = await getOpenAIClient().responses.retrieve(responseId, undefined, { timeout: 10_000 });
     if (response.status === "queued" || response.status === "in_progress") {
@@ -160,7 +167,7 @@ export async function refreshBlogGeneration(id: string) {
     if (response.status !== "completed") {
       return prisma.blogPost.update({ where: { id }, data: { sources: { generation: { responseId, status: "failed", error: response.status } } } });
     }
-    const draft = draftSchema.parse(JSON.parse(response.output_text));
+    const draft = draftSchema.parse(normaliseBlogDraft(JSON.parse(response.output_text)));
     const sources = z.array(sourceSchema).parse(findSources(response));
     if (!sources.length) throw new Error("Research completed without verifiable source links.");
     const completed = await prisma.blogPost.update({ where: { id }, data: { ...draft, slug: await uniqueSlug(draft.title, id), sources, updatedById: post.updatedById } });
