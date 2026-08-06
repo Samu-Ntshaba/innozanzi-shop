@@ -43,11 +43,11 @@ export async function StoreHeader() {
           <button aria-label="Search products" className="grid h-11 w-12 place-items-center text-slate-700 hover:bg-slate-50" type="submit"><Search className="size-5" /></button>
         </label>
       </form>
-      <nav aria-label="Customer shortcuts" className="ml-auto flex items-center gap-1">
-        <Link className="hidden items-center gap-2 rounded-md p-2 text-sm font-medium text-slate-700 hover:bg-slate-50 sm:flex" href="/contact"><Headphones className="size-5" /><span className="hidden xl:inline">Help</span></Link>
+      <nav aria-label="Customer shortcuts" className="ml-auto flex shrink-0 items-center gap-1">
+        <Link className="hidden items-center gap-2 whitespace-nowrap rounded-md p-2 text-sm font-medium text-slate-700 hover:bg-slate-50 sm:flex" href="/contact"><Headphones className="size-5" /><span className="hidden 2xl:inline">Help</span></Link>
         {auth ? <Link aria-label="Account" className="grid size-11 place-items-center rounded-md text-slate-700 hover:bg-slate-50 xl:flex xl:w-auto xl:gap-2 xl:px-3" href="/account"><UserRound className="size-5" /><span className="hidden xl:inline">Account</span></Link> : <>
-          <Link aria-label="Log in" className="grid size-11 place-items-center rounded-md text-slate-700 hover:bg-slate-50 xl:flex xl:w-auto xl:gap-2 xl:px-3" href="/sign-in"><LogIn className="size-5" /><span className="hidden xl:inline">Log in</span></Link>
-          <Link className="hidden min-h-10 items-center gap-2 rounded-md bg-sky-700 px-3 text-sm font-bold text-white hover:bg-sky-800 sm:flex" href="/register"><UserPlus className="size-4" />Sign up</Link>
+          <Link aria-label="Log in" className="grid size-11 place-items-center whitespace-nowrap rounded-md text-slate-700 hover:bg-slate-50 xl:flex xl:w-auto xl:gap-2 xl:px-3" href="/sign-in"><LogIn className="size-5" /><span className="hidden xl:inline">Log in</span></Link>
+          <Link className="hidden min-h-10 items-center gap-2 whitespace-nowrap rounded-md bg-sky-700 px-4 text-sm font-bold text-white hover:bg-sky-800 sm:flex" href="/register"><UserPlus className="size-4" />Sign up</Link>
         </>}
         <Link aria-label={`Quotation list with ${cartCount} requested item${cartCount === 1 ? "" : "s"}`} className="relative flex size-11 items-center justify-center rounded-md bg-[#071b33] text-white sm:w-auto sm:gap-2 sm:px-4" href="/cart">
           <ShoppingCart className="size-5" /><span className="hidden sm:inline">Quote</span>
