@@ -16,7 +16,8 @@ import { isTestModeEnvironment } from "@/lib/test-mode";
 
 export async function generateMetadata(): Promise<Metadata> {
   const settings = await globalSeoSettings();
-  const image = absoluteUrl(settings.defaultImage, settings.siteUrl);
+  const rawImage = absoluteUrl(settings.defaultImage, settings.siteUrl);
+  const image = rawImage ? versionedSocialImage(rawImage) : null;
   return {
     metadataBase: new URL(settings.siteUrl),
     title: { default: settings.siteTitle, template: settings.titleTemplate },
@@ -82,6 +83,12 @@ export async function generateMetadata(): Promise<Metadata> {
       ? { index: false, follow: false, noarchive: true }
       : { index: true, follow: true },
   };
+}
+
+function versionedSocialImage(image: string) {
+  const url = new URL(image);
+  url.searchParams.set("v", process.env.NEXT_PUBLIC_SOCIAL_IMAGE_VERSION ?? "20260806");
+  return url.toString();
 }
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
