@@ -49,8 +49,8 @@ export async function StoreHeader() {
           <Link aria-label="Log in" className="grid size-11 place-items-center whitespace-nowrap rounded-md text-slate-700 hover:bg-slate-50 xl:flex xl:w-auto xl:gap-2 xl:px-3" href="/sign-in"><LogIn className="size-5" /><span className="hidden xl:inline">Log in</span></Link>
           <Link className="hidden min-h-10 items-center gap-2 whitespace-nowrap rounded-md bg-sky-700 px-4 text-sm font-bold text-white hover:bg-sky-800 sm:flex" href="/register"><UserPlus className="size-4" />Sign up</Link>
         </>}
-        <Link aria-label={auth ? `Quotation list with ${cartCount} requested item${cartCount === 1 ? "" : "s"}` : "Log in to create a quotation list"} className="relative flex size-11 items-center justify-center rounded-md bg-[#071b33] text-white sm:w-auto sm:gap-2 sm:px-4" href={auth ? "/cart" : "/sign-in"}>
-          <ShoppingCart className="size-5" /><span className="hidden sm:inline">Quote</span>
+        <Link aria-label={auth ? `Cart with ${cartCount} item${cartCount === 1 ? "" : "s"}` : "Log in to create a cart"} className="relative flex size-11 items-center justify-center rounded-md bg-[#071b33] text-white sm:w-auto sm:gap-2 sm:px-4" href={auth ? "/cart" : "/sign-in"}>
+          <ShoppingCart className="size-5" /><span className="hidden sm:inline">Cart</span>
           {cartCount ? <span className="absolute -right-1 -top-1 grid size-5 place-items-center rounded-full bg-sky-600 text-[10px] font-bold text-white">{cartCount > 9 ? "9+" : cartCount}</span> : null}
         </Link>
       </nav>
@@ -58,6 +58,7 @@ export async function StoreHeader() {
     <nav aria-label="Product categories" className="mx-auto hidden h-11 max-w-7xl items-center gap-7 border-t border-slate-100 px-6 lg:flex lg:px-8">
       <Link className="text-sm font-semibold text-sky-800" href="/shop">All products</Link>
       {showCombos?<Link className="text-sm font-semibold text-amber-700" href="/combos">Combo deals</Link>:null}
+      <Link className="text-sm font-semibold text-sky-800" href="/build-a-pc">Build a PC</Link>
       {categories.map(category => <Link key={category} className="text-sm font-medium text-slate-600 hover:text-slate-950" href={`/categories/${encodeURIComponent(category)}`}>{category}</Link>)}
       <Link className="text-sm font-semibold text-sky-800 hover:underline" href="/categories">More categories</Link>
       <Link className="ml-auto text-sm font-medium text-slate-600 hover:text-slate-950" href="/blog">Insights</Link>

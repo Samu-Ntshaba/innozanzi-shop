@@ -5,15 +5,19 @@ const productCardSelect = {
   name: true,
   slug: true,
   sku: true,
+  regularPrice: true,
+  salePrice: true,
+  saleStartsAt: true,
+  saleEndsAt: true,
   stockStatus: true,
   brand: { select: { name: true, slug: true } },
   category: { select: { name: true, slug: true } },
   images: { where: { isPrimary: true }, take: 1, select: { path: true, altText: true } },
 } as const;
 
-const supplierCardSelect = {id:true,name:true,slug:true,supplierSku:true,availability:true,brand:true,category:true,images:true} as const;
-type SupplierCardRow = {id:string;name:string;slug:string;supplierSku:string;availability:string;brand:string|null;category:string|null;images:string[]};
-const supplierCard = (p:SupplierCardRow):ProductCardData => ({id:p.id,name:p.name,slug:p.slug,sku:p.supplierSku,stockStatus:p.availability==="IN_STOCK"?"IN_STOCK":"OUT_OF_STOCK",brand:p.brand?{name:p.brand,slug:p.brand.toLowerCase()}:null,category:{name:p.category??"Catalogue",slug:p.category??"catalogue"},images:p.images.slice(0,1).map(path=>({path,altText:p.name})),source:"supplier"});
+const supplierCardSelect = {id:true,name:true,slug:true,supplierSku:true,availability:true,brand:true,category:true,images:true,recommendedRetail:true,promotionalPrice:true,promotionStartsAt:true,promotionEndsAt:true} as const;
+type SupplierCardRow = {id:string;name:string;slug:string;supplierSku:string;availability:string;brand:string|null;category:string|null;images:string[];recommendedRetail:{toString():string}|null;promotionalPrice:{toString():string}|null;promotionStartsAt:Date|null;promotionEndsAt:Date|null};
+const supplierCard = (p:SupplierCardRow):ProductCardData => ({id:p.id,name:p.name,slug:p.slug,sku:p.supplierSku,stockStatus:p.availability==="IN_STOCK"?"IN_STOCK":"OUT_OF_STOCK",brand:p.brand?{name:p.brand,slug:p.brand.toLowerCase()}:null,category:{name:p.category??"Catalogue",slug:p.category??"catalogue"},images:p.images.slice(0,1).map(path=>({path,altText:p.name})),regularPrice:p.recommendedRetail?.toString()??null,salePrice:p.promotionalPrice?.toString()??null,saleStartsAt:p.promotionStartsAt,saleEndsAt:p.promotionEndsAt,source:"supplier"});
 
 export async function getHomepageCatalogue() {
   try {
@@ -100,6 +104,7 @@ export async function getProductBySlug(slug: string) {
 
 export type ProductCardData = {
   id:string;name:string;slug:string;sku:string;stockStatus:string;
+  regularPrice?:{toString():string}|string|null;salePrice?:{toString():string}|string|null;saleStartsAt?:Date|null;saleEndsAt?:Date|null;
   brand:{name:string;slug:string}|null;category:{name:string;slug:string};
   images:{path:string;altText:string|null}[];source?:"supplier";
 };

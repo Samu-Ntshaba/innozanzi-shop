@@ -21,7 +21,7 @@ export async function processPaymentEvent(provider: "PAYSTACK" | "YOCO", event: 
         const inventory=await tx.inventory.findFirst({where:{productId:item.productId,variantId:item.variantId??null}});
         if(!inventory||inventory.onHand-inventory.reserved<item.quantity)throw new Error(`Insufficient inventory for paid item ${item.productName}.`);
         const updated=await tx.inventory.update({where:{id:inventory.id},data:{reserved:{increment:item.quantity}}});
-        await tx.inventoryMovement.create({data:{inventoryId:inventory.id,type:"RESERVATION",quantity:item.quantity,balanceAfter:updated.onHand,reason:"Paystack payment stock reservation",referenceType:"Order",referenceId:payment.orderId}});
+        await tx.inventoryMovement.create({data:{inventoryId:inventory.id,type:"RESERVATION",quantity:item.quantity,balanceAfter:updated.onHand,reason:`${provider} payment stock reservation`,referenceType:"Order",referenceId:payment.orderId}});
       }
     }
     await tx.payment.update({ where: { id: payment.id }, data: { status: event.status, paidAt: event.status === "PAID" ? new Date() : null, providerMetadata: event.raw as object } });
