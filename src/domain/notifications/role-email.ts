@@ -10,6 +10,7 @@ export const STAFF_EMAIL_EVENTS = [
   ["HELP_DESK_CREATED", "Help-desk ticket created", "A new support request is submitted."],
   ["HELP_DESK_CUSTOMER_REPLY", "Customer replied to ticket", "A customer adds a reply to an existing support ticket."],
   ["PAYMENT_REVIEW_REQUIRED", "Payment review required", "Proof of payment or an online payment needs attention."],
+  ["ORDER_PAID", "Paid order requires acceptance", "A verified customer payment created an order that must be accepted within 30 minutes."],
   ["PARTNERSHIP_APPLICATION", "Partnership application", "A new partnership application needs review."],
   ["RETURN_REQUESTED", "Return or complaint submitted", "A customer submits a return or product complaint."],
 ] as const;

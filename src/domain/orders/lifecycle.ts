@@ -50,6 +50,8 @@ export function cancellationRequiresFinanceConfirmation(status: string) {
   return allowedOrderTransitions(status).includes("CANCELLED");
 }
 
+export function currentOperationalTime() { return Date.now(); }
+
 export function reservationAfterRelease(currentReserved: number, quantity: number) {
   if (!Number.isInteger(quantity) || quantity <= 0 || currentReserved < quantity) {
     throw new Error("Reserved inventory cannot be released safely.");

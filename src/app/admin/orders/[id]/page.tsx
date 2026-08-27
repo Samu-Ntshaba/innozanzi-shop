@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/domain/auth/session";
 import { setOrderStatus } from "@/domain/admin/actions";
-import { allowedOrderTransitions, orderStageContext } from "@/domain/orders/lifecycle";
+import { allowedOrderTransitions, currentOperationalTime, orderStageContext } from "@/domain/orders/lifecycle";
 import { AdminPage, Panel, StatusBadge, inputClass, tableClass } from "@/components/admin/admin-ui";
 import { OrderProgress } from "@/components/orders/order-progress";
 import { DocumentActions } from "@/components/admin/document-actions";
@@ -14,8 +14,10 @@ export default async function AdminOrderDetail({ params }: { params: Promise<{ i
   const hasSupplierItems = order.items.some(item => item.sourceType === "SUPPLIER" || Boolean(item.supplierId));
   const transitions = allowedOrderTransitions(order.status).filter(status => !(order.status === "PROCESSING" && status === "ITEMS_RECEIVED" && hasSupplierItems) && !(order.status === "PROCESSING" && status === "SOURCING_ITEMS" && !hasSupplierItems) && !(["DISPATCHED", "IN_TRANSIT", "DELIVERED"].includes(status) && order.shipments.length === 0));
   const stage = orderStageContext(order.status);
-  const health = order.returnCases.some(item=>!["RESOLVED","REJECTED","CLOSED"].includes(item.status)) ? "Attention required" : order.status === "SOURCING_ITEMS" ? "Waiting on supplier" : "On track";
+  const acceptanceMinutes=Math.floor((currentOperationalTime()-(order.payments.find(payment=>payment.status==="PAID")?.paidAt??order.updatedAt).getTime())/60_000),acceptanceOverdue=order.status==="PAYMENT_VERIFIED"&&acceptanceMinutes>=30;
+  const health = acceptanceOverdue?"Acceptance overdue":order.returnCases.some(item=>!["RESOLVED","REJECTED","CLOSED"].includes(item.status)) ? "Attention required" : order.status === "SOURCING_ITEMS" ? "Waiting on supplier" : "On track";
   return <AdminPage title={order.orderNumber} description={`${order.companyName ?? order.email} · paid order fulfilment`} actions={<><a className="font-semibold text-sky-700" href={`/admin/orders/${order.id}/delivery`}>Plan delivery</a><DocumentActions type="ORDER" id={order.id} label="order confirmation"/><a className="font-semibold text-sky-700" href={`/api/orders/${order.orderNumber}/delivery-note`} target="_blank">Delivery note</a><StatusBadge value={order.status}/></>}>
+    {order.status==="PAYMENT_VERIFIED"?<div className={`border-l-4 p-4 ${acceptanceOverdue?"border-red-600 bg-red-50 text-red-900":"border-amber-500 bg-amber-50 text-amber-900"}`}><strong>{acceptanceOverdue?"Paid order acceptance is overdue":"Paid order requires acceptance"}</strong><p className="mt-1 text-sm">Payment is verified. Confirm supplier or local availability and move this order to Processing now. Target: within 30 minutes of purchase.</p></div>:null}
     <Panel title="End-to-end order tracking" description="One controlled lifecycle from verified payment through delivery and after-sales."><OrderProgress status={order.status}/></Panel>
     <div className="grid gap-px border border-slate-200 bg-slate-200 sm:grid-cols-2 xl:grid-cols-5">
       {[['Current phase',stage.phase],['Why it is here',stage.reason],['Next action',stage.next],['Owner',stage.owner],['Health',health]].map(([label,value])=><div className="bg-white p-4" key={label}><p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{label}</p><p className={`mt-2 text-sm font-semibold ${label==='Health'&&health!=='On track'?'text-amber-700':'text-slate-900'}`}>{value}</p></div>)}
