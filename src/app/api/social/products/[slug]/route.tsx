@@ -2,6 +2,8 @@ import { ImageResponse } from "next/og";
 
 import { getProductBySlug } from "@/domain/catalogue/queries";
 import { absoluteUrl, globalSeoSettings } from "@/domain/marketing/seo";
+import { activeUnitPrice } from "@/domain/cart/calculations";
+import { formatZar } from "@/lib/money";
 
 export const runtime = "nodejs";
 
@@ -15,7 +17,8 @@ export async function GET(_: Request, { params }: { params: Promise<{ slug: stri
   const logo = absoluteUrl("/brand/innozanzi-shop-logo-white.png", settings.siteUrl);
   const description =
     product.shortDescription ??
-    `Request a professional quotation for ${product.name}, with availability, delivery and support confirmed by Innozanzi.`;
+    `Buy ${product.name} online with secure payment and nationwide delivery from Innozanzi.`;
+  const price = activeUnitPrice(product);
 
   return new ImageResponse(
     <div style={{ width: "100%", height: "100%", display: "flex", background: "#f8fafc", color: "#071b33", fontFamily: "Arial, sans-serif" }}>
@@ -37,7 +40,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ slug: stri
           <div style={{ fontSize: product.name.length > 70 ? "38px" : "46px", lineHeight: 1.08, fontWeight: 700 }}>{product.name}</div>
           <div style={{ color: "#cbd5e1", fontSize: "21px", lineHeight: 1.45, marginTop: "22px" }}>{description.length > 150 ? `${description.slice(0, 147)}…` : description}</div>
         </div>
-        <div style={{ display: "flex", alignItems: "center", fontSize: "20px", fontWeight: 700 }}>Request a quotation<span style={{ color: "#59b7e8", marginLeft: "12px" }}>→</span></div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: "20px", fontWeight: 700 }}><span>{formatZar(price)}</span><span>Shop online <span style={{ color: "#59b7e8", marginLeft: "8px" }}>→</span></span></div>
       </div>
     </div>,
     { width: 1200, height: 630, headers: { "Cache-Control": "public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800" } },
