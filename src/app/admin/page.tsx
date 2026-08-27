@@ -82,7 +82,7 @@ export default async function AdminDashboard() {
     dashboard.partnershipApplications +
     dashboard.unassignedPartnerRequests +
     dashboard.openHelpDesk +
-    dashboard.lowStock;
+    dashboard.lowStock + dashboard.overdueOrders + dashboard.openReturns;
 
   const workflow = [
     { label: "New requests", value: dashboard.openRequests, href: "/admin/quotations" },
@@ -100,6 +100,11 @@ export default async function AdminDashboard() {
   ];
   const maximumWorkload = Math.max(1, ...workloads.map(({ value }) => value));
   const priorityQueues = [
+    { label: "Paid orders to accept", value: dashboard.paidOrdersToAccept, href: "/admin/orders" },
+    { label: "Supplier procurement", value: dashboard.procurementOrders, href: "/admin/orders" },
+    { label: "Ready for delivery", value: dashboard.readyForDelivery, href: "/admin/orders" },
+    { label: "Overdue fulfilment", value: dashboard.overdueOrders, href: "/admin/orders" },
+    { label: "Open returns & complaints", value: dashboard.openReturns, href: "/admin/returns" },
     { label: "Quotation approvals", value: dashboard.quotesToApprove, href: "/admin/quotations" },
     { label: "Payment verification", value: dashboard.pendingPayments, href: "/admin/payments" },
     { label: "Stock exceptions", value: dashboard.lowStock, href: "/admin/inventory" },
@@ -156,7 +161,7 @@ export default async function AdminDashboard() {
         description="The most important exceptions requiring action."
         actions={<Link className="text-xs font-semibold text-sky-700 hover:underline" href="/admin/reports">View reports</Link>}
       >
-        <div className="grid gap-px overflow-hidden border border-slate-200 bg-slate-200 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-px overflow-hidden border border-slate-200 bg-slate-200 sm:grid-cols-2 xl:grid-cols-3">
           {priorityQueues.map((queue) => (
             <Link className="flex items-center justify-between gap-3 bg-white p-3 hover:bg-sky-50" href={queue.href} key={queue.label}>
               <span className="text-sm font-medium text-slate-700">{queue.label}</span>

@@ -5,7 +5,8 @@ describe("paid order fulfilment lifecycle", () => {
   it("allows only controlled forward transitions", () => {
     expect(allowedOrderTransitions("PAYMENT_VERIFIED")).toEqual(["PROCESSING", "CANCELLED"]);
     expect(() => assertOrderTransition("PAYMENT_VERIFIED", "DELIVERED")).toThrow("cannot move");
-    expect(() => assertOrderTransition("PROCESSING", "PACKING")).not.toThrow();
+    expect(() => assertOrderTransition("PROCESSING", "PACKING")).toThrow(/cannot move/i);
+    expect(() => assertOrderTransition("ITEMS_RECEIVED", "PACKING")).not.toThrow();
   });
 
   it("makes completed and cancelled orders terminal", () => {

@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/domain/auth/session";
 import { enqueueEmail } from "@/integrations/email/outbox";
 import { emailTemplates } from "@/integrations/email/templates";
-import { assertOrderTransition, reservationAfterRelease } from "@/domain/orders/lifecycle";
+import { assertOrderTransition, assertOrderTransitionRequirements, reservationAfterRelease } from "@/domain/orders/lifecycle";
 import { categoryIconOptions } from "@/components/store/category-icon";
 
 const slugify = (value: string) => value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
@@ -114,8 +114,9 @@ export async function setOrderStatus(formData: FormData) {
     if (!refundConfirmed) throw new Error("Confirm the customer refund before cancelling a paid order.");
   }
   const order = await prisma.$transaction(async (tx) => {
-    const before = await tx.order.findUniqueOrThrow({ where: { id }, include: { items: true, payments: true, convertedQuotation: true } });
+    const before = await tx.order.findUniqueOrThrow({ where: { id }, include: { items: true, payments: true, shipments: { take: 1 }, convertedQuotation: true } });
     assertOrderTransition(before.status, status);
+    assertOrderTransitionRequirements({ from: before.status, to: status, hasSupplierItems: before.items.some(item => item.sourceType === "SUPPLIER" || Boolean(item.supplierId)), hasShipment: before.shipments.length > 0 });
     if (status === "CANCELLED") {
       for (const item of before.items) {
         if (!item.productId) continue;
@@ -139,6 +140,8 @@ export async function setOrderStatus(formData: FormData) {
   }, { isolationLevel: "Serializable" });
   await enqueueEmail(emailTemplates.orderStatus(order.email, order.orderNumber, status), order.userId ?? undefined);
   revalidatePath("/admin/orders");
+  revalidatePath(`/admin/orders/${id}`);
+  revalidatePath(`/account/orders/${order.orderNumber}`);
 }
 
 export async function saveShipmentDetails(formData: FormData) {
@@ -154,10 +157,11 @@ export async function saveShipmentDetails(formData: FormData) {
 export async function reviewPaymentProof(formData: FormData) {
   const context = await requirePermission("payments.approve");
   const { id, status, note } = z.object({ id: z.string().uuid(), status: z.enum(["APPROVED", "REJECTED"]), note: z.string().max(300).optional() }).parse(Object.fromEntries(formData));
-  const proof = await prisma.$transaction(async tx=>{const current=await tx.paymentProof.findUniqueOrThrow({where:{id},include:{payment:{include:{order:{include:{items:true}}}}}});if(current.status!=="PENDING")throw new Error("This proof has already been reviewed.");if(status==="APPROVED"){for(const item of current.payment.order.items){if(!item.productId)continue;const inventory=await tx.inventory.findFirst({where:{productId:item.productId,variantId:item.variantId??null}});if(!inventory||inventory.onHand-inventory.reserved<item.quantity)throw new Error(`Insufficient stock for ${item.productName}. Payment approval was stopped.`);const updated=await tx.inventory.update({where:{id:inventory.id},data:{reserved:{increment:item.quantity}}});await tx.inventoryMovement.create({data:{inventoryId:inventory.id,actorId:context.user.id,type:"RESERVATION",quantity:item.quantity,balanceAfter:updated.onHand-updated.reserved,reason:"Approved EFT payment",referenceType:"Order",referenceId:current.payment.orderId}})}await tx.payment.update({where:{id:current.paymentId},data:{status:"PAID",paidAt:new Date()}});await tx.order.update({where:{id:current.payment.orderId},data:{status:"PAYMENT_VERIFIED",paymentStatus:"PAID"}});await tx.orderStatusHistory.create({data:{orderId:current.payment.orderId,fromStatus:current.payment.order.status,toStatus:"PAYMENT_VERIFIED",actorId:context.user.id,note:note||"EFT proof approved"}})}else{await tx.payment.update({where:{id:current.paymentId},data:{status:"PENDING"}});await tx.order.update({where:{id:current.payment.orderId},data:{status:"AWAITING_PAYMENT",paymentStatus:"PENDING"}})}return tx.paymentProof.update({where:{id},data:{status,reviewNote:note,reviewerId:context.user.id,reviewedAt:new Date()},include:{payment:{include:{order:{select:{orderNumber:true,email:true,userId:true}}}}}})} ,{isolationLevel:"Serializable"});
+  const proof = await prisma.$transaction(async tx=>{const current=await tx.paymentProof.findUniqueOrThrow({where:{id},include:{payment:{include:{order:{include:{items:true}}}}}});if(current.status!=="PENDING")throw new Error("This proof has already been reviewed.");if(status==="APPROVED"){for(const item of current.payment.order.items){if(!item.productId)continue;const inventory=await tx.inventory.findFirst({where:{productId:item.productId,variantId:item.variantId??null}});if(!inventory||inventory.onHand-inventory.reserved<item.quantity)throw new Error(`Insufficient stock for ${item.productName}. Payment approval was stopped.`);const updated=await tx.inventory.update({where:{id:inventory.id},data:{reserved:{increment:item.quantity}}});await tx.inventoryMovement.create({data:{inventoryId:inventory.id,actorId:context.user.id,type:"RESERVATION",quantity:item.quantity,balanceAfter:updated.onHand-updated.reserved,reason:"Approved EFT payment",referenceType:"Order",referenceId:current.payment.orderId}})}await tx.payment.update({where:{id:current.paymentId},data:{status:"PAID",paidAt:new Date()}});await tx.order.update({where:{id:current.payment.orderId},data:{status:"PAYMENT_VERIFIED",paymentStatus:"PAID"}});await tx.orderStatusHistory.create({data:{orderId:current.payment.orderId,fromStatus:current.payment.order.status,toStatus:"PAYMENT_VERIFIED",actorId:context.user.id,note:note||"EFT proof approved"}});await tx.deliveryTrackingEvent.create({data:{orderId:current.payment.orderId,status:"PAYMENT_VERIFIED",actorId:context.user.id,publicNote:"Your payment has been confirmed. We are preparing your order for fulfilment.",internalNote:note||"EFT proof approved"}})}else{await tx.payment.update({where:{id:current.paymentId},data:{status:"PENDING"}});await tx.order.update({where:{id:current.payment.orderId},data:{status:"AWAITING_PAYMENT",paymentStatus:"PENDING"}});await tx.deliveryTrackingEvent.create({data:{orderId:current.payment.orderId,status:"AWAITING_PAYMENT",actorId:context.user.id,publicNote:"Your proof of payment needs attention. Please review the payment email and submit a valid proof.",internalNote:note||"EFT proof rejected"}})}return tx.paymentProof.update({where:{id},data:{status,reviewNote:note,reviewerId:context.user.id,reviewedAt:new Date()},include:{payment:{include:{order:{select:{orderNumber:true,email:true,userId:true}}}}}})} ,{isolationLevel:"Serializable"});
   await audit(context.user.id, `payment-proof.${status.toLowerCase()}`, "PaymentProof", id, { status: "PENDING" }, { status: proof.status, note });
   await enqueueEmail(emailTemplates.paymentReview(proof.payment.order.email, proof.payment.order.orderNumber, status), proof.payment.order.userId ?? undefined);
   revalidatePath("/admin/payments");
+  revalidatePath(`/account/orders/${proof.payment.order.orderNumber}`);
 }
 
 export async function moderateReview(formData: FormData) {
