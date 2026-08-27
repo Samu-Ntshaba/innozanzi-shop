@@ -38,13 +38,16 @@ export default async function HomePage() {
       <BrandPartners />
 
       <div className="bg-slate-50/70">
-        <ProductSection eyebrow="Popular everyday technology" title="Laptops & computers" products={catalogue.businessComputers} href="/shop?category=Computers&availability=in-stock" />
+        <ProductSection eyebrow="Popular everyday technology" title="Laptops & computers" products={catalogue.laptopsAndComputers} href="/shop?search=laptop&availability=in-stock" />
       </div>
-      <ProductSection eyebrow="Work, study and play" title="Displays & accessories" products={catalogue.professionalDisplays} href="/shop?category=Computer%20peripherals&availability=in-stock" />
+      <ProductSection eyebrow="Work, study and play" title="Monitors" products={catalogue.monitors} href="/shop?search=monitor&availability=in-stock" />
       <div className="bg-slate-50/70">
-        <ProductSection eyebrow="Useful technology for every setup" title="Printing & connectivity" products={catalogue.networkAndStorage} href="/shop?availability=in-stock" />
+        <ProductSection eyebrow="Useful technology for every setup" title="Keyboards, mice & accessories" products={catalogue.accessories} href="/shop?category=Computer%20peripherals&availability=in-stock" />
       </div>
-      <ProductSection eyebrow="Stay connected" title="Power & backup" products={catalogue.powerContinuity} href="/shop?category=Power&availability=in-stock" />
+      <ProductSection eyebrow="Wi-Fi, routing and security" title="Networking & connectivity" products={catalogue.networking} href="/shop?category=Networking%20%26%20security&availability=in-stock" />
+      <div className="bg-slate-50/70">
+        <ProductSection eyebrow="Keep your devices running" title="Power & backup" products={catalogue.powerAndBackup} href="/shop?category=Power&availability=in-stock" />
+      </div>
 
       {showCombos?<section className="mx-auto max-w-7xl px-4 pb-4 sm:px-6 lg:px-8"><Link className="flex items-center justify-between rounded-xl bg-[#071b33] px-6 py-5 text-white" href="/combos"><span><strong className="block text-lg">Product Combo Deals</strong><span className="text-sm text-sky-100">Explore daily, weekly and monthly technology packages</span></span><span className="font-bold">View combos →</span></Link></section>:null}
 

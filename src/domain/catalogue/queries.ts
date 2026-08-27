@@ -23,7 +23,7 @@ const supplierCard = (p:SupplierCardRow):ProductCardData => {const price=p.costP
 export async function getHomepageCatalogue() {
   try {
     const merchandiseWhere={active:true,availability:"IN_STOCK" as const,images:{isEmpty:false}};
-    const [supplierCategories, featured, specials, popular, brands,supplierNewest,total,inStock,businessComputers,professionalDisplays,networkAndStorage,powerContinuity] = await Promise.all([
+    const [supplierCategories, featured, specials, popular, brands,supplierNewest,total,inStock,laptopsAndComputers,monitors,accessories,networking,powerAndBackup] = await Promise.all([
       prisma.supplierCatalogueProduct.groupBy({by:["category"],where:{active:true,category:{not:null}},_count:true,orderBy:{_count:{category:"desc"}},take:8}),
       prisma.product.findMany({ where: { status: "PUBLISHED", deletedAt: null,isTestData:false, isFeatured: true }, take: 8, orderBy: { updatedAt: "desc" }, select: productCardSelect }),
       prisma.product.findMany({ where: { status: "PUBLISHED", deletedAt: null,isTestData:false, isSpecial: true }, take: 8, orderBy: { updatedAt: "desc" }, select: productCardSelect }),
@@ -31,21 +31,22 @@ export async function getHomepageCatalogue() {
       prisma.brand.findMany({ where: { isActive: true }, orderBy: { name: "asc" }, take: 12, select: { id: true, name: true, slug: true, logoPath: true } }),
       prisma.supplierCatalogueProduct.findMany({where:{...merchandiseWhere,costPrice:{gt:0}},orderBy:{costPrice:"asc"},take:8,select:supplierCardSelect}),
       prisma.supplierCatalogueProduct.count({where:{active:true}}),prisma.supplierCatalogueProduct.count({where:{active:true,availability:"IN_STOCK"}}),
-      prisma.supplierCatalogueProduct.findMany({where:{...merchandiseWhere,category:"Computers",costPrice:{gt:0}},orderBy:{costPrice:"asc"},take:12,select:supplierCardSelect}),
-      prisma.supplierCatalogueProduct.findMany({where:{...merchandiseWhere,category:"Computer peripherals",costPrice:{gt:0}},orderBy:{costPrice:"asc"},take:12,select:supplierCardSelect}),
-      prisma.supplierCatalogueProduct.findMany({where:{...merchandiseWhere,OR:[{category:"Printing"},{category:"Networking & security"}],costPrice:{gt:0}},orderBy:{costPrice:"asc"},take:12,select:supplierCardSelect}),
-      prisma.supplierCatalogueProduct.findMany({where:{...merchandiseWhere,category:"Power",costPrice:{gt:0}},orderBy:{costPrice:"asc"},take:4,select:supplierCardSelect}),
+      prisma.supplierCatalogueProduct.findMany({where:{...merchandiseWhere,costPrice:{gt:0},OR:[{categoryPath:{startsWith:"Computers/Notebooks/"}},{categoryPath:{startsWith:"Computers/Desktop computers/"}},{categoryPath:{startsWith:"Computers/AIO computers"}},{categoryPath:{startsWith:"Computers/Mini PCs/Complete systems"}}]},orderBy:{costPrice:"asc"},take:12,select:supplierCardSelect}),
+      prisma.supplierCatalogueProduct.findMany({where:{...merchandiseWhere,costPrice:{gt:0},categoryPath:{startsWith:"Computer peripherals/Monitors/"}},orderBy:{costPrice:"asc"},take:12,select:supplierCardSelect}),
+      prisma.supplierCatalogueProduct.findMany({where:{...merchandiseWhere,costPrice:{gt:0},OR:[{categoryPath:{startsWith:"Computer peripherals/Keyboards/"}},{categoryPath:{startsWith:"Computer peripherals/Mice/"}},{categoryPath:{startsWith:"Computer peripherals/Headsets/"}},{categoryPath:{startsWith:"Computer peripherals/Hubs & docking stations"}},{categoryPath:{startsWith:"Computer peripherals/Stands and cooling"}}]},orderBy:{costPrice:"asc"},take:12,select:supplierCardSelect}),
+      prisma.supplierCatalogueProduct.findMany({where:{...merchandiseWhere,costPrice:{gt:0},category:"Networking & security"},orderBy:{costPrice:"asc"},take:12,select:supplierCardSelect}),
+      prisma.supplierCatalogueProduct.findMany({where:{...merchandiseWhere,costPrice:{gt:0},OR:[{categoryPath:{startsWith:"Power/UPS & inverters"}},{categoryPath:{startsWith:"Power/Portable power stations"}},{categoryPath:{startsWith:"Power/Power banks"}}]},orderBy:{costPrice:"asc"},take:12,select:supplierCardSelect}),
     ]);
     const categories=supplierCategories.map((x,index)=>({id:`supplier-${index}`,name:x.category!,slug:x.category!,description:`${x._count.toLocaleString("en-ZA")} catalogue products`,imagePath:null}));
     const supplierCards=supplierNewest.map(supplierCard);
-    const computerCards=businessComputers.map(supplierCard),displayCards=professionalDisplays.map(supplierCard),infrastructureCards=networkAndStorage.map(supplierCard);
-    const curated={businessComputers:computerCards.slice(0,4),professionalDisplays:displayCards.slice(0,4),networkAndStorage:infrastructureCards.slice(0,4),powerContinuity:powerContinuity.map(supplierCard)};
+    const computerCards=laptopsAndComputers.map(supplierCard),monitorCards=monitors.map(supplierCard),accessoryCards=accessories.map(supplierCard),networkCards=networking.map(supplierCard),powerCards=powerAndBackup.map(supplierCard);
+    const curated={laptopsAndComputers:computerCards.slice(0,4),monitors:monitorCards.slice(0,4),accessories:accessoryCards.slice(0,4),networking:networkCards.slice(0,4),powerAndBackup:powerCards.slice(0,4)};
     const rotation=Math.floor(Date.now()/86_400_000);
-    const affordable=[...supplierCards,...computerCards,...displayCards,...curated.powerContinuity].filter((product,index,array)=>array.findIndex(row=>row.id===product.id)===index);const heroProducts=affordable.length?[affordable[rotation%affordable.length],affordable[(rotation+1)%affordable.length],affordable[(rotation+2)%affordable.length]].filter((x):x is ProductCardData=>Boolean(x)):[];
+    const affordable=[...supplierCards,...computerCards,...monitorCards,...accessoryCards,...powerCards].filter((product,index,array)=>array.findIndex(row=>row.id===product.id)===index);const heroProducts=affordable.length?[affordable[rotation%affordable.length],affordable[(rotation+1)%affordable.length],affordable[(rotation+2)%affordable.length]].filter((x):x is ProductCardData=>Boolean(x)):[];
     return { categories, featured:featured.length?featured:supplierCards.slice(0,4), newest:supplierCards, specials, popular, brands,total,inStock,...curated,heroProducts };
   } catch (error) {
     console.error("Catalogue unavailable", error);
-    return { categories: [], featured: [], newest: [], specials: [], popular: [], brands: [],total:0,inStock:0,businessComputers:[],professionalDisplays:[],networkAndStorage:[],powerContinuity:[],heroProducts:[] };
+    return { categories: [], featured: [], newest: [], specials: [], popular: [], brands: [],total:0,inStock:0,laptopsAndComputers:[],monitors:[],accessories:[],networking:[],powerAndBackup:[],heroProducts:[] };
   }
 }
 
