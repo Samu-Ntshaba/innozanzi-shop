@@ -25,6 +25,7 @@ export default async function CartPage({ searchParams }: { searchParams: Promise
     <p className="mt-2 text-slate-600">Review your products, then continue to secure checkout.</p>
     {params.error ? <p className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">That requested quantity is unavailable.</p> : null}
     {params.status === "added" ? <p className="mt-4 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-700">Product added to your cart.</p> : null}
+    {params.status === "build-added" ? <p className="mt-4 rounded-lg bg-emerald-50 p-3 text-sm font-semibold text-emerald-800">Your complete PC build has been added. Review the components below, then continue to checkout.</p> : null}
     {!items.length && !supplierItems.length ? <div className="mt-8 rounded-lg border border-dashed border-slate-300 px-4 py-16 text-center"><h2 className="text-xl font-semibold">Your cart is empty</h2><Link className="mt-5 inline-block rounded-md bg-[#071b33] px-5 py-3 font-semibold text-white" href="/shop">Browse products</Link></div> :
       <div className="mt-7 grid gap-7 lg:grid-cols-[minmax(0,1fr)_360px]">
         <section className="min-w-0 space-y-4">
