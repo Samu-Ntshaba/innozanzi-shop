@@ -10,7 +10,7 @@ const whatsappNumber = (process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? "27712384185"
 export function SupportLauncher() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
-  const message = `Hello Innozanzi, I need help with business technology. I am viewing ${process.env.NEXT_PUBLIC_SITE_URL ?? "https://shop.innozanzi.co.za"}${pathname}.`;
+  const message = `Hello Innozanzi, I need help with a product. I am viewing ${process.env.NEXT_PUBLIC_SITE_URL ?? "https://shop.innozanzi.co.za"}${pathname}.`;
   const whatsapp = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
 
   return (

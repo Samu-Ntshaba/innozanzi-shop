@@ -10,11 +10,11 @@ import { combosEnabled } from "@/domain/combos/settings";
 import { BrandPartners } from "@/components/store/brand-partners";
 
 export const dynamic = "force-dynamic";
-export async function generateMetadata():Promise<Metadata>{return entityMetadata({entityType:"STATIC_PAGE",entityId:"homepage",path:"/",title:"Innozanzi — Technology That Moves Business Forward",description:"Fast quotations. Expert advice. Nationwide delivery, installation and ongoing support for your business.",image:"/social/innozanzi-share.png"})}
+export async function generateMetadata():Promise<Metadata>{return entityMetadata({entityType:"STATIC_PAGE",entityId:"homepage",path:"/",title:"Innozanzi — Everyday Technology, Delivered",description:"Shop laptops, accessories, displays, printing, networking and power products with secure online payment and nationwide delivery.",image:"/social/innozanzi-share.png"})}
 
 const trustItems = [
   { icon: Truck, title: "Nationwide delivery", body: "Tracked fulfilment across South Africa" },
-  { icon: ShieldCheck, title: "Human-verified quotes", body: "Clear recommendations before you commit" },
+  { icon: ShieldCheck, title: "Secure payments", body: "Pay safely online or by bank transfer" },
   { icon: Headphones, title: "Ongoing support", body: "One team from sourcing to after-sales care" },
 ];
 
@@ -24,7 +24,7 @@ export default async function HomePage() {
     <main className="bg-white">
       <HeroSlider products={catalogue.heroProducts}/>
 
-      <section className="border-b border-slate-200 bg-white" aria-label="Why businesses choose Innozanzi">
+      <section className="border-b border-slate-200 bg-white" aria-label="Why customers choose Innozanzi">
         <div className="mx-auto grid max-w-5xl grid-cols-1 divide-y divide-slate-200 px-4 min-[480px]:grid-cols-3 min-[480px]:divide-x min-[480px]:divide-y-0 sm:px-6">
           {trustItems.map(({ icon: Icon, title, body }) => (
             <div key={title} className="flex items-start gap-3 px-3 py-5 sm:px-5">
@@ -38,13 +38,13 @@ export default async function HomePage() {
       <BrandPartners />
 
       <div className="bg-slate-50/70">
-        <ProductSection eyebrow="Computing built for business" title="Business computers & workstations" products={catalogue.businessComputers} href="/shop?category=business-computers&availability=in-stock" />
+        <ProductSection eyebrow="Popular everyday technology" title="Laptops & computers" products={catalogue.businessComputers} href="/shop?category=Computers&availability=in-stock" />
       </div>
-      <ProductSection eyebrow="Productivity at full resolution" title="Professional displays" products={catalogue.professionalDisplays} href="/shop?category=Computer%20peripherals&availability=in-stock" />
+      <ProductSection eyebrow="Work, study and play" title="Displays & accessories" products={catalogue.professionalDisplays} href="/shop?category=Computer%20peripherals&availability=in-stock" />
       <div className="bg-slate-50/70">
-        <ProductSection eyebrow="The backbone of modern operations" title="Networking, storage & security" products={catalogue.networkAndStorage} href="/shop?category=Networking%20%26%20security&availability=in-stock" />
+        <ProductSection eyebrow="Useful technology for every setup" title="Printing & connectivity" products={catalogue.networkAndStorage} href="/shop?availability=in-stock" />
       </div>
-      <ProductSection eyebrow="Keep critical work running" title="Power & business continuity" products={catalogue.powerContinuity} href="/shop?category=Power&availability=in-stock" />
+      <ProductSection eyebrow="Stay connected" title="Power & backup" products={catalogue.powerContinuity} href="/shop?category=Power&availability=in-stock" />
 
       {showCombos?<section className="mx-auto max-w-7xl px-4 pb-4 sm:px-6 lg:px-8"><Link className="flex items-center justify-between rounded-xl bg-[#071b33] px-6 py-5 text-white" href="/combos"><span><strong className="block text-lg">Product Combo Deals</strong><span className="text-sm text-sky-100">Explore daily, weekly and monthly technology packages</span></span><span className="font-bold">View combos →</span></Link></section>:null}
 

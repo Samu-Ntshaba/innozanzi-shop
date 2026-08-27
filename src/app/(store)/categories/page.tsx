@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "Technology categories",
-  description: "Browse all active Innozanzi business technology categories.",
+  description: "Browse technology categories and shop online with clear pricing.",
   alternates: { canonical: "/categories" },
 };
 

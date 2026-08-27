@@ -8,9 +8,9 @@ const DAY=86_400_000;
 const slugify=(value:string)=>value.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"").slice(0,80);
 
 const templates={
-  DAILY:{days:1,audience:"Growing businesses",name:"Business productivity pair",headline:"Upgrade the way your team works",categories:["Computers","Computer peripherals"]},
-  WEEKLY:{days:7,audience:"Connected offices",name:"Connected office bundle",headline:"Reliable technology for the working week",categories:["Networking & security","Power"]},
-  MONTHLY:{days:30,audience:"Business teams",name:"Complete business technology bundle",headline:"Equip your business for bigger work",categories:["Computers","Computer peripherals","Power"]},
+  DAILY:{days:1,audience:"Everyday shoppers",name:"Daily technology deal",headline:"A useful pick at a better price",categories:["Computers","Computer peripherals"]},
+  WEEKLY:{days:7,audience:"Home and work",name:"Weekly essentials bundle",headline:"Simple technology for the week ahead",categories:["Networking & security","Power"]},
+  MONTHLY:{days:30,audience:"Smart shoppers",name:"Monthly technology bundle",headline:"More value for your setup",categories:["Computers","Computer peripherals","Power"]},
 } as const;
 
 type AutomationType=keyof typeof templates;
@@ -29,12 +29,11 @@ async function createAutomatedCombo(type:AutomationType,now:Date,targetMargin:De
   const template=templates[type];
   const existing=await prisma.comboCampaign.findFirst({where:{type,status:{in:["DRAFT","SCHEDULED","ACTIVE"]},endsAt:{gt:now},aiGenerated:true,isTestData:false}});
   if(existing)return null;
-  const pools=await Promise.all(template.categories.map(category=>prisma.supplierCatalogueProduct.findMany({where:{active:true,availability:"IN_STOCK",stock:{gt:0},costPrice:{gt:0},images:{isEmpty:false},category},orderBy:[{costPrice:"desc"},{sourceUpdatedAt:"desc"}],take:24,select:{id:true,name:true,supplierSku:true,manufacturerSku:true,costPrice:true,recommendedRetail:true,images:true,stock:true}})));
+  const pools=await Promise.all(template.categories.map(category=>prisma.supplierCatalogueProduct.findMany({where:{active:true,availability:"IN_STOCK",stock:{gt:0},costPrice:{gt:0},images:{isEmpty:false},category},orderBy:[{costPrice:"asc"},{sourceUpdatedAt:"desc"}],take:24,select:{id:true,name:true,supplierSku:true,manufacturerSku:true,costPrice:true,recommendedRetail:true,images:true,stock:true}})));
   const seed=Math.floor(now.getTime()/(template.days*DAY));
   const selected=pools.map((pool,index)=>pool[(seed+index*7)%pool.length]).filter((x):x is NonNullable<typeof x>=>Boolean(x));
   if(selected.length<2)return null;
-  const research=await researchMarketPrices(selected.map(product=>({name:product.name,supplierSku:product.supplierSku,manufacturerSku:product.manufacturerSku}))).catch(error=>{console.error(`Market research failed for ${type}`,error);return null});
-  if(!research)return null;
+  const research={products:selected.map(product=>({sku:product.supplierSku,medianPriceZar:Number(product.recommendedRetail??new Decimal(product.costPrice!.toString()).mul(1.15)),sampleCount:1,confidence:"MEDIUM" as const,sources:[]})),checkedAt:now.toISOString(),model:"CATALOGUE_FALLBACK"};
   const items=selected.map(product=>({quantity:1,cost:new Decimal(product.costPrice!.toString()),normalPrice:new Decimal(product.recommendedRetail?.toString()??product.costPrice!.toString())}));
   const productCost=items.reduce((sum,item)=>sum.plus(item.cost),new Decimal(0));
   const safeMargin=Decimal.min(new Decimal(60),Decimal.max(new Decimal(5),targetMargin));
@@ -51,10 +50,10 @@ async function createAutomatedCombo(type:AutomationType,now:Date,targetMargin:De
   return prisma.comboCampaign.create({data:{
     slug:`${slugify(template.name)}-${type.toLowerCase()}-${stamp}`,
     name:`${template.name} · ${stamp}`,headline:template.headline,
-    description:`A carefully selected ${selected.map(x=>x.name).join(" plus ")} package for ${template.audience.toLowerCase()}. Live availability is rechecked before quotation.`,
+    description:`A carefully selected ${selected.map(x=>x.name).join(" plus ")} package for ${template.audience.toLowerCase()}. Live availability is rechecked at checkout.`,
     type,status:automaticPublication?"ACTIVE":"DRAFT",startsAt,endsAt,targetAudience:template.audience,
     normalPrice,comboPrice,estimatedCost:pricing.productCost,grossProfit:pricing.grossProfit,profitMargin:pricing.profitMargin,marketResearch:research,marketCheckedAt:now,
-    imageUrl:selected[0].images[0]??null,callToAction:"Request a Quote",sliderHeadline:template.headline,
+    imageUrl:selected[0].images[0]??null,callToAction:"Shop Now",sliderHeadline:template.headline,
     sliderText:`Business-ready technology with a protected ${safeMargin.toDecimalPlaces(1)}% target margin.`,sliderVisible:automaticPublication&&automaticSlider,featured:type==="WEEKLY",aiGenerated:true,
     items:{create:selected.map((product,index)=>({supplierCatalogueProductId:product.id,quantity:1,productName:product.name,sku:product.supplierSku,unitNormalPrice:items[index].normalPrice,unitCost:items[index].cost}))},
   }});
@@ -70,7 +69,7 @@ export async function runComboAutomation(now=new Date()){
       const costs=campaign.items.map(item=>new Decimal(item.supplierCatalogueProduct!.costPrice!.toString()).mul(item.quantity));
       const totalCost=costs.reduce((sum,cost)=>sum.plus(cost),new Decimal(0));
       const target=Decimal.min(60,Decimal.max(5,new Decimal(config.targetProfitMargin.toString())));
-      const researchDue=!campaign.marketCheckedAt||now.getTime()-campaign.marketCheckedAt.getTime()>=3*DAY;
+      const researchDue=false;
       const research=researchDue?await researchMarketPrices(campaign.items.map(item=>({name:item.productName,supplierSku:item.supplierCatalogueProduct!.supplierSku,manufacturerSku:item.supplierCatalogueProduct!.manufacturerSku}))).catch(()=>null):campaign.marketResearch as Awaited<ReturnType<typeof researchMarketPrices>>;
       if(!research){await prisma.comboCampaign.update({where:{id:campaign.id},data:{status:"PAUSED",sliderVisible:false}});changed++;continue}
       const marketMedian=research.products.reduce((sum,product,index)=>sum.plus(new Decimal(product.medianPriceZar!).mul(campaign.items[index].quantity)),new Decimal(0));

@@ -9,9 +9,9 @@ const decodeCategory=(value:string)=>{try{return decodeURIComponent(value)}catch
 export async function generateMetadata({params}:{params:Promise<{slug:string}>}):Promise<Metadata>{
   const slug=decodeCategory((await params).slug);
   const category=await prisma.category.findUnique({where:{slug}});
-  if(category?.isActive)return entityMetadata({entityType:"CATEGORY",entityId:category.id,path:`/categories/${category.slug}`,title:category.metaTitle??`${category.name} for South African businesses`,description:category.metaDescription??category.description,image:category.imagePath,keywords:[category.name,"business technology","South Africa"]});
+  if(category?.isActive)return entityMetadata({entityType:"CATEGORY",entityId:category.id,path:`/categories/${category.slug}`,title:category.metaTitle??`${category.name} in South Africa`,description:category.metaDescription??category.description,image:category.imagePath,keywords:[category.name,"technology products","South Africa"]});
   const supplier=await prisma.supplierCatalogueProduct.findFirst({where:{active:true,images:{isEmpty:false},category:{equals:slug,mode:"insensitive"}},select:{category:true}});
-  return supplier?{title:`${supplier.category} products`,description:`Browse ${supplier.category} products and request a tailored business quotation.`,alternates:{canonical:`/categories/${encodeURIComponent(supplier.category!)}`}}:{robots:{index:false,follow:false}};
+  return supplier?{title:`${supplier.category} products`,description:`Browse and buy ${supplier.category} products with secure checkout and delivery.`,alternates:{canonical:`/categories/${encodeURIComponent(supplier.category!)}`}}:{robots:{index:false,follow:false}};
 }
 
 export default async function CategoryPage({params,searchParams}:{params:Promise<{slug:string}>;searchParams:Promise<{search?:string;brand?:string;sort?:string;page?:string}>}){

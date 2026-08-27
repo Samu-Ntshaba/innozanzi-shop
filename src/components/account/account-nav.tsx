@@ -4,7 +4,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const links = [
-  ["Quotations", "/account/quotations", "Q"],
   ["Orders & tracking", "/account/orders", "↗"],
   ["Returns & concerns", "/account/returns", "↩"],
   ["Support", "/account/support", "?"],
