@@ -6,7 +6,6 @@ import { subscribeNewsletter } from "@/domain/communications/actions";
 import { entityMetadata } from "@/domain/marketing/seo";
 import type { Metadata } from "next";
 import { BrandPartners } from "@/components/store/brand-partners";
-import Link from "next/link";
 import { getRecommendations } from "@/domain/recommendations/service";
 import { RecommendationSection } from "@/components/store/recommendation-section";
 
@@ -38,13 +37,6 @@ export default async function HomePage() {
 
       <div className="hidden sm:block"><BrandPartners /></div>
       <div className="bg-white"><RecommendationSection recommendations={recommendations}/></div>
-
-      <section className="border-b border-slate-200 bg-[#071b33] text-white">
-        <div className="mx-auto grid max-w-7xl gap-7 px-4 py-10 sm:px-6 lg:grid-cols-[1.2fr_.8fr] lg:px-8 lg:py-14">
-          <div><p className="text-xs font-bold uppercase tracking-[.18em] text-sky-300">Technology people who listen</p><h2 className="mt-3 max-w-3xl text-3xl font-bold tracking-tight sm:text-4xl">Tell us what you need your computer to do.</h2><p className="mt-4 max-w-3xl leading-7 text-slate-300">We have worked with technology for more than ten years. We help you choose the right laptop, computer or component, keep you informed after payment, and stay available if you need help after delivery.</p></div>
-          <div className="flex flex-col justify-center gap-3 sm:flex-row lg:flex-col"><Link className="rounded-lg bg-sky-500 px-5 py-3 text-center font-bold text-[#071b33] hover:bg-sky-400" href="/build-a-pc">Build your PC</Link><Link className="rounded-lg border border-slate-600 px-5 py-3 text-center font-bold text-white hover:border-sky-300" href="/contact">Ask us for help choosing</Link></div>
-        </div>
-      </section>
 
       <div className="bg-slate-50/70">
         <ProductSection eyebrow="Popular everyday technology" title="Laptops & computers" products={catalogue.laptopsAndComputers} href="/shop?search=laptop&availability=in-stock" />
