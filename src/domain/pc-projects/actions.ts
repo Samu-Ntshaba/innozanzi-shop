@@ -1,6 +1,7 @@
 "use server";
 
 import { createHash } from "node:crypto";
+import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -13,6 +14,13 @@ import { Prisma } from "@/generated/prisma/client";
 
 const requiredKeys=["cpu","motherboard","memory","storage","power","case"];
 const projectSchema=z.object({name:z.string().trim().min(3).max(80),buildType:z.enum(["PC_ONLY","COMPLETE_SETUP"])});
+
+export async function continuePcProjectAuthentication(formData:FormData){
+  const data=projectSchema.extend({mode:z.enum(["login","register"])}).parse(Object.fromEntries(formData));
+  const returnTo=`/build-a-pc?draftName=${encodeURIComponent(data.name)}&draftType=${data.buildType}`;
+  (await cookies()).set("innozanzi-return-to",returnTo,{httpOnly:true,secure:process.env.NODE_ENV==="production",sameSite:"lax",path:"/",maxAge:60*60});
+  redirect(data.mode==="login"?"/sign-in?from=pc-project":"/register?from=pc-project");
+}
 
 export async function createPcProject(formData:FormData){
   const ctx=await requireUser(),data=projectSchema.parse(Object.fromEntries(formData));
