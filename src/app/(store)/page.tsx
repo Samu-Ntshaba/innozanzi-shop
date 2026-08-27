@@ -2,12 +2,13 @@ import { Headphones, ShieldCheck, Truck } from "lucide-react";
 import { HomepageFeatureGrid } from "@/components/store/homepage-feature-grid";
 import { ProductSection } from "@/components/store/product-section";
 import { getHomepageCatalogue } from "@/domain/catalogue/queries";
-import { subscribeNewsletter } from "@/domain/communications/actions";
 import { entityMetadata } from "@/domain/marketing/seo";
 import type { Metadata } from "next";
 import { BrandPartners } from "@/components/store/brand-partners";
 import { getRecommendations } from "@/domain/recommendations/service";
 import { RecommendationSection } from "@/components/store/recommendation-section";
+import { LazyProductShelf } from "@/components/store/lazy-product-shelf";
+import { homepageShelves } from "@/domain/catalogue/homepage-shelves";
 
 export const dynamic = "force-dynamic";
 export async function generateMetadata():Promise<Metadata>{return entityMetadata({entityType:"STATIC_PAGE",entityId:"homepage",path:"/",title:"Laptops, Computers & Custom PCs in South Africa | Innozanzi",description:"Buy laptops, computers, components and everyday technology online. Build a compatible custom PC, pay securely and follow your nationwide delivery with Innozanzi.",image:"/social/innozanzi-share.png",keywords:["laptops South Africa","buy computers online","custom PC builder","computer components","Innozanzi"]})}
@@ -50,9 +51,7 @@ export default async function HomePage() {
         <ProductSection eyebrow="Keep your devices running" title="Power & backup" products={catalogue.powerAndBackup} href="/shop?category=Power&availability=in-stock" />
       </div>
 
-      <section className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
-        <div id="newsletter" className="scroll-mt-24 rounded-xl border border-slate-200 bg-slate-50 px-5 py-8 text-left sm:px-8 sm:py-9 sm:text-center"><h2 className="text-2xl font-semibold text-slate-950">Deals, new arrivals and ICT advice</h2><p className="mt-2 text-sm leading-6 text-slate-600">Useful product and technology updates, without the noise.</p><form action={subscribeNewsletter} className="mx-auto mt-6 grid max-w-xl gap-3 sm:grid-cols-[1fr_auto]"><input aria-label="Email address" className="h-14 w-full min-w-0 rounded-lg border border-slate-300 bg-white px-4 text-base outline-none focus:border-sky-700 focus:ring-2 focus:ring-sky-700/20" name="email" type="email" inputMode="email" autoComplete="email" placeholder="Email address" required /><button className="h-14 w-full rounded-lg bg-[#071b33] px-7 text-base font-semibold text-white hover:bg-slate-800 sm:w-auto" type="submit">Subscribe</button></form></div>
-      </section>
+      {homepageShelves.map((shelf,index)=><LazyProductShelf key={shelf.key} shelf={shelf} index={index}/>) }
     </main>
   );
 }

@@ -1,5 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { isDailySpecial, supplierRetailPrice } from "./retail-pricing";
+import { catalogueSearchTerms } from "./search";
+import { homepageShelf } from "./homepage-shelves";
 
 const productCardSelect = {
   id: true,
@@ -19,6 +21,11 @@ const productCardSelect = {
 const supplierCardSelect = {id:true,name:true,slug:true,supplierSku:true,availability:true,brand:true,category:true,images:true,costPrice:true,recommendedRetail:true,promotionalPrice:true,promotionStartsAt:true,promotionEndsAt:true} as const;
 type SupplierCardRow = {id:string;name:string;slug:string;supplierSku:string;availability:string;brand:string|null;category:string|null;images:string[];costPrice:{toString():string}|null;recommendedRetail:{toString():string}|null;promotionalPrice:{toString():string}|null;promotionStartsAt:Date|null;promotionEndsAt:Date|null};
 const supplierCard = (p:SupplierCardRow):ProductCardData => {const price=p.costPrice?supplierRetailPrice({costPrice:p.costPrice.toString(),recommendedRetail:p.recommendedRetail?.toString(),promotionalPrice:p.promotionalPrice?.toString(),promotionStartsAt:p.promotionStartsAt,promotionEndsAt:p.promotionEndsAt,special:isDailySpecial(p.id)}):null;return{id:p.id,name:p.name,slug:p.slug,sku:p.supplierSku,stockStatus:p.availability==="IN_STOCK"?"IN_STOCK":"OUT_OF_STOCK",brand:p.brand?{name:p.brand,slug:p.brand.toLowerCase()}:null,category:{name:p.category??"Catalogue",slug:p.category??"catalogue"},images:p.images.slice(0,1).map(path=>({path,altText:p.name})),regularPrice:price?.regularPrice.toString()??null,salePrice:price?.salePrice?.toString()??null,saleStartsAt:null,saleEndsAt:null,source:"supplier"}};
+
+export async function getHomepageShelfProducts(key:string) {
+  const shelf=homepageShelf(key);if(!shelf)return [];
+  try {const paths="paths" in shelf?shelf.paths:[],categories="categories" in shelf?shelf.categories:[];const rows=await prisma.supplierCatalogueProduct.findMany({where:{active:true,availability:"IN_STOCK",stock:{gt:0},costPrice:{gt:0},images:{isEmpty:false},OR:[...paths.map(path=>({categoryPath:{startsWith:path,mode:"insensitive" as const}})),...categories.map(category=>({category:{equals:category,mode:"insensitive" as const}}))]},orderBy:[{promotionalPrice:"asc"},{sourceUpdatedAt:"desc"}],take:8,select:supplierCardSelect});return rows.map(supplierCard).slice(0,4)}catch(error){console.error(`Homepage shelf ${key} unavailable`,error);return []}
+}
 
 export async function getHomepageCatalogue() {
   try {
@@ -54,7 +61,7 @@ export async function getCatalogue(input: { search?: string; category?: string; 
   const page = Math.max(1, input.page ?? 1);
   const pageSize = 12;
   const search=input.search?.trim();
-  const searchTerms=search?.toLowerCase()==="laptop"?[search,"notebook"]:search?.toLowerCase()==="notebook"?[search,"laptop"]:search?[search]:[];
+  const searchTerms=catalogueSearchTerms(search);
   let category=input.category?.trim();try{if(category)category=decodeURIComponent(category)}catch{/* Keep the original category. */}
   const businessComputers=category==="business-computers";
   const where = {
@@ -81,10 +88,10 @@ export async function getCatalogue(input: { search?: string; category?: string; 
     ]);
     const products=[...supplierProducts.map(supplierCard),...manualProducts];
     const total=supplierTotal+manualTotal;const categories=[...supplierCategories.map(x=>({name:x.category!,slug:x.category!})),...manualCategories];const brands=[...supplierBrands.map(x=>({name:x.brand!,slug:x.brand!})),...manualBrands];
-    return {products,total,page,pages:Math.max(1,Math.ceil(total/pageSize)),categories,brands};
+    return {products,total,page,pages:Math.max(1,Math.ceil(total/pageSize)),categories,brands,matchMode:search&&searchTerms.length>1?"expanded" as const:"exact" as const};
   } catch (error) {
     console.error("Catalogue search unavailable", error);
-    return { products: [], total: 0, page: 1, pages: 1, categories: [], brands: [] };
+    return { products: [], total: 0, page: 1, pages: 1, categories: [], brands: [],matchMode:"exact" as const };
   }
 }
 

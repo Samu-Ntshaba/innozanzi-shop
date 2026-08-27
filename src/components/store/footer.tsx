@@ -1,9 +1,16 @@
 import Link from "next/link";
 import { BrandLogo } from "@/components/brand-logo";
+import { subscribeNewsletter } from "@/domain/communications/actions";
 
 export function StoreFooter() {
   return (
     <footer className="mt-16 border-t border-slate-200 bg-[#071b33] text-slate-300">
+      <div id="newsletter" className="scroll-mt-24 border-b border-slate-700/80">
+        <div className="mx-auto grid max-w-7xl gap-5 px-4 py-8 sm:px-6 lg:grid-cols-[1fr_1.1fr] lg:items-center lg:px-8">
+          <div><p className="text-xl font-semibold text-white">Deals, new arrivals and useful ICT advice</p><p className="mt-1 text-sm text-slate-400">Occasional product updates. No noise, and you can unsubscribe at any time.</p></div>
+          <form action={subscribeNewsletter} className="grid gap-3 sm:grid-cols-[1fr_auto]"><input aria-label="Email address" className="h-12 min-w-0 rounded-lg border border-slate-600 bg-white px-4 text-base text-slate-950 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-400/20" name="email" type="email" inputMode="email" autoComplete="email" placeholder="Your email address" required/><button className="h-12 rounded-lg bg-sky-400 px-6 font-semibold text-slate-950 hover:bg-sky-300" type="submit">Subscribe</button></form>
+        </div>
+      </div>
       <div className="mx-auto grid max-w-7xl gap-8 px-4 py-10 sm:grid-cols-2 sm:px-6 lg:grid-cols-5 lg:px-8">
         <div>
           <BrandLogo variant="footer" className="w-44" />
