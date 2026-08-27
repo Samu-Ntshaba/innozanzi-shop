@@ -20,6 +20,8 @@ export default async function sitemap():Promise<MetadataRoute.Sitemap>{
   return[
     {url:base,lastModified:now,changeFrequency:"daily",priority:1},
     {url:`${base}/shop`,lastModified:now,changeFrequency:"daily",priority:.9},
+    {url:`${base}/gaming`,lastModified:now,changeFrequency:"daily",priority:.9},
+    {url:`${base}/build-a-pc`,lastModified:now,changeFrequency:"weekly",priority:.85},
     {url:`${base}/categories`,lastModified:now,changeFrequency:"weekly",priority:.8},
     {url:`${base}/blog`,lastModified:now,changeFrequency:"weekly",priority:.7},
     {url:`${base}/contact`,lastModified:now,changeFrequency:"monthly",priority:.7},

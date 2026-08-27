@@ -14,7 +14,7 @@ const merchandising = [
   { eyebrow:"Easy online shopping", headline:"Choose it. Pay securely. We deliver.", description:"Simple checkout with Paystack or bank transfer and nationwide delivery." },
 ] as const;
 
-export function HeroSlider({products}:{products:ProductCardData[]}) {
+export function HeroSlider({products,embedded=false}:{products:ProductCardData[];embedded?:boolean}) {
   const [active, setActive] = useState(0);
   useEffect(() => {
     if(products.length<2||window.matchMedia("(prefers-reduced-motion: reduce)").matches)return;
@@ -23,8 +23,8 @@ export function HeroSlider({products}:{products:ProductCardData[]}) {
   },[products.length]);
   if(!products.length)return null;
   const show=(index:number)=>setActive((index+products.length)%products.length);
-  return <section aria-roledescription="carousel" aria-label="Featured products" className="border-b border-slate-200 bg-[#f7f9fb]">
-    <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 sm:py-6 lg:px-8">
+  return <section aria-roledescription="carousel" aria-label="Featured products" className={embedded?"h-full":"border-b border-slate-200 bg-[#f7f9fb]"}>
+    <div className={embedded?"h-full":"mx-auto max-w-7xl px-4 py-4 sm:px-6 sm:py-6 lg:px-8"}>
       <div className="relative min-h-[36rem] overflow-hidden rounded-2xl border border-slate-200 bg-[#0b2743] shadow-sm sm:min-h-[38rem] lg:min-h-[27rem]">
         {products.map((product,index)=>{const copy=merchandising[index]??merchandising[2];const href=`/supplier-products/${product.slug}`;return <article aria-hidden={active!==index} className={cn("absolute inset-0 grid grid-rows-[auto_minmax(0,1fr)] transition-opacity duration-500 lg:grid-cols-[1.02fr_.98fr] lg:grid-rows-1",active===index?"z-10 opacity-100":"pointer-events-none opacity-0")} key={product.id}>
           <div className="relative flex flex-col justify-center px-5 pb-4 pt-7 text-white sm:px-10 sm:pb-7 sm:pt-9 lg:px-14 lg:pb-20">

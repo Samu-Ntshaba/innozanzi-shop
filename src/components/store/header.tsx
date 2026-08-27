@@ -2,15 +2,13 @@ import { Headphones, LogIn, Menu, Search, ShoppingCart, UserPlus, UserRound } fr
 import Link from "next/link";
 import { BrandLogo } from "@/components/brand-logo";
 import { getCurrentCart } from "@/domain/cart/service";
-import { combosEnabled } from "@/domain/combos/settings";
 import { getAuthContext } from "@/domain/auth/session";
 import { prisma } from "@/lib/prisma";
 
 export async function StoreHeader() {
   let cartCount = 0;
-  const [auth,showCombos,supplierCategories]=await Promise.all([
+  const [auth,supplierCategories]=await Promise.all([
     getAuthContext(),
-    combosEnabled(),
     prisma.supplierCatalogueProduct.groupBy({by:["category"],where:{active:true,category:{not:null},images:{isEmpty:false}},_count:true,orderBy:{_count:{category:"desc"}},take:4}).catch(()=>[]),
   ]);
   const categories=supplierCategories.map(item=>item.category).filter((name):name is string=>Boolean(name));
@@ -28,7 +26,8 @@ export async function StoreHeader() {
           <Link className="block rounded-md bg-[#071b33] px-4 py-3 font-semibold text-white" href="/shop">All products</Link>
           {categories.map(category=><Link className="block rounded-md px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50" href={`/categories/${encodeURIComponent(category)}`} key={category}>{category}</Link>)}
           <Link className="block rounded-md px-4 py-3 text-sm font-semibold text-sky-800 hover:bg-slate-50" href="/categories">More categories</Link>
-          {showCombos?<Link className="block rounded-md px-4 py-3 text-sm font-semibold text-sky-800 hover:bg-slate-50" href="/combos">Combo deals</Link>:null}
+          <Link className="block rounded-md bg-violet-50 px-4 py-3 text-sm font-bold text-violet-800" href="/gaming">Gaming</Link>
+          <Link className="block rounded-md px-4 py-3 text-sm font-semibold text-sky-800 hover:bg-slate-50" href="/build-a-pc">Build a PC</Link>
           <Link className="block rounded-md px-4 py-3 text-sm font-semibold text-sky-800 hover:bg-slate-50" href="/blog">Insights</Link>
           <div className="mt-2 border-t border-slate-200 pt-2">{auth
             ? <Link className="block rounded-md px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50" href="/account">Account</Link>
@@ -57,8 +56,8 @@ export async function StoreHeader() {
     </div>
     <nav aria-label="Product categories" className="mx-auto hidden h-11 max-w-7xl items-center gap-7 border-t border-slate-100 px-6 lg:flex lg:px-8">
       <Link className="text-sm font-semibold text-sky-800" href="/shop">All products</Link>
-      {showCombos?<Link className="text-sm font-semibold text-amber-700" href="/combos">Combo deals</Link>:null}
       <Link className="text-sm font-semibold text-sky-800" href="/build-a-pc">Build a PC</Link>
+      <Link className="text-sm font-bold text-violet-700" href="/gaming">Gaming</Link>
       {categories.map(category => <Link key={category} className="text-sm font-medium text-slate-600 hover:text-slate-950" href={`/categories/${encodeURIComponent(category)}`}>{category}</Link>)}
       <Link className="text-sm font-semibold text-sky-800 hover:underline" href="/categories">More categories</Link>
       <Link className="ml-auto text-sm font-medium text-slate-600 hover:text-slate-950" href="/blog">Insights</Link>

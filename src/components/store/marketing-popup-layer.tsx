@@ -16,6 +16,6 @@ export async function MarketingPopupLayer(){
   const popups=rows.filter(row=>row.key!=="supplier-readiness").map(row=>{
     const content=row.content as Partial<StorePopup>;
     return {id:row.id,key:row.key,heading:distributorNeutralCopy(content.heading??row.title)??"Innozanzi update",body:distributorNeutralCopy(content.body)??"",buttonLabel:distributorNeutralCopy(content.buttonLabel),buttonLink:content.buttonLink??null,audience:content.audience??"ALL",pathMode:content.pathMode??"ALL",paths:Array.isArray(content.paths)?content.paths:[],frequency:content.frequency??"ONCE_SESSION",tone:content.tone??"INFO"} satisfies StorePopup;
-  }).filter(item=>item.body);
+  }).filter(item=>item.body&&!item.buttonLink?.startsWith("/combos")&&!item.paths.some(path=>path.startsWith("/combos")));
   return <MarketingPopup popups={popups} isAuthenticated={Boolean(auth)}/>;
 }

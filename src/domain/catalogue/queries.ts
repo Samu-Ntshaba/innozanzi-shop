@@ -88,6 +88,35 @@ export async function getCatalogue(input: { search?: string; category?: string; 
   }
 }
 
+const gamingGroups=[
+  {slug:"gaming-pcs",name:"Gaming PCs",terms:["Gaming desktops"]},
+  {slug:"laptops",name:"Gaming Laptops",terms:["Gaming notebooks"]},
+  {slug:"monitors",name:"Gaming Monitors",terms:["Gaming monitors"]},
+  {slug:"graphics",name:"Graphics Cards",terms:["Components/Graphics cards/"]},
+  {slug:"keyboards",name:"Gaming Keyboards",terms:["Gaming keyboards"]},
+  {slug:"mice",name:"Gaming Mice",terms:["Gaming mice"]},
+  {slug:"audio",name:"Headsets & Audio",terms:["Gaming headsets","gaming speakers"]},
+  {slug:"controllers",name:"Controllers",terms:["Computer peripherals/Game controllers","Gaming simulation gear"]},
+  {slug:"streaming",name:"Streaming",terms:["Computer peripherals/Microphones","capture card"]},
+  {slug:"components",name:"Performance Components",terms:["Gaming chassis","Components/Upgrade kits","Components/Cooling/Liquid coolers","gaming memory"]},
+] as const;
+const gamingOr=(terms:string[])=>terms.flatMap(term=>[{name:{contains:term,mode:"insensitive" as const}},{categoryPath:{contains:term,mode:"insensitive" as const}}]);
+const gamingSearchOr=(term:string)=>[{name:{contains:term,mode:"insensitive" as const}},{supplierSku:{contains:term,mode:"insensitive" as const}},{brand:{contains:term,mode:"insensitive" as const}},{categoryPath:{contains:term,mode:"insensitive" as const}}];
+
+export async function getGamingCatalogue(input:{search?:string;group?:string;brand?:string;page?:number}){
+  const page=Math.max(1,input.page??1),pageSize=16,group=gamingGroups.find(item=>item.slug===input.group),baseTerms=gamingGroups.flatMap(item=>item.terms),search=input.search?.trim();
+  const where={active:true,availability:"IN_STOCK",stock:{gt:0},costPrice:{gt:0},images:{isEmpty:false},AND:[{OR:gamingOr(group?[...group.terms]:baseTerms)},...(search?[{OR:gamingSearchOr(search)}]:[]),...(input.brand?[{brand:{equals:input.brand,mode:"insensitive" as const}}]:[])]};
+  try{
+    const[total,rows,brands,groupCounts]=await Promise.all([
+      prisma.supplierCatalogueProduct.count({where}),
+      prisma.supplierCatalogueProduct.findMany({where,orderBy:[{promotionalPrice:"asc"},{sourceUpdatedAt:"desc"}],skip:(page-1)*pageSize,take:pageSize,select:supplierCardSelect}),
+      prisma.supplierCatalogueProduct.findMany({where:{active:true,availability:"IN_STOCK",OR:gamingOr(baseTerms),brand:{not:null}},distinct:["brand"],select:{brand:true},orderBy:{brand:"asc"}}),
+      Promise.all(gamingGroups.map(async item=>({...item,count:await prisma.supplierCatalogueProduct.count({where:{active:true,availability:"IN_STOCK",stock:{gt:0},OR:gamingOr([...item.terms])}})}))),
+    ]);
+    return{products:rows.map(supplierCard),total,page,pages:Math.max(1,Math.ceil(total/pageSize)),brands:brands.map(item=>item.brand!).filter(Boolean),groups:groupCounts.filter(item=>item.count>0)};
+  }catch(error){console.error("Gaming catalogue unavailable",error);return{products:[],total:0,page:1,pages:1,brands:[],groups:[]}}
+}
+
 export async function getProductBySlug(slug: string) {
   return prisma.product.findFirst({
     where: { slug, status: "PUBLISHED", deletedAt: null,isTestData:false },
