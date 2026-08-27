@@ -1430,6 +1430,7 @@ model SupplierCatalogueProduct {
   feed              SupplierFeed @relation(fields: [feedId], references: [id], onDelete: Cascade)
   supplier          Supplier     @relation(fields: [supplierId], references: [id], onDelete: Cascade)
   comboItems         ComboCampaignItem[]
+  reviews            Review[]
 
   @@unique([feedId, supplierProductId])
   @@index([active, name])
@@ -3509,7 +3510,8 @@ model QuotationStatusHistory {
 
 model Review {
   id                 String       @id @default(uuid()) @db.Uuid
-  productId          String       @db.Uuid
+  productId          String?      @db.Uuid
+  supplierCatalogueProductId String? @db.Uuid
   userId             String       @db.Uuid
   rating             Int
   title              String?
@@ -3520,11 +3522,14 @@ model Review {
   respondedAt        DateTime?
   createdAt          DateTime     @default(now())
   updatedAt          DateTime     @updatedAt
-  product            Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+  product            Product?     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  supplierCatalogueProduct SupplierCatalogueProduct? @relation(fields: [supplierCatalogueProductId], references: [id], onDelete: Cascade)
   user               User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([productId, userId])
+  @@unique([supplierCatalogueProductId, userId])
   @@index([productId, status, createdAt])
+  @@index([supplierCatalogueProductId, status, createdAt])
   @@index([status, createdAt])
 }
 
