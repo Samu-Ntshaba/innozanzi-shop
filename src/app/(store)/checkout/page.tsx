@@ -1,3 +1,54 @@
-import Decimal from "decimal.js";import { redirect } from "next/navigation";import { getCurrentCart } from "@/domain/cart/service";import { requireUser } from "@/domain/auth/session";import { resolveQuotationCart } from "@/domain/catalogue/product-source";import { formatZar } from "@/lib/money";import { placeRetailOrder } from "@/domain/checkout/actions";
-export const dynamic="force-dynamic";const input="mt-1 h-12 w-full rounded-lg border border-slate-300 px-3";
-export default async function CheckoutPage(){await requireUser();const cart=await getCurrentCart();if(!cart||(!cart.items.length&&!cart.supplierItems.length))redirect("/cart");const lines=await resolveQuotationCart(cart,new Decimal(5));const subtotal=lines.reduce((sum,line)=>sum.plus(line.netUnit.mul(line.quantity)),new Decimal(0));const vat=lines.reduce((sum,line)=>sum.plus(line.vatUnit.mul(line.quantity)),new Decimal(0));const total=subtotal.plus(vat);return <main className="mx-auto max-w-5xl px-4 py-10"><h1 className="text-3xl font-bold">Secure checkout</h1><p className="mt-2 text-slate-600">Confirm delivery and pay for your order.</p><form action={placeRetailOrder} className="mt-8 grid gap-8 lg:grid-cols-[1fr_360px]"><section className="grid gap-4 rounded-xl border p-6 sm:grid-cols-2"><h2 className="text-xl font-bold sm:col-span-2">Delivery details</h2><label className="sm:col-span-2">Recipient<input className={input} name="recipient" required/></label><label>Phone<input className={input} name="phone" required/></label><label>Street address<input className={input} name="line1" required/></label><label>Address line 2<input className={input} name="line2"/></label><label>Suburb<input className={input} name="suburb"/></label><label>City<input className={input} name="city" required/></label><label>Province<input className={input} name="province" required/></label><label>Postal code<input className={input} name="postalCode" required/></label><label className="sm:col-span-2">Delivery notes<textarea className="mt-1 min-h-24 w-full rounded-lg border p-3" name="notes"/></label></section><aside className="h-fit rounded-xl bg-slate-50 p-6"><h2 className="text-xl font-bold">Order summary</h2>{lines.map(line=><div className="mt-3 flex justify-between gap-3 text-sm" key={`${line.sourceType}-${line.sourceId}`}><span>{line.quantity} × {line.productName}</span><span>{formatZar(line.grossUnit.mul(line.quantity))}</span></div>)}<dl className="mt-5 space-y-2 border-t pt-4"><div className="flex justify-between"><dt>Subtotal</dt><dd>{formatZar(subtotal)}</dd></div>{vat.gt(0)?<div className="flex justify-between"><dt>VAT</dt><dd>{formatZar(vat)}</dd></div>:null}<div className="flex justify-between text-lg font-bold"><dt>Total</dt><dd>{formatZar(total)}</dd></div></dl><fieldset className="mt-6 space-y-3"><legend className="font-bold">Payment</legend><label className="flex gap-3 rounded-lg border bg-white p-3"><input type="radio" name="paymentMethod" value="PAYSTACK" defaultChecked/><span><strong>Paystack</strong><small className="block text-slate-500">Secure online payment</small></span></label><label className="flex gap-3 rounded-lg border bg-white p-3"><input type="radio" name="paymentMethod" value="EFT"/><span><strong>Bank transfer</strong><small className="block text-slate-500">Upload proof after ordering</small></span></label></fieldset><button className="mt-6 w-full rounded-lg bg-sky-700 px-5 py-3 font-bold text-white">Buy now</button><p className="mt-3 text-xs text-slate-500">Stock is rechecked when you place the order.</p></aside></form></main>}
+import Decimal from "decimal.js";
+import Link from "next/link";
+import { redirect } from "next/navigation";
+import { ChevronLeft, LockKeyhole, MapPin, PackageCheck, ShieldCheck, Truck } from "lucide-react";
+import { PaymentMethodSelector } from "@/components/store/payment-method-selector";
+import { requireUser } from "@/domain/auth/session";
+import { getCurrentCart } from "@/domain/cart/service";
+import { resolveQuotationCart } from "@/domain/catalogue/product-source";
+import { placeRetailOrder } from "@/domain/checkout/actions";
+import { formatZar } from "@/lib/money";
+
+export const dynamic = "force-dynamic";
+const input = "mt-2 h-12 w-full rounded-lg border border-slate-300 bg-white px-3.5 text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-sky-700 focus:ring-2 focus:ring-sky-700/15";
+const label = "text-sm font-semibold text-slate-800";
+const provinces = ["Eastern Cape", "Free State", "Gauteng", "KwaZulu-Natal", "Limpopo", "Mpumalanga", "North West", "Northern Cape", "Western Cape"];
+
+export default async function CheckoutPage() {
+  const user = await requireUser();
+  const cart = await getCurrentCart();
+  if (!cart || (!cart.items.length && !cart.supplierItems.length)) redirect("/cart");
+  const lines = await resolveQuotationCart(cart, new Decimal(5));
+  const subtotal = lines.reduce((sum, line) => sum.plus(line.netUnit.mul(line.quantity)), new Decimal(0));
+  const vat = lines.reduce((sum, line) => sum.plus(line.vatUnit.mul(line.quantity)), new Decimal(0));
+  const total = subtotal.plus(vat);
+  const itemCount = lines.reduce((sum, line) => sum + line.quantity, 0);
+
+  return <main className="min-h-screen bg-slate-50 pb-16">
+    <div className="border-b border-slate-200 bg-white"><div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-5 sm:px-6 lg:px-8"><div><Link className="inline-flex items-center gap-1 text-sm font-semibold text-slate-600 hover:text-sky-700" href="/cart"><ChevronLeft className="size-4"/>Return to cart</Link><h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-950">Secure checkout</h1></div><div className="hidden items-center gap-2 text-sm font-semibold text-emerald-700 sm:flex"><LockKeyhole className="size-5"/>Encrypted checkout</div></div></div>
+    <form action={placeRetailOrder} className="mx-auto grid max-w-7xl items-start gap-8 px-4 py-8 sm:px-6 lg:grid-cols-[minmax(0,1fr)_420px] lg:px-8">
+      <div className="space-y-6">
+        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
+          <div className="flex items-start gap-3 border-b border-slate-200 pb-5"><span className="grid size-10 shrink-0 place-items-center rounded-full bg-sky-100 text-sky-800"><MapPin className="size-5"/></span><div><p className="text-xs font-bold uppercase tracking-wider text-sky-700">Step 1</p><h2 className="text-xl font-bold text-slate-950">Delivery address</h2><p className="mt-1 text-sm text-slate-500">Where should we deliver your order?</p></div></div>
+          <div className="mt-6 grid gap-x-5 gap-y-5 sm:grid-cols-2">
+            <label className={`${label} sm:col-span-2`}>Recipient name<input className={input} name="recipient" autoComplete="name" defaultValue={user.user.name ?? ""} required/></label>
+            <label className={label}>Phone number<input className={input} name="phone" type="tel" autoComplete="tel" placeholder="e.g. 071 234 5678" required/></label>
+            <label className={label}>Street address<input className={input} name="line1" autoComplete="address-line1" placeholder="Street number and name" required/></label>
+            <label className={label}>Address line 2 <span className="font-normal text-slate-400">(optional)</span><input className={input} name="line2" autoComplete="address-line2" placeholder="Complex, unit or building"/></label>
+            <label className={label}>Suburb <span className="font-normal text-slate-400">(optional)</span><input className={input} name="suburb" autoComplete="address-level3"/></label>
+            <label className={label}>City<input className={input} name="city" autoComplete="address-level2" required/></label>
+            <label className={label}>Province<select className={input} name="province" autoComplete="address-level1" defaultValue="Gauteng" required>{provinces.map(province => <option key={province}>{province}</option>)}</select></label>
+            <label className={label}>Postal code<input className={input} name="postalCode" autoComplete="postal-code" inputMode="numeric" required/></label>
+            <label className={`${label} sm:col-span-2`}>Delivery notes <span className="font-normal text-slate-400">(optional)</span><textarea className={`${input} h-auto min-h-24 py-3`} name="notes" placeholder="Access instructions or anything our delivery team should know"/></label>
+          </div>
+        </section>
+        <section className="grid gap-4 rounded-2xl border border-slate-200 bg-white p-5 text-sm shadow-sm sm:grid-cols-3 sm:p-6"><div className="flex gap-3"><Truck className="size-5 shrink-0 text-sky-700"/><div><strong>Nationwide delivery</strong><p className="mt-1 text-xs leading-5 text-slate-500">Tracked fulfilment across South Africa.</p></div></div><div className="flex gap-3"><ShieldCheck className="size-5 shrink-0 text-sky-700"/><div><strong>Secure payment</strong><p className="mt-1 text-xs leading-5 text-slate-500">Payment details are protected.</p></div></div><div className="flex gap-3"><PackageCheck className="size-5 shrink-0 text-sky-700"/><div><strong>Stock rechecked</strong><p className="mt-1 text-xs leading-5 text-slate-500">Availability is confirmed on order.</p></div></div></section>
+      </div>
+      <aside className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm lg:sticky lg:top-28">
+        <div className="border-b border-slate-200 p-5 sm:p-6"><div className="flex items-center justify-between"><h2 className="text-xl font-bold text-slate-950">Order summary</h2><span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">{itemCount} {itemCount === 1 ? "item" : "items"}</span></div><div className="mt-5 max-h-64 space-y-4 overflow-auto pr-1">{lines.map(line => <div className="flex justify-between gap-4 text-sm" key={`${line.sourceType}-${line.sourceId}`}><div className="min-w-0"><p className="line-clamp-2 font-semibold leading-5 text-slate-800">{line.productName}</p><p className="mt-1 text-xs text-slate-500">Quantity {line.quantity}</p></div><span className="shrink-0 font-semibold text-slate-900">{formatZar(line.grossUnit.mul(line.quantity))}</span></div>)}</div></div>
+        <div className="border-b border-slate-200 bg-slate-50 p-5 sm:p-6"><dl className="space-y-3 text-sm"><div className="flex justify-between text-slate-600"><dt>Subtotal</dt><dd>{formatZar(subtotal)}</dd></div>{vat.gt(0) ? <div className="flex justify-between text-slate-600"><dt>VAT</dt><dd>{formatZar(vat)}</dd></div> : null}<div className="flex items-end justify-between border-t border-slate-200 pt-4"><dt className="text-base font-bold text-slate-950">Order total</dt><dd className="text-2xl font-black tracking-tight text-slate-950">{formatZar(total)}</dd></div></dl></div>
+        <PaymentMethodSelector total={formatZar(total)}/>
+      </aside>
+    </form>
+  </main>;
+}
