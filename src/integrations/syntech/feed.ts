@@ -22,18 +22,20 @@ function catalogueData(row:SyntechFeedProduct,feedId:string,supplierId:string,no
 export async function ensureSyntechFeed(){
   const supplierId=process.env.SYNTECH_SUPPLIER_ID;if(!supplierId||supplierId.startsWith("00000000-"))throw new Error("SYNTECH_SUPPLIER_ID must be configured with a generated UUID");
   const supplier=await prisma.supplier.upsert({where:{id:supplierId},update:{companyName:"Syntech Distribution",website:"https://www.syntech.co.za",isActive:true},create:{id:supplierId,companyName:"Syntech Distribution",website:"https://www.syntech.co.za",isActive:true}});
-  return prisma.supplierFeed.upsert({where:{supplierId_provider:{supplierId:supplier.id,provider:"SYNTECH"}},update:{adapter:"SYNTECH_JSON",fullFeedUrl:"ENV:SYNTECH_FULL_FEED_URL",updateFeedUrl:"ENV:SYNTECH_UPDATE_FEED_URL",enabled:true},create:{supplierId:supplier.id,provider:"SYNTECH",adapter:"SYNTECH_JSON",fullFeedUrl:"ENV:SYNTECH_FULL_FEED_URL",updateFeedUrl:"ENV:SYNTECH_UPDATE_FEED_URL",nextSyncAt:new Date()},include:{supplier:true}})
+  return prisma.supplierFeed.upsert({where:{supplierId_provider:{supplierId:supplier.id,provider:"SYNTECH"}},update:{adapter:"SYNTECH_JSON",fullFeedUrl:"ENV:SYNTECH_FULL_FEED_URL",updateFeedUrl:"ENV:SYNTECH_UPDATE_FEED_URL",scheduleMinutes:1440,enabled:true},create:{supplierId:supplier.id,provider:"SYNTECH",adapter:"SYNTECH_JSON",fullFeedUrl:"ENV:SYNTECH_FULL_FEED_URL",updateFeedUrl:"ENV:SYNTECH_UPDATE_FEED_URL",scheduleMinutes:1440,nextSyncAt:new Date()},include:{supplier:true}})
 }
 export async function syncSyntechFeed(mode:SyncMode,actorId?:string){
   const feed=await ensureSyntechFeed();const run=await prisma.supplierSyncRun.create({data:{feedId:feed.id,supplierId:feed.supplierId,mode,status:"RUNNING",triggeredById:actorId}});const now=new Date();
   try{const parsed=parseSyntechFeed(await new SyntechJsonAdapter().fetch(mode));let added=0,updated=0,skipped=0;
     if(mode==="FULL"){
       const rows=parsed.syntechstock.products.filter(isFullSyntechProduct).map(row=>catalogueData(row,feed.id,feed.supplierId,now));
-      const existing=await prisma.supplierCatalogueProduct.count({where:{feedId:feed.id}});
-      await prisma.supplierCatalogueProduct.deleteMany({where:{feedId:feed.id}});
-      for(let index=0;index<rows.length;index+=100)await prisma.supplierCatalogueProduct.createMany({data:rows.slice(index,index+100)});
-      added=Math.max(0,rows.length-existing);updated=Math.min(existing,rows.length);skipped=parsed.syntechstock.products.length-rows.length;
-      const removed=Math.max(0,existing-rows.length);const next=new Date(Date.now()+feed.scheduleMinutes*60_000);
+      const existingRows=await prisma.supplierCatalogueProduct.findMany({where:{feedId:feed.id},select:{supplierProductId:true}}),existingSkus=new Set(existingRows.map(item=>item.supplierProductId));
+      if(!rows.length||(existingRows.length>100&&rows.length<existingRows.length*.5))throw new Error(`Syntech full feed safety check failed: received ${rows.length} complete products for ${existingRows.length} cached products.`);
+      for(let index=0;index<rows.length;index+=100){const batch=rows.slice(index,index+100);await prisma.$transaction(batch.map(data=>prisma.supplierCatalogueProduct.upsert({where:{feedId_supplierProductId:{feedId:feed.id,supplierProductId:data.supplierProductId}},update:data,create:data})),{timeout:120_000})}
+      const currentSkus=rows.map(item=>item.supplierProductId);const removed=await prisma.supplierCatalogueProduct.count({where:{feedId:feed.id,active:true,supplierProductId:{notIn:currentSkus}}});
+      if(currentSkus.length)await prisma.supplierCatalogueProduct.updateMany({where:{feedId:feed.id,supplierProductId:{notIn:currentSkus}},data:{active:false,availability:"DISCONTINUED"}});
+      added=rows.filter(item=>!existingSkus.has(item.supplierProductId)).length;updated=rows.length-added;skipped=parsed.syntechstock.products.length-rows.length;
+      const next=new Date(Date.now()+feed.scheduleMinutes*60_000);
       await prisma.supplierSyncRun.update({where:{id:run.id},data:{status:"SUCCEEDED",finishedAt:new Date(),recordsReceived:parsed.syntechstock.products.length,recordsAdded:added,recordsUpdated:updated,recordsRemoved:removed,recordsSkipped:skipped,diagnostics:{currency:parsed.syntechstock.currency,declaredCount:parsed.syntechstock.count}}});
       await prisma.supplierFeed.update({where:{id:feed.id},data:{lastSuccessAt:new Date(),lastError:null,nextSyncAt:next,lastFullSyncAt:new Date()}});
       return{runId:run.id,total:parsed.syntechstock.products.length,added,updated,removed,skipped};

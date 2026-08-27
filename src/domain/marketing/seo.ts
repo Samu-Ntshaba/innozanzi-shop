@@ -9,8 +9,8 @@ export type GlobalSeoSettings={
 };
 
 const defaults:GlobalSeoSettings={
-  siteTitle:"Innozanzi | Technology That Moves Business Forward",titleTemplate:"%s | Innozanzi",
-  description:"Fast technology quotations, expert advice, nationwide delivery, installation and ongoing support for South African businesses.",
+  siteTitle:"Innozanzi | Laptops, Computers & Custom PCs",titleTemplate:"%s | Innozanzi",
+  description:"Buy laptops, computers, components and everyday technology online in South Africa. Build a compatible custom PC, pay securely and follow your delivery.",
   businessName:"Innozanzi",siteUrl:process.env.NEXT_PUBLIC_SITE_URL??"https://shop.innozanzi.co.za",
   defaultImage:"/social/innozanzi-share.png",logo:"/brand/innozanzi-shop-logo.png",
   twitter:"",facebook:"",linkedin:"",instagram:"",phone:"+27 71 238 4185",email:"support@innozanzi.co.za",

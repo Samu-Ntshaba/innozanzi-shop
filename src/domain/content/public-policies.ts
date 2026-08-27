@@ -7,26 +7,26 @@ export type PublicPolicy = {
 export const publicPolicies: Record<string, PublicPolicy> = {
   terms: {
     title: "Terms & Conditions",
-    description: "The terms governing use of the Innozanzi website, quotation requests, orders, delivery and customer support.",
-    content: `Last updated: 24 July 2026
+    description: "The terms governing use of the Innozanzi online shop, purchases, payments, delivery and customer support.",
+    content: `Last updated: 27 August 2026
 
 1. About these terms
-These terms apply when you use shop.innozanzi.co.za, create an account, request a quotation or purchase products or services from Innozanzi (Pty) Ltd (“Innozanzi”, “we”, “us” or “our”). By using the website or accepting a quotation, you agree to these terms. If a signed agreement or final quotation contains different terms, that document will apply to the extent of the difference.
+These terms apply when you use shop.innozanzi.co.za, create an account, buy a product, build a PC, or ask Innozanzi (Pty) Ltd (“Innozanzi”, “we”, “us” or “our”) for help. By placing an order, you agree to these terms. A separate written quotation or agreement applies only where you specifically request and accept one.
 
 2. Website information
 We take reasonable care to keep product descriptions, images and availability accurate. Images may be illustrative and colours may differ between displays. Website content does not constitute a binding offer and may be corrected or updated without notice.
 
-3. Quotations and orders
-Adding a product to a quotation list does not reserve stock and is not a purchase. Provisional quotations are estimates and remain subject to human review, supplier availability, delivery requirements and verification of pricing. An order becomes binding only after we issue or approve a final quotation and receive your written acceptance and any required payment or approved credit confirmation.
+3. Orders
+Products shown on the website may be held by a distributor rather than at an Innozanzi location. Adding a product to your cart does not reserve it. After checkout, we verify payment, price and availability before fulfilment. We accept an order when payment is verified and fulfilment begins. If price or availability changed before acceptance, we will explain the options and may offer a revised price, suitable alternative, waiting period or refund. We will not substitute a product without your agreement.
 
 4. Pricing and payment
-Final quotations state whether prices include VAT, delivery and other charges, as well as their validity period and payment terms. You must use the payment reference and verified banking details shown on the final document. We will never notify you of changed banking details only by email; verify any requested change with us through an independently confirmed channel before paying.
+The checkout shows the product price, VAT and delivery charges that apply to the order. Supplier prices and stock can change, and the website is refreshed regularly, but an obvious pricing error does not require us to supply at the incorrect price. Paystack processes online payments. For bank transfers, use only the details shown during checkout or on your order confirmation, and use the order number as reference. We will never notify you of changed banking details only by email; verify any requested change with us through an independently confirmed channel before paying.
 
 5. Availability and substitutions
 Stock remains subject to confirmation until the order is accepted. If an item becomes unavailable, we may propose a comparable alternative, revised lead time or refund. We will not substitute a product without your approval.
 
 6. Delivery and collection
-Delivery estimates are not guaranteed unless expressly agreed in writing. You must provide a complete delivery address and ensure an authorised person can receive the order. Risk passes as provided in the accepted quotation and applicable law. Please record visible damage or shortages on delivery and notify us as soon as reasonably possible.
+We use independent courier and delivery partners; Innozanzi does not represent that couriers are our employees. We remain your point of contact for the order. Delivery estimates are not guaranteed unless expressly agreed in writing. Unless another period is agreed, orders will be handled within the period required by applicable law. You must provide a complete delivery address and ensure an authorised person can receive the order. Please record visible damage or shortages on delivery and notify us as soon as reasonably possible.
 
 7. Cancellations, returns and warranties
 Cancellations and returns are handled under our Returns and Product Assistance Policy and applicable South African law. Manufacturer or supplier warranty terms may apply to particular products. Nothing in these terms limits a right or remedy that cannot lawfully be excluded.

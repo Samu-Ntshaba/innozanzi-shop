@@ -26,6 +26,8 @@ migration without updating the key.
 
 Review failed payments/webhooks, email outbox failures, audit activity, low stock, quotation backlog, backup status, response latency, and expiring provider credentials.
 
+The Syntech catalogue is an authenticated JSON supplier feed, not a live product API. A dedicated Railway cron service created from `railway.supplier-cron.json` performs a full refresh daily at 04:00 SAST. Check Admin → Supplier feed management each morning: the latest run must be successful and less than 26 hours old. A failed or stale run means storefront prices and availability may be outdated; investigate the feed credentials or supplier response before promoting products.
+
 Admin → Ticketing centre is the operational source of truth for customer
 support. Web requests are routed by category to Sales & Quotations, Order
 Operations, Finance, Technical Support or Customer Care. Staff must also
