@@ -26,11 +26,11 @@ export default async function HomePage() {
       <HomepageFeatureGrid products={catalogue.heroProducts}/>
 
       <section className="border-b border-slate-200 bg-white" aria-label="Why customers choose Innozanzi">
-        <div className="mx-auto grid max-w-5xl grid-cols-1 divide-y divide-slate-200 px-4 min-[480px]:grid-cols-3 min-[480px]:divide-x min-[480px]:divide-y-0 sm:px-6">
+        <div className="mx-auto grid max-w-5xl grid-cols-3 divide-x divide-slate-200 px-2 sm:px-6">
           {trustItems.map(({ icon: Icon, title, body }) => (
-            <div key={title} className="flex items-start gap-3 px-3 py-5 sm:px-5">
-              <Icon className="mt-0.5 size-5 shrink-0 text-sky-700" />
-              <div><p className="text-sm font-semibold text-slate-900">{title}</p><p className="mt-0.5 text-xs leading-5 text-slate-500">{body}</p></div>
+            <div key={title} className="flex flex-col items-center gap-2 px-1 py-4 text-center sm:flex-row sm:items-start sm:gap-3 sm:px-5 sm:py-5 sm:text-left">
+              <Icon className="size-5 shrink-0 text-sky-700" />
+              <div><p className="text-[11px] font-semibold leading-4 text-slate-900 sm:text-sm">{title}</p><p className="mt-0.5 hidden text-xs leading-5 text-slate-500 sm:block">{body}</p></div>
             </div>
           ))}
         </div>

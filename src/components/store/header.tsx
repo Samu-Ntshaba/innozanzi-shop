@@ -38,7 +38,7 @@ export async function StoreHeader() {
       <BrandLogo className="w-28 min-[380px]:w-36 sm:w-44" priority />
       <form action="/shop" className="order-last w-full basis-full sm:order-none sm:flex-1 sm:basis-auto">
         <label className="flex w-full items-center overflow-hidden rounded-md border border-slate-300 bg-white focus-within:border-sky-700 focus-within:ring-1 focus-within:ring-sky-700">
-          <input className="h-11 min-w-0 flex-1 px-4 text-sm outline-none" name="search" placeholder="Search products" />
+          <input className="h-11 min-w-0 flex-1 px-4 text-sm outline-none" name="search" placeholder="Search laptops, components, SKUs…" />
           <button aria-label="Search products" className="grid h-11 w-12 place-items-center text-slate-700 hover:bg-slate-50" type="submit"><Search className="size-5" /></button>
         </label>
       </form>
