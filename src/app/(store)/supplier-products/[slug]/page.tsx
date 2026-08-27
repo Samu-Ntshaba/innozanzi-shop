@@ -15,6 +15,7 @@ import { safeSupplierHtml } from "@/lib/safe-supplier-html";
 import { BehaviourSignal } from "@/components/store/behaviour-signal";
 import { RecommendationSection } from "@/components/store/recommendation-section";
 import { getRecommendations } from "@/domain/recommendations/service";
+import { ProductPathways } from "@/components/store/product-pathways";
 
 export const dynamic = "force-dynamic";
 
@@ -47,5 +48,5 @@ export default async function SupplierProductPage({ params, searchParams }: { pa
     <div className="mt-14 grid items-start gap-10 border-t border-slate-200 pt-10 lg:grid-cols-[minmax(0,1.25fr)_minmax(320px,.75fr)]"><section><h2 className="text-2xl font-bold text-slate-950">About this product</h2>{product.description ? <div className="prose prose-slate mt-4 max-w-none leading-8" dangerouslySetInnerHTML={{ __html: safeSupplierHtml(product.description) }}/> : <p className="mt-4 leading-8 text-slate-700">A reliable technology product supplied and supported by Innozanzi.</p>}</section><aside className="self-start rounded-2xl bg-[#071b33] p-6 text-white"><PackageCheck className="size-7 text-sky-300"/><h2 className="mt-4 text-xl font-bold">Live supplier availability</h2><p className="mt-2 text-sm leading-6 text-slate-300">Stock and pricing are checked again when your order is placed. You receive an order reference and can follow fulfilment from your account.</p></aside></div>
     {specs.length ? <section className="mt-12"><h2 className="text-2xl font-bold text-slate-950">Technical specifications</h2><dl className="mt-5 overflow-hidden rounded-xl border border-slate-200">{specs.map(([name, value], index) => <div className={`grid gap-1 px-4 py-3 sm:grid-cols-[minmax(180px,.4fr)_1fr] sm:gap-6 ${index % 2 ? "bg-slate-50" : "bg-white"}`} key={name}><dt className="font-semibold capitalize text-slate-800">{name.replaceAll("-", " ")}</dt><dd className="break-words text-slate-600">{typeof value === "object" ? JSON.stringify(value) : String(value)}</dd></div>)}</dl></section> : null}
     <ProductReviews productId={product.id} sourceType="SUPPLIER" path={`/supplier-products/${product.slug}`} reviews={product.reviews} signedIn={Boolean(context)} submitted={query.review === "submitted"}/>
-  </div><RecommendationSection title="Complete your setup" recommendations={recommendations}/></main>;
+  </div><ProductPathways name={product.name} category={product.category}/><RecommendationSection title="Complete your setup" recommendations={recommendations}/></main>;
 }

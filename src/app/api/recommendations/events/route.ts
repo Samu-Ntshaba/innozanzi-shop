@@ -9,6 +9,6 @@ const schema=z.object({eventType:z.enum(["IMPRESSION","VIEW","SEARCH","GAMING_VI
 export async function POST(request:Request){
   const parsed=schema.safeParse(await request.json().catch(()=>null));if(!parsed.success)return NextResponse.json({error:"Invalid recommendation event"},{status:400});
   const auth=await getAuthContext(),existing=request.headers.get("cookie")?.match(/(?:^|; )innozanzi-rec=([^;]+)/)?.[1],sessionId=existing&&existing.length<=100?decodeURIComponent(existing):randomUUID();
-  await prisma.recommendationEvent.create({data:{...parsed.data,userId:auth?.user.id??null,sessionId,specification:parsed.data.specification?JSON.parse(JSON.stringify(parsed.data.specification)):undefined}});
+  await prisma.recommendationEvent.create({data:{...parsed.data,userId:auth?.user.id??null,sessionId,specification:parsed.data.specification?JSON.parse(JSON.stringify(parsed.data.specification)):undefined,metadata:{page:request.headers.get("referer"),source:request.headers.get("x-innozanzi-entry-source")??undefined}}});
   const response=NextResponse.json({accepted:true});if(!existing)response.cookies.set("innozanzi-rec",sessionId,{httpOnly:true,secure:process.env.NODE_ENV==="production",sameSite:"lax",path:"/",maxAge:60*60*24*180});return response;
 }

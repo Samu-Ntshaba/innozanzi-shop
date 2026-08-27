@@ -2,6 +2,7 @@ import type { MetadataRoute } from "next";
 import { prisma } from "@/lib/prisma";
 import { globalSeoSettings } from "@/domain/marketing/seo";
 import { isTestModeEnvironment } from "@/lib/test-mode";
+import { guides } from "@/domain/guides/content";
 
 export const dynamic="force-dynamic";
 
@@ -26,6 +27,8 @@ export default async function sitemap():Promise<MetadataRoute.Sitemap>{
     {url:`${base}/blog`,lastModified:now,changeFrequency:"weekly",priority:.7},
     {url:`${base}/contact`,lastModified:now,changeFrequency:"monthly",priority:.7},
     {url:`${base}/how-to`,lastModified:now,changeFrequency:"monthly",priority:.6},
+    {url:`${base}/guides`,lastModified:now,changeFrequency:"monthly",priority:.8},
+    ...guides.map(guide=>({url:`${base}/guides/${guide.slug}`,lastModified:now,changeFrequency:"monthly" as const,priority:guide.area==="PC Building"?.8:.75})),
     ...products.filter(x=>!blocked.has(`PRODUCT:${x.id}`)).map(x=>({url:`${base}/products/${x.slug}`,lastModified:x.updatedAt,changeFrequency:"weekly" as const,priority:.8,images:x.images[0]?[new URL(x.images[0].path,base).toString()]:undefined})),
     ...supplierProducts.filter(x=>!blocked.has(`SUPPLIER_PRODUCT:${x.id}`)).map(x=>({url:`${base}/supplier-products/${x.slug}`,lastModified:x.updatedAt,changeFrequency:"weekly" as const,priority:.7,images:x.images[0]?[new URL(x.images[0],base).toString()]:undefined})),
     ...categories.filter(x=>!blocked.has(`CATEGORY:${x.id}`)).map(x=>({url:`${base}/categories/${x.slug}`,lastModified:x.updatedAt,changeFrequency:"weekly" as const,priority:.7})),
