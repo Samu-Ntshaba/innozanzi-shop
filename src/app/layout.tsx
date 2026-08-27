@@ -13,6 +13,7 @@ import {
   safeJsonLd,
 } from "@/domain/marketing/seo";
 import { isTestModeEnvironment } from "@/lib/test-mode";
+import { brand } from "@/config/brand";
 
 export async function generateMetadata(): Promise<Metadata> {
   const settings = await globalSeoSettings();
@@ -26,18 +27,18 @@ export async function generateMetadata(): Promise<Metadata> {
     authors: [{ name: settings.businessName, url: settings.siteUrl }],
     creator: settings.businessName,
     publisher: settings.businessName,
-    category: "Business technology",
+    category: "Online shopping",
     keywords: [
-      "Innozanzi Shop",
-      "business technology South Africa",
-      "IT hardware South Africa",
-      "technology procurement",
-      "business laptops",
+      brand.shopName,
+      "technology shop South Africa",
+      "buy laptops online",
+      "buy computers online",
+      "custom PC builder",
+      "computer components",
       "networking equipment",
       "backup power",
-      "technology quotations",
-      "IT delivery and installation",
-      "business IT support",
+      "gaming computers",
+      "nationwide technology delivery",
     ],
     alternates: { canonical: "/" },
     formatDetection: { email: false, address: false, telephone: false },
@@ -59,7 +60,7 @@ export async function generateMetadata(): Promise<Metadata> {
             url: image,
             width: 1200,
             height: 630,
-            alt: "Innozanzi — technology procurement, delivery and support",
+            alt: `${brand.name} — technology for work, study, home and play`,
             type: "image/png",
           }]
         : undefined,
@@ -75,7 +76,7 @@ export async function generateMetadata(): Promise<Metadata> {
             url: image,
             width: 1200,
             height: 630,
-            alt: "Innozanzi — technology procurement, delivery and support",
+            alt: `${brand.name} — technology for work, study, home and play`,
           }]
         : undefined,
     },

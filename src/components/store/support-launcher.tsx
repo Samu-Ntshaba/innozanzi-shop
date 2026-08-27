@@ -4,6 +4,7 @@ import { Headphones, MessageCircle } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import { brand } from "@/config/brand";
 
 const whatsappNumber = (process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? "27712384185").replace(/\D/g, "");
 
@@ -11,7 +12,7 @@ export function SupportLauncher() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [eligiblePath, setEligiblePath] = useState<string|null>(null);
-  const message = `Hello Innozanzi, I need help with a product. I am viewing ${process.env.NEXT_PUBLIC_SITE_URL ?? "https://shop.innozanzi.co.za"}${pathname}.`;
+  const message = `Hello ${brand.name}, I need help with a product. I am viewing ${brand.siteUrl}${pathname}.`;
   const whatsapp = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
 
   useEffect(() => {

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
 import { isTestModeEnvironment } from "@/lib/test-mode";
+import { brand } from "@/config/brand";
 
 export type GlobalSeoSettings={
   siteTitle:string;titleTemplate:string;description:string;businessName:string;siteUrl:string;
@@ -11,9 +12,9 @@ export type GlobalSeoSettings={
 const defaults:GlobalSeoSettings={
   siteTitle:"Innozanzi | Laptops, Computers & Custom PCs",titleTemplate:"%s | Innozanzi",
   description:"Buy laptops, computers, components and everyday technology online in South Africa. Build a compatible custom PC, pay securely and follow your delivery.",
-  businessName:"Innozanzi",siteUrl:process.env.NEXT_PUBLIC_SITE_URL??"https://shop.innozanzi.co.za",
-  defaultImage:"/social/innozanzi-share.png",logo:"/brand/innozanzi-shop-logo.png",
-  twitter:"",facebook:"",linkedin:"",instagram:"",phone:"+27 71 238 4185",email:"support@innozanzi.co.za",
+  businessName:brand.name,siteUrl:brand.siteUrl,
+  defaultImage:brand.assets.socialImage,logo:brand.assets.schemaLogo,
+  twitter:"",facebook:"",linkedin:"",instagram:"",phone:brand.contact.phone,email:brand.contact.email,
   address:"Ground Floor, Waterstone Building, Stonemill Office Park, 300 Acacia Road, Darrenwood, Randburg, Johannesburg, 2195",
   serviceAreas:"South Africa",googleVerification:"",bingVerification:"",
 };
