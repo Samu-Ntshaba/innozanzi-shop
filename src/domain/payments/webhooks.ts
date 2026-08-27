@@ -26,6 +26,12 @@ export async function processPaymentEvent(provider: "PAYSTACK" | "YOCO", event: 
     }
     await tx.payment.update({ where: { id: payment.id }, data: { status: event.status, paidAt: event.status === "PAID" ? new Date() : null, providerMetadata: event.raw as object } });
     await tx.order.update({ where: { id: payment.orderId }, data: { paymentStatus: event.status, status: event.status === "PAID" ? "PAID" : payment.order.status } });
+    if(event.status==="PAID"&&payment.order.pcProjectId){
+      const sourceIds=payment.order.items.map(item=>item.sourceId).filter((id):id is string=>Boolean(id));
+      await tx.pcProjectItem.updateMany({where:{projectId:payment.order.pcProjectId,supplierProductId:{in:sourceIds},purchasedAt:null},data:{purchasedAt:new Date(),orderId:payment.orderId}});
+      const required=["cpu","motherboard","memory","storage","power","case"],configured=await tx.pcProjectItem.count({where:{projectId:payment.order.pcProjectId,stepKey:{in:required}}}),remaining=await tx.pcProjectItem.count({where:{projectId:payment.order.pcProjectId,stepKey:{in:required},purchasedAt:null}}),complete=configured===required.length&&remaining===0;
+      await tx.pcProject.update({where:{id:payment.order.pcProjectId},data:{status:complete?"COMPLETE":"IN_PROGRESS",completedAt:complete?new Date():null}});
+    }
     if(event.status==="PAID"&&payment.order.convertedQuotation)await tx.quotation.update({where:{id:payment.order.convertedQuotation.id},data:{status:"PAYMENT_VERIFIED"}});
     await tx.auditLog.create({ data: { action: "payment.webhook", entityType: "Payment", entityId: payment.id, metadata: { eventId: event.eventId, provider } } });
     return { duplicate: false, paymentId: payment.id, order: payment.order, amount: payment.amount.toString() };
