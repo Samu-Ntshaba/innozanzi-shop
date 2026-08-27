@@ -1,7 +1,8 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
+import NextLink from "next/link";
+import type { ComponentProps } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, ArrowRight, Check, CheckCircle2, ChevronRight, Cpu, Gamepad2, HardDrive, Headphones, Keyboard, LogIn, MemoryStick, Monitor, Mouse, PackagePlus, Power, RotateCcw, Search, ShieldAlert, Snowflake, Sparkles, SquareDashed, UserPlus, Wrench, X } from "lucide-react";
 import { addPcBuildToCart } from "@/domain/cart/pc-build-action";
@@ -9,6 +10,8 @@ import type { PcBuilderProduct, PcBuildStep, PcBuildStepKey } from "@/domain/cat
 import { formatZar } from "@/lib/money";
 import { BrandLogo } from "@/components/brand-logo";
 import { continuePcProjectAuthentication, createPcProject, savePcProjectPart } from "@/domain/pc-projects/actions";
+
+function Link(props:ComponentProps<typeof NextLink>){return <NextLink {...props} href={props.href==="/shop"?"/":props.href}/>}
 
 type BuildType="PC_ONLY"|"COMPLETE_SETUP";type Selections=Partial<Record<PcBuildStepKey,PcBuilderProduct>>;
 const required:PcBuildStepKey[]=["cpu","motherboard","memory","storage","power","case"],storageKey="innozanzi-pc-workspace-v2";

@@ -56,7 +56,7 @@ export async function StoreHeader() {
     </div>
     <nav aria-label="Product categories" className="mx-auto hidden h-11 max-w-7xl items-center gap-7 border-t border-slate-100 px-6 lg:flex lg:px-8">
       <Link className="text-sm font-semibold text-sky-800" href="/shop">All products</Link>
-      <Link className="text-sm font-semibold text-sky-800" href="/build-a-pc">Build a PC</Link>
+      <Link className="rounded-full border border-cyan-200 bg-cyan-50 px-3 py-1.5 text-sm font-bold text-cyan-900 hover:border-cyan-400" href="/build-a-pc">Build a PC</Link>
       <Link className="text-sm font-bold text-violet-700" href="/gaming">Gaming</Link>
       {categories.map(category => <Link key={category} className="text-sm font-medium text-slate-600 hover:text-slate-950" href={`/categories/${encodeURIComponent(category)}`}>{category}</Link>)}
       <Link className="text-sm font-semibold text-sky-800 hover:underline" href="/categories">More categories</Link>

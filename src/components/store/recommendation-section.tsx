@@ -1,0 +1,5 @@
+import { ProductCard } from "./product-card";
+import { BehaviourSignal } from "./behaviour-signal";
+import type { Recommendation } from "@/domain/recommendations/service";
+
+export function RecommendationSection({title="Recommended for you",recommendations}:{title?:string;recommendations:Recommendation[]}){if(!recommendations.length)return null;return <section className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8"><p className="text-xs font-semibold text-sky-800">Picked from available products</p><h2 className="mt-1 text-2xl font-semibold text-slate-950 sm:text-3xl">{title}</h2><div className="mt-5 grid gap-4 min-[480px]:grid-cols-2 lg:grid-cols-4">{recommendations.map(item=><div key={item.recommendationId}><BehaviourSignal signal={{eventType:"RECOMMENDATION_IMPRESSION",entityType:"SUPPLIER_PRODUCT",entityId:item.product.id,recommendationId:item.recommendationId,context:"recommendation"}}/><ProductCard product={item.product} recommendationId={item.recommendationId}/><p className="mt-2 text-xs text-slate-500">{item.reason}</p></div>)}</div></section>}

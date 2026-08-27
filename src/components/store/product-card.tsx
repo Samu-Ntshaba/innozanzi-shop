@@ -4,8 +4,8 @@ import { ArrowRight, Check, PackageX } from "lucide-react";
 import type { ProductCardData } from "@/domain/catalogue/queries";
 import { formatZar } from "@/lib/money";
 
-export function ProductCard({ product }: { product: ProductCardData }) {
-  const href="source" in product&&product.source==="supplier"?`/supplier-products/${product.slug}`:`/products/${product.slug}`;
+export function ProductCard({ product,recommendationId }: { product: ProductCardData;recommendationId?:string }) {
+  const base="source" in product&&product.source==="supplier"?`/supplier-products/${product.slug}`:`/products/${product.slug}`,href=recommendationId?`${base}?recommendation=${recommendationId}`:base;
   const image = product.images[0];
   const inStock = product.stockStatus === "IN_STOCK" || product.stockStatus === "LOW_STOCK";
   const now=new Date();const saleActive=product.salePrice&&(!product.saleStartsAt||product.saleStartsAt<=now)&&(!product.saleEndsAt||product.saleEndsAt>=now);const price=saleActive?product.salePrice:product.regularPrice;

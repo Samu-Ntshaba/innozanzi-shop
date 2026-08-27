@@ -7,6 +7,8 @@ import { entityMetadata } from "@/domain/marketing/seo";
 import type { Metadata } from "next";
 import { BrandPartners } from "@/components/store/brand-partners";
 import Link from "next/link";
+import { getRecommendations } from "@/domain/recommendations/service";
+import { RecommendationSection } from "@/components/store/recommendation-section";
 
 export const dynamic = "force-dynamic";
 export async function generateMetadata():Promise<Metadata>{return entityMetadata({entityType:"STATIC_PAGE",entityId:"homepage",path:"/",title:"Laptops, Computers & Custom PCs in South Africa | Innozanzi",description:"Buy laptops, computers, components and everyday technology online. Build a compatible custom PC, pay securely and follow your nationwide delivery with Innozanzi.",image:"/social/innozanzi-share.png",keywords:["laptops South Africa","buy computers online","custom PC builder","computer components","Innozanzi"]})}
@@ -18,7 +20,7 @@ const trustItems = [
 ];
 
 export default async function HomePage() {
-  const catalogue = await getHomepageCatalogue();
+  const [catalogue,recommendations] = await Promise.all([getHomepageCatalogue(),getRecommendations({limit:4,context:"homepage"})]);
   return (
     <main className="bg-white">
       <HomepageFeatureGrid products={catalogue.heroProducts}/>
@@ -35,6 +37,7 @@ export default async function HomePage() {
       </section>
 
       <div className="hidden sm:block"><BrandPartners /></div>
+      <div className="bg-white"><RecommendationSection recommendations={recommendations}/></div>
 
       <section className="border-b border-slate-200 bg-[#071b33] text-white">
         <div className="mx-auto grid max-w-7xl gap-7 px-4 py-10 sm:px-6 lg:grid-cols-[1.2fr_.8fr] lg:px-8 lg:py-14">

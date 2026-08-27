@@ -866,6 +866,7 @@ model User {
   partnershipChangesRequested     PartnershipChange[]              @relation("PartnershipChangeRequester")
   partnershipChangesApproved      PartnershipChange[]              @relation("PartnershipChangeApprover")
   customerNotesAuthored           CustomerNote[]                   @relation("CustomerNoteAuthor")
+  recommendationEvents            RecommendationEvent[]
 
   @@index([status, createdAt])
   @@index([deletedAt])
@@ -4378,4 +4379,29 @@ model TransportEvent {
 
   @@index([transportId, createdAt])
   @@index([action, createdAt])
+}
+
+model RecommendationEvent {
+  id             String   @id @default(uuid()) @db.Uuid
+  userId         String?  @db.Uuid
+  sessionId      String
+  eventType      String
+  entityType     String
+  entityId       String?
+  category       String?
+  brand          String?
+  searchTerm     String?
+  price          Decimal? @db.Decimal(19, 4)
+  specification  Json?
+  recommendationId String?
+  context        String?
+  metadata       Json?
+  createdAt      DateTime @default(now())
+  user           User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([sessionId, createdAt])
+  @@index([eventType, createdAt])
+  @@index([entityType, entityId, createdAt])
+  @@index([recommendationId, eventType])
 }
