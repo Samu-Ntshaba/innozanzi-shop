@@ -23,7 +23,8 @@ describe("marketing email renderer", () => {
     expect(copy.productBlurbs).toHaveLength(1);
     expect(html).toContain("Business Laptop &lt;Pro&gt;");
     expect(html).toContain("https://shop.innozanzi.co.za/products/business-laptop");
-    expect(html).toContain("Availability and final pricing are confirmed");
+    expect(html).toContain("Stock and pricing are checked again when you place your order");
+    expect(html).not.toContain("quotation");
     expect(html).not.toContain("Business Laptop <Pro>");
   });
 

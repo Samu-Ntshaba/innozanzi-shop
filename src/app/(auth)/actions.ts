@@ -89,7 +89,6 @@ export async function registerAction(formData: FormData) {
   const rawToken = randomBytes(32).toString("base64url");
   const token = createHash("sha256").update(rawToken).digest("hex");
 
-  await enqueueEmail(emailTemplates.verifyEmail(parsed.data.email, parsed.data.name, rawToken));
   const user = await prisma.$transaction(async (tx) => {
     const customerRole = await tx.role.findUnique({ where: { slug: "customer" } });
     const user = existing && crmOnlyCustomer
@@ -126,7 +125,10 @@ export async function registerAction(formData: FormData) {
     }
     return user;
   });
-  await notifySupportOfNewUser({ userId: user.id, name: user.name, email: user.email, accountType: user.accountType, source: crmOnlyCustomer ? "CRM_CUSTOMER_REGISTRATION" : "PUBLIC_REGISTRATION" });
+  await Promise.all([
+    enqueueEmail(emailTemplates.verifyEmail(parsed.data.email, parsed.data.name, rawToken), user.id),
+    notifySupportOfNewUser({ userId: user.id, name: user.name, email: user.email, accountType: user.accountType, source: crmOnlyCustomer ? "CRM_CUSTOMER_REGISTRATION" : "PUBLIC_REGISTRATION" }),
+  ]);
   redirect("/register?status=check-email");
 }
 
@@ -151,7 +153,6 @@ export async function verifyEmailAction(formData: FormData) {
     redirect("/verify-email?error=invalid");
   }
 
-  await enqueueEmail(emailTemplates.welcome(email, customer.name ?? "there"), customer.id);
   const user = await prisma.$transaction(async (tx) => {
     const updated = await tx.user.update({
       where: { email },
@@ -161,6 +162,7 @@ export async function verifyEmailAction(formData: FormData) {
     await tx.verificationToken.delete({ where: { token } });
     return updated;
   });
+  await enqueueEmail(emailTemplates.welcome(email, customer.name ?? "there"), customer.id);
   await createSession(user.id);
   const returnTo=(await cookies()).get("innozanzi-return-to")?.value;(await cookies()).delete("innozanzi-return-to");redirect(returnTo?.startsWith("/")&&!returnTo.startsWith("//")?returnTo:"/account");
 }
@@ -175,7 +177,6 @@ export async function requestPasswordResetAction(formData: FormData) {
     if (user) {
       const rawToken = randomBytes(32).toString("base64url");
       const token = createHash("sha256").update(rawToken).digest("hex");
-      await enqueueEmail(emailTemplates.passwordReset(parsed.data.email, rawToken), user.id);
       await prisma.$transaction(async (tx) => {
         await tx.verificationToken.deleteMany({ where: { identifier: `reset:${parsed.data.email}` } });
         await tx.verificationToken.create({
@@ -186,6 +187,7 @@ export async function requestPasswordResetAction(formData: FormData) {
           },
         });
       });
+      await enqueueEmail(emailTemplates.passwordReset(parsed.data.email, rawToken), user.id);
     }
   }
   redirect("/forgot-password?status=sent");
@@ -208,7 +210,6 @@ export async function resetPasswordAction(formData: FormData) {
   }
 
   const passwordHash = await hashPassword(parsed.data.password);
-  await enqueueEmail(emailTemplates.passwordChanged(parsed.data.email), customer.id);
   await prisma.$transaction(async (tx) => {
     const user = await tx.user.update({
       where: { email: parsed.data.email },
@@ -218,5 +219,6 @@ export async function resetPasswordAction(formData: FormData) {
     await tx.session.deleteMany({ where: { userId: user.id } });
     await tx.verificationToken.delete({ where: { token } });
   });
+  await enqueueEmail(emailTemplates.passwordChanged(parsed.data.email), customer.id);
   redirect("/sign-in?status=password-reset");
 }

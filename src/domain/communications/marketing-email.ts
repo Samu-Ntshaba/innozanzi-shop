@@ -59,9 +59,9 @@ export function renderProductCampaign(input: {
   products: CampaignProduct[];
 }) {
   const accent = input.template === "NEW_ARRIVALS" ? "#087ea4" : "#009fe3";
-  const label = input.template === "SPOTLIGHT" ? "Product spotlight" : input.template === "ESSENTIALS" ? "Business technology essentials" : "New to the catalogue";
+  const label = input.template === "SPOTLIGHT" ? "Product spotlight" : input.template === "ESSENTIALS" ? "Everyday tech essentials" : "New arrivals";
   const cards = input.products.map((product, index) => {
-    const blurb = input.copy.productBlurbs[index] ?? product.shortDescription ?? "Professional technology selected for South African organisations.";
+    const blurb = input.copy.productBlurbs[index] ?? product.shortDescription ?? "Useful technology selected for everyday work, study, home and play.";
     return input.template === "SPOTLIGHT" && index === 0 ? spotlightCard(product, blurb, accent) : productCard(product, blurb, accent);
   }).join("");
   return `
@@ -75,18 +75,18 @@ export function renderProductCampaign(input: {
       <tr><td align="center" style="padding:16px 0 8px">
         <a href="${siteUrl()}/shop" style="display:inline-block;border-radius:8px;background:${accent};color:#ffffff;text-decoration:none;padding:14px 24px;font-size:14px;font-weight:700">${escapeHtml(input.copy.ctaLabel)}</a>
       </td></tr>
-      <tr><td style="padding:18px 8px 0;text-align:center;font-size:12px;line-height:1.6;color:#667085">Availability and final pricing are confirmed through an Innozanzi quotation.</td></tr>
+      <tr><td style="padding:18px 8px 0;text-align:center;font-size:12px;line-height:1.6;color:#667085">Prices include VAT where shown. Stock and pricing are checked again when you place your order.</td></tr>
     </table>`;
 }
 
 export function fallbackCampaignCopy(products: CampaignProduct[]): CampaignCopy {
   const lead = products[0];
   return {
-    subject: `${lead?.category ?? "Business technology"} selected for your organisation`,
-    preview: "Explore practical technology backed by professional sourcing and support.",
-    headline: "Technology selected for the way your business works",
-    introduction: "Explore a focused selection of business technology, with clear guidance and support from quotation through delivery.",
-    ctaLabel: "Explore the catalogue",
-    productBlurbs: products.map(product => product.shortDescription ?? `${product.name} is available to include in your next technology quotation.`),
+    subject: `${lead?.category ?? "Technology"} worth discovering at Innozanzi Shop`,
+    preview: "Shop useful technology for work, study, home and play.",
+    headline: "Technology picked for real life",
+    introduction: "Explore a focused selection of useful products, with secure checkout, delivery updates and help when you need it.",
+    ctaLabel: "Shop the collection",
+    productBlurbs: products.map(product => product.shortDescription ?? `Discover ${product.name} and check current availability online.`),
   };
 }
