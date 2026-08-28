@@ -108,6 +108,10 @@ button, a, input, select, textarea { touch-action: manipulation; }
 .system-notice button { margin-left: auto; padding: 0 .25rem; font-size: 1.35rem; line-height: 1; }
 
 @keyframes system-spin { to { transform: rotate(360deg); } }
+@keyframes brand-marquee { to { transform: translateX(-50%); } }
+.brand-marquee-track { animation: brand-marquee 55s linear infinite; }
+.brand-marquee:hover .brand-marquee-track,
+.brand-marquee:focus-within .brand-marquee-track { animation-play-state: paused; }
 
 @keyframes pc-welcome-rise { 0% { opacity: 0; transform: translateY(4rem) scale(.65) rotate(-18deg); } 55% { opacity: 1; transform: translateY(-.35rem) scale(1.06) rotate(4deg); } 100% { opacity: 1; transform: translateY(0) scale(1) rotate(0); } }
 @keyframes pc-welcome-copy { from { opacity: 0; transform: translateY(1rem); } to { opacity: 1; transform: translateY(0); } }
@@ -122,4 +126,7 @@ button, a, input, select, textarea { touch-action: manipulation; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+  .brand-marquee { overflow-x: auto; }
+  .brand-marquee-track { animation: none; }
+  .brand-marquee-track > [aria-hidden="true"] { display: none; }
 }
