@@ -1,26 +1,19 @@
-import { describe, expect, it } from "vitest";
-import { registrationSchema } from "../../src/schemas/auth";
+import {describe,expect,it} from "vitest";
+import {registrationSchema} from "../../src/schemas/auth";
 
-const validRegistration = {
-  name: "Nomsa Dlamini",
-  email: "NOMSA@example.com",
-  phone: "+27821234567",
-  password: "SecurePassword123",
-  confirmPassword: "SecurePassword123",
-};
+const validRegistration={name:"Nomsa Dlamini",email:"NOMSA@example.com",password:"simplepass"};
 
-describe("registrationSchema", () => {
-  it("normalizes email and accepts South African phone numbers", () => {
-    const result = registrationSchema.parse(validRegistration);
-    expect(result.email).toBe("nomsa@example.com");
+describe("registrationSchema",()=>{
+  it("normalizes email and only requires the essentials",()=>{
+    const result=registrationSchema.parse(validRegistration);
+    expect(result).toEqual({name:"Nomsa Dlamini",email:"nomsa@example.com",password:"simplepass"});
   });
 
-  it("rejects weak or mismatched passwords", () => {
-    expect(registrationSchema.safeParse({ ...validRegistration, password: "weak" }).success).toBe(false);
-    expect(registrationSchema.safeParse({ ...validRegistration, confirmPassword: "AnotherPassword123" }).success).toBe(false);
+  it("rejects passwords shorter than eight characters",()=>{
+    expect(registrationSchema.safeParse({...validRegistration,password:"short"}).success).toBe(false);
   });
 
-  it("rejects invalid South African phone numbers", () => {
-    expect(registrationSchema.safeParse({ ...validRegistration, phone: "+12025550123" }).success).toBe(false);
+  it("does not require phone or password confirmation during registration",()=>{
+    expect(registrationSchema.safeParse(validRegistration).success).toBe(true);
   });
 });

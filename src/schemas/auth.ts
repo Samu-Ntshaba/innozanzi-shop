@@ -8,28 +8,17 @@ export const passwordSchema = z
   .regex(/[a-z]/, "Password must contain a lowercase letter.")
   .regex(/[A-Z]/, "Password must contain an uppercase letter.")
   .regex(/[0-9]/, "Password must contain a number.");
+export const customerPasswordSchema=z.string().min(8,"Password must contain at least 8 characters.").max(128);
 
 export const loginSchema = z.object({
   email,
   password: z.string().min(1).max(128),
 });
 
-export const registrationSchema = z
-  .object({
+export const registrationSchema = z.object({
     name: z.string().trim().min(2).max(120),
     email,
-    phone: z
-      .string()
-      .trim()
-      .regex(/^(?:\+27|0)[6-8][0-9]{8}$/, "Enter a valid South African phone number.")
-      .optional()
-      .or(z.literal("")),
-    password: passwordSchema,
-    confirmPassword: z.string(),
-  })
-  .refine((value) => value.password === value.confirmPassword, {
-    message: "Passwords do not match.",
-    path: ["confirmPassword"],
+    password:customerPasswordSchema,
   });
 
 export const passwordResetRequestSchema = z.object({ email });
@@ -38,7 +27,7 @@ export const passwordResetSchema = z
   .object({
     email,
     token: z.string().min(32).max(256),
-    password: passwordSchema,
+    password: customerPasswordSchema,
     confirmPassword: z.string(),
   })
   .refine((value) => value.password === value.confirmPassword, {

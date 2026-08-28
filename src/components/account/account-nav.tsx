@@ -4,6 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const links = [
+  ["Overview", "/account", "⌂"],
+  ["Profile", "/account/profile", "●"],
   ["My PC Projects", "/account/pc-projects", "PC"],
   ["Orders & tracking", "/account/orders", "↗"],
   ["Returns & concerns", "/account/returns", "↩"],
@@ -13,7 +15,7 @@ const links = [
 
 export function AccountNav({ showAdmin }: { showAdmin: boolean }) {
   const pathname = usePathname();
-  const active = (href: string) => pathname.startsWith(href);
+  const active = (href: string) => href==="/account"?pathname===href:pathname.startsWith(href);
   return (
     <nav aria-label="Customer account" className="flex gap-1 overflow-x-auto p-2 lg:block lg:space-y-1 lg:p-3">
       {links.map(([label, href, icon]) => (

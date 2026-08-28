@@ -64,9 +64,7 @@ export async function registerAction(formData: FormData) {
   const parsed = registrationSchema.safeParse({
     name: value(formData, "name"),
     email: value(formData, "email"),
-    phone: value(formData, "phone"),
     password: value(formData, "password"),
-    confirmPassword: value(formData, "confirmPassword"),
   });
   if (!parsed.success) redirect("/register?error=invalid");
 
@@ -99,7 +97,6 @@ export async function registerAction(formData: FormData) {
           where: { id: existing.id },
           data: {
             name: parsed.data.name,
-            phone: parsed.data.phone || null,
             passwordHash,
             status: "PENDING_VERIFICATION",
             customerProfile: { update: { source: `${existing.customerProfile!.source}_REGISTERED` } },
@@ -109,7 +106,6 @@ export async function registerAction(formData: FormData) {
           data: {
             email: parsed.data.email,
             name: parsed.data.name,
-            phone: parsed.data.phone || null,
             passwordHash,
             customerProfile: { create: { source: "WEBSITE" } },
           },

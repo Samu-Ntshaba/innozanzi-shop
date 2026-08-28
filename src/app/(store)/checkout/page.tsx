@@ -8,6 +8,7 @@ import { getCurrentCart } from "@/domain/cart/service";
 import { resolveQuotationCart } from "@/domain/catalogue/product-source";
 import { placeRetailOrder } from "@/domain/checkout/actions";
 import { formatZar } from "@/lib/money";
+import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 const input = "mt-2 h-12 w-full rounded-lg border border-slate-300 bg-white px-3.5 text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-sky-700 focus:ring-2 focus:ring-sky-700/15";
@@ -16,6 +17,7 @@ const provinces = ["Eastern Cape", "Free State", "Gauteng", "KwaZulu-Natal", "Li
 
 export default async function CheckoutPage() {
   const user = await requireUser();
+  const profile=await prisma.user.findUnique({where:{id:user.user.id},select:{phone:true}});
   const cart = await getCurrentCart();
   if (!cart || (!cart.items.length && !cart.supplierItems.length)) redirect("/cart");
   const lines = await resolveQuotationCart(cart, new Decimal(5));
@@ -32,7 +34,7 @@ export default async function CheckoutPage() {
           <div className="flex items-start gap-3 border-b border-slate-200 pb-5"><span className="grid size-10 shrink-0 place-items-center rounded-full bg-sky-100 text-sky-800"><MapPin className="size-5"/></span><div><p className="text-xs font-bold uppercase tracking-wider text-sky-700">Step 1</p><h2 className="text-xl font-bold text-slate-950">Delivery address</h2><p className="mt-1 text-sm text-slate-500">Where should we deliver your order?</p></div></div>
           <div className="mt-6 grid gap-x-5 gap-y-5 sm:grid-cols-2">
             <label className={`${label} sm:col-span-2`}>Recipient name<input className={input} name="recipient" autoComplete="name" defaultValue={user.user.name ?? ""} required/></label>
-            <label className={label}>Phone number<input className={input} name="phone" type="tel" autoComplete="tel" placeholder="e.g. 071 234 5678" required/></label>
+            <label className={label}>Phone number<input className={input} name="phone" type="tel" autoComplete="tel" placeholder="e.g. 071 234 5678" defaultValue={profile?.phone??""} required/></label>
             <label className={label}>Street address<input className={input} name="line1" autoComplete="address-line1" placeholder="Street number and name" required/></label>
             <label className={label}>Address line 2 <span className="font-normal text-slate-400">(optional)</span><input className={input} name="line2" autoComplete="address-line2" placeholder="Complex, unit or building"/></label>
             <label className={label}>Suburb <span className="font-normal text-slate-400">(optional)</span><input className={input} name="suburb" autoComplete="address-level3"/></label>

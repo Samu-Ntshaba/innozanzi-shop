@@ -1,5 +1,6 @@
-import { redirect } from "next/navigation";
+import Link from "next/link";
+import {PackageSearch,UserRound,Wrench} from "lucide-react";
+import {requireUser} from "@/domain/auth/session";
 
-export default function AccountPage() {
-  redirect("/account/quotations");
-}
+const links=[{href:"/account/orders",title:"Orders",body:"Track purchases and delivery",icon:PackageSearch},{href:"/account/pc-projects",title:"PC projects",body:"Continue or review your builds",icon:Wrench},{href:"/account/profile",title:"Profile",body:"Update your contact details",icon:UserRound}];
+export default async function AccountPage(){const context=await requireUser();return <main className="mx-auto max-w-5xl px-4 py-8 sm:px-6 sm:py-12"><p className="text-xs font-bold uppercase tracking-wider text-sky-700">My account</p><h1 className="mt-2 text-3xl font-bold">Hi{context.user.name?`, ${context.user.name.split(" ")[0]}`:""}</h1><p className="mt-2 text-slate-600">Everything connected to your shopping account.</p><div className="mt-7 grid gap-4 sm:grid-cols-3">{links.map(({href,title,body,icon:Icon})=><Link className="rounded-xl border border-slate-200 bg-white p-5 transition hover:border-sky-400 hover:shadow-sm" href={href} key={href}><Icon className="size-6 text-sky-700"/><h2 className="mt-5 text-lg font-bold">{title}</h2><p className="mt-1 text-sm leading-6 text-slate-500">{body}</p></Link>)}</div></main>}
