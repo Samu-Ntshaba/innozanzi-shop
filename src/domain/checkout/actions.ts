@@ -8,7 +8,7 @@ import { requireUser } from "@/domain/auth/session";
 import { getCurrentCart } from "@/domain/cart/service";
 import { resolveQuotationCart } from "@/domain/catalogue/product-source";
 import { orderNumber } from "@/domain/quotations/lifecycle";
-import { paymentAdapter } from "@/integrations/payments/adapters";
+import { beginHostedOrderPayment } from "@/domain/payments/orchestration";
 import { prisma } from "@/lib/prisma";
 
 const schema=z.object({recipient:z.string().trim().min(2).max(120),phone:z.string().trim().min(7).max(40),line1:z.string().trim().min(3).max(180),line2:z.string().trim().max(180).optional(),suburb:z.string().trim().max(120).optional(),city:z.string().trim().min(2).max(120),province:z.string().trim().min(2).max(120),postalCode:z.string().trim().min(3).max(12),notes:z.string().trim().max(1000).optional(),paymentMethod:z.enum(["EFT","PAYSTACK"])});
@@ -23,7 +23,6 @@ export async function placeRetailOrder(formData:FormData){
   },{isolationLevel:"Serializable"});
   if(data.paymentMethod==="EFT")redirect(`/checkout/complete/${order.id}`);
   const base=(process.env.NEXT_PUBLIC_SITE_URL??"https://shop.innozanzi.co.za").replace(/\/$/,"");
-  const session=await paymentAdapter("PAYSTACK").initialize({paymentId,amount:grandTotal.toString(),currency:"ZAR",email:ctx.user.email,callbackUrl:`${base}/api/payments/paystack/callback`,idempotencyKey});
-  await prisma.payment.update({where:{id:paymentId},data:{externalReference:session.externalReference,providerMetadata:{checkoutInitializedAt:new Date().toISOString(),retailOrderId:order.id}}});
+  const session=await beginHostedOrderPayment({paymentId,callbackUrl:`${base}/api/payments/paystack/callback`});
   if(!session.redirectUrl)throw new Error("Paystack checkout is unavailable.");redirect(session.redirectUrl);
 }

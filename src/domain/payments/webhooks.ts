@@ -3,6 +3,7 @@ import type { PaymentEvent } from "@/integrations/payments/provider";
 import { enqueueEmail } from "@/integrations/email/outbox";
 import { emailTemplates } from "@/integrations/email/templates";
 import { notifyStaffOfPaidOrder } from "@/domain/notifications/order-alerts";
+import { assertPaymentEventMatches } from "@/domain/payments/validation";
 
 export async function processPaymentEvent(provider: "PAYSTACK" | "YOCO", event: PaymentEvent) {
   const result = await prisma.$transaction(async (tx) => {
@@ -10,7 +11,7 @@ export async function processPaymentEvent(provider: "PAYSTACK" | "YOCO", event: 
     if (!payment) throw new Error("Unknown payment reference");
     if (payment.status === event.status) return { duplicate: true, paymentId: payment.id, order: payment.order, amount: payment.amount.toString() };
     if (payment.status === "PAID") return { duplicate: true, paymentId: payment.id, order: payment.order, amount: payment.amount.toString() };
-    if (event.amount && Number(event.amount) !== Number(payment.amount)) throw new Error("Payment amount mismatch");
+    assertPaymentEventMatches(event,payment);
     if(event.status==="PAID"){
       for(const item of payment.order.items){
         if(item.sourceType==="SUPPLIER"){

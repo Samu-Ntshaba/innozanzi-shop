@@ -10,7 +10,8 @@ import { requirePermission, requireUser } from "@/domain/auth/session";
 import { enqueueEmail } from "@/integrations/email/outbox";
 import { emailTemplates } from "@/integrations/email/templates";
 import { orderNumber } from "@/domain/quotations/lifecycle";
-import { paymentAdapter, PaystackPaymentAdapter } from "@/integrations/payments/adapters";
+import { PaystackPaymentAdapter } from "@/integrations/payments/adapters";
+import { beginHostedOrderPayment } from "@/domain/payments/orchestration";
 import { publicSiteUrl } from "@/lib/public-site-url";
 
 const MAX_PROOF_SIZE=10*1024*1024;const PROOF_TYPES=new Set(["application/pdf","image/jpeg","image/png","image/webp"]);
@@ -29,8 +30,7 @@ export async function startQuotationPaystackPayment(formData:FormData){
   let payment=await prisma.payment.findFirst({where:{orderId:order.id,provider:"PAYSTACK",status:"PENDING"}});
   if(!payment)payment=await prisma.payment.create({data:{orderId:order.id,provider:"PAYSTACK",amount:quote.grandTotal,currency:"ZAR",idempotencyKey:`quote-paystack:${quote.id}:${randomUUID()}`}});
   const base=publicSiteUrl();
-  const session=await paymentAdapter("PAYSTACK").initialize({paymentId:payment.id,amount:payment.amount.toString(),currency:payment.currency,email:order.email,callbackUrl:`${base}/api/payments/paystack/callback`,idempotencyKey:payment.idempotencyKey});
-  await prisma.payment.update({where:{id:payment.id},data:{externalReference:session.externalReference,providerMetadata:{checkoutInitializedAt:new Date().toISOString()}}});
+  const session=await beginHostedOrderPayment({paymentId:payment.id,callbackUrl:`${base}/api/payments/paystack/callback`});
   if(!session.redirectUrl)throw new Error("Paystack checkout is unavailable.");redirect(session.redirectUrl);
 }
 
