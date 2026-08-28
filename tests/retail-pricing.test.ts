@@ -22,4 +22,11 @@ describe("supplierRetailPrice",()=>{
     expect(price.salePrice).toBeNull();
     expect(price.promotionActive).toBe(false);
   });
+
+  it("keeps the displayed RRP authoritative instead of dropping to cost plus five percent at checkout",()=>{
+    const price=supplierRetailPrice({costPrice:240,recommendedRetail:349,now:new Date("2026-08-29")});
+    expect(price.regularPrice.toNumber()).toBe(349);
+    expect(price.salePrice).toBeNull();
+    expect((price.salePrice??price.regularPrice).toNumber()).toBe(349);
+  });
 });
