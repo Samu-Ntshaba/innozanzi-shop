@@ -1,4 +1,72 @@
 "use client";
-import {ArrowLeft,ArrowRight,PackageSearch} from"lucide-react";import Image from"next/image";import Link from"next/link";import{useEffect,useState}from"react";import type{ProductCardData}from"@/domain/catalogue/queries";import{cn}from"@/lib/utils";import{formatZar}from"@/lib/money";
-const campaigns={PROMOTION:{eyebrow:"Syntech promotion",headline:"A current offer worth seeing.",description:"Supplier promotion available for a limited time, while stock lasts."},UNBOXED:{eyebrow:"Syntech unboxed",headline:"Open-box technology. Better value.",description:"Limited unboxed supplier stock, clearly listed and ready to shop."},LAST_CHANCE:{eyebrow:"Syntech last chance",headline:"Last stock before it is gone.",description:"A limited supplier offer that may not return once sold out."},SPECIAL:{eyebrow:"Innozanzi special",headline:"Today’s technology offer.",description:"A selected catalogue deal with clear pricing and secure checkout."}}as const;
-export function HeroSlider({products,embedded=false}:{products:ProductCardData[];embedded?:boolean}){const[active,setActive]=useState(0);useEffect(()=>{if(products.length<2||window.matchMedia("(prefers-reduced-motion: reduce)").matches)return;const timer=window.setInterval(()=>setActive(current=>(current+1)%products.length),7500);return()=>window.clearInterval(timer)},[products.length]);if(!products.length)return null;const show=(index:number)=>setActive((index+products.length)%products.length);return <section aria-roledescription="carousel" aria-label="Current technology offers" className={embedded?"h-full":"border-b border-slate-200 bg-[#f7f9fb]"}><div className={embedded?"h-full":"mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8"}><div className="relative min-h-[31rem] overflow-hidden rounded-2xl bg-[#071b33] shadow-sm sm:min-h-[34rem] lg:min-h-[31rem]"><div aria-hidden="true" className="absolute inset-0 bg-[radial-gradient(circle_at_78%_38%,rgba(56,189,248,.20),transparent_34%),radial-gradient(circle_at_8%_100%,rgba(14,165,233,.12),transparent_32%)]"/><div aria-hidden="true" className="absolute inset-y-0 right-0 w-1/2 opacity-25 [background-image:linear-gradient(rgba(255,255,255,.06)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.06)_1px,transparent_1px)] [background-size:32px_32px]"/>{products.map((product,index)=>{const copy=campaigns[product.offerType??"SPECIAL"],href=`/supplier-products/${product.slug}`,price=product.salePrice??product.regularPrice;return <article aria-hidden={active!==index} className={cn("absolute inset-0 grid transition duration-700 lg:grid-cols-[.92fr_1.08fr]",active===index?"z-10 translate-x-0 opacity-100":"pointer-events-none translate-x-3 opacity-0")} key={product.id}><div className="relative z-10 flex flex-col justify-start px-6 pb-28 pt-8 text-white sm:px-10 sm:pt-11 lg:justify-center lg:px-14 lg:pb-24 lg:pt-10"><p className="text-[11px] font-bold uppercase tracking-[.2em] text-sky-300">{copy.eyebrow}</p><h1 className="mt-4 max-w-2xl text-3xl font-semibold leading-[1.06] tracking-tight sm:text-5xl lg:text-[3.35rem]">{copy.headline}</h1><p className="mt-4 max-w-lg text-sm leading-6 text-slate-300 sm:text-base sm:leading-7">{copy.description}</p><Link className="mt-7 inline-flex min-h-12 w-fit items-center gap-2 rounded-lg bg-sky-400 px-5 font-bold text-[#071b33] transition hover:bg-sky-300" href={href}>Shop this offer<ArrowRight className="size-4"/></Link></div><Link href={href} className="absolute inset-x-5 bottom-16 top-[16.5rem] lg:inset-y-10 lg:left-[47%] lg:right-8"><div className="relative h-full overflow-hidden rounded-2xl border border-white/10 bg-white shadow-[0_28px_80px_rgba(0,0,0,.32)]">{product.images[0]?<Image src={product.images[0].path} alt={product.name} fill priority={index===0} sizes="(max-width: 1023px) 92vw, 48vw" className="object-contain p-5 sm:p-7 lg:p-10"/>:<div className="grid h-full place-items-center"><PackageSearch className="size-16 text-slate-300"/></div>}<div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-white via-white/95 to-transparent px-4 pb-4 pt-12 sm:px-6 sm:pb-5"><p className="text-[10px] font-bold uppercase tracking-[.16em] text-sky-800">{product.brand?.name??product.category.name}</p><div className="mt-1 flex items-end justify-between gap-4"><h2 className="line-clamp-1 text-sm font-bold text-slate-950 sm:text-base">{product.name}</h2>{price?<strong className="shrink-0 text-sm text-slate-950 sm:text-lg">{formatZar(price.toString())}</strong>:null}</div></div></div></Link></article>})}{products.length>1?<div className="absolute bottom-5 left-6 z-20 flex items-center gap-3 sm:left-10 lg:bottom-8 lg:left-14"><button aria-label="Previous offer" className="grid size-9 place-items-center rounded-full border border-white/25 bg-white/5 text-white hover:bg-white hover:text-[#071b33]" onClick={()=>show(active-1)}><ArrowLeft className="size-4"/></button><div className="flex gap-2">{products.map((product,index)=><button aria-label={`Show offer for ${product.name}`} aria-current={active===index} className={cn("h-1.5 rounded-full transition-all",active===index?"w-8 bg-sky-400":"w-3 bg-white/35")} key={product.id} onClick={()=>show(index)}/>)}</div><button aria-label="Next offer" className="grid size-9 place-items-center rounded-full border border-white/25 bg-white/5 text-white hover:bg-white hover:text-[#071b33]" onClick={()=>show(active+1)}><ArrowRight className="size-4"/></button></div>:null}</div></div></section>}
+
+import { ArrowLeft, ArrowRight } from "lucide-react";
+import Image from "next/image";
+import Link from "next/link";
+import { useEffect, useState } from "react";
+import { cn } from "@/lib/utils";
+
+const campaigns=[
+  {
+    eyebrow:"Current offers",
+    headline:"Technology deals, all in one place.",
+    description:"Explore current supplier promotions across computers, components, accessories, power and more.",
+    action:"View all promotions",
+    href:"/shop?collection=promotions&availability=in-stock",
+    image:"/marketing/supplier/promotions-campaign-v1.png",
+    alt:"A collection of computers, displays and everyday technology representing current promotions",
+    imagePosition:"object-center",
+  },
+  {
+    eyebrow:"Unboxed deals",
+    headline:"Open-box value. Carefully selected.",
+    description:"Browse available unboxed technology from across the supplier catalogue while stock lasts.",
+    action:"View all unboxed deals",
+    href:"/shop?collection=unboxed&availability=in-stock",
+    image:"/marketing/supplier/unboxed-campaign-v1.png",
+    alt:"A clean collection of open-box computers and technology products",
+    imagePosition:"object-center",
+  },
+  {
+    eyebrow:"Last chance",
+    headline:"Final stock. One place to find it.",
+    description:"Discover limited supplier stock across technology categories before it leaves the catalogue.",
+    action:"View all last-chance products",
+    href:"/shop?collection=last-chance&availability=in-stock",
+    image:"/marketing/supplier/last-chance-campaign-v1.png",
+    alt:"A premium collection of computers, components and technology representing last-chance stock",
+    imagePosition:"object-center",
+  },
+] as const;
+
+export function HeroSlider({embedded=false}:{embedded?:boolean;products?:unknown}){
+  const[active,setActive]=useState(0);
+  useEffect(()=>{
+    if(window.matchMedia("(prefers-reduced-motion: reduce)").matches)return;
+    const timer=window.setInterval(()=>setActive(current=>(current+1)%campaigns.length),7500);
+    return()=>window.clearInterval(timer);
+  },[]);
+  const show=(index:number)=>setActive((index+campaigns.length)%campaigns.length);
+
+  return <section aria-roledescription="carousel" aria-label="Current technology offer collections" className={embedded?"h-full":"border-b border-slate-200 bg-[#f7f9fb]"}>
+    <div className={embedded?"h-full":"mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8"}>
+      <div className="relative min-h-[31rem] overflow-hidden rounded-2xl bg-[#071b33] shadow-sm sm:min-h-[34rem] lg:min-h-[31rem]">
+        {campaigns.map((campaign,index)=><article aria-hidden={active!==index} className={cn("absolute inset-0 transition duration-700",active===index?"z-10 translate-x-0 opacity-100":"pointer-events-none translate-x-3 opacity-0")} key={campaign.href}>
+          <Image src={campaign.image} alt={campaign.alt} fill priority={index===0} sizes="(max-width: 1023px) 100vw, 75vw" className={cn("object-cover",campaign.imagePosition)}/>
+          <div aria-hidden="true" className="absolute inset-0 bg-gradient-to-r from-[#06182e] via-[#06182e]/90 via-42% to-[#06182e]/5"/>
+          <div className="relative z-10 flex h-full max-w-[48rem] flex-col justify-center px-7 pb-24 pt-10 text-white sm:px-12 lg:px-14">
+            <p className="text-[11px] font-bold uppercase tracking-[.2em] text-sky-300">{campaign.eyebrow}</p>
+            <h1 className="mt-4 max-w-xl text-4xl font-semibold leading-[1.04] tracking-tight sm:text-5xl lg:text-[3.45rem]">{campaign.headline}</h1>
+            <p className="mt-4 max-w-lg text-sm leading-6 text-slate-200 sm:text-base sm:leading-7">{campaign.description}</p>
+            <Link className="mt-7 inline-flex min-h-12 w-fit items-center gap-2 rounded-lg bg-sky-400 px-5 font-bold text-[#071b33] transition hover:bg-sky-300" href={campaign.href}>{campaign.action}<ArrowRight className="size-4"/></Link>
+          </div>
+        </article>)}
+        <div className="absolute bottom-7 left-7 z-20 flex items-center gap-3 sm:left-12 lg:left-14">
+          <button aria-label="Previous offer collection" className="grid size-9 place-items-center rounded-full border border-white/35 bg-[#071b33]/40 text-white backdrop-blur hover:bg-white hover:text-[#071b33]" onClick={()=>show(active-1)}><ArrowLeft className="size-4"/></button>
+          <div className="flex gap-2">{campaigns.map((campaign,index)=><button aria-label={`Show ${campaign.eyebrow}`} aria-current={active===index} className={cn("h-1.5 rounded-full transition-all",active===index?"w-8 bg-sky-400":"w-3 bg-white/50")} key={campaign.href} onClick={()=>show(index)}/>)}</div>
+          <button aria-label="Next offer collection" className="grid size-9 place-items-center rounded-full border border-white/35 bg-[#071b33]/40 text-white backdrop-blur hover:bg-white hover:text-[#071b33]" onClick={()=>show(active+1)}><ArrowRight className="size-4"/></button>
+        </div>
+      </div>
+    </div>
+  </section>;
+}
