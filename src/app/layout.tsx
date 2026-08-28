@@ -31,6 +31,8 @@ export async function generateMetadata(): Promise<Metadata> {
     keywords: [
       brand.shopName,
       "technology shop South Africa",
+      "computer shop South Africa",
+      "computer specialists South Africa",
       "buy laptops online",
       "buy computers online",
       "custom PC builder",
@@ -38,6 +40,7 @@ export async function generateMetadata(): Promise<Metadata> {
       "networking equipment",
       "backup power",
       "gaming computers",
+      "servers South Africa",
       "nationwide technology delivery",
     ],
     alternates: { canonical: "/" },

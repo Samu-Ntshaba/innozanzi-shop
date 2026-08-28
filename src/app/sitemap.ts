@@ -26,6 +26,7 @@ export default async function sitemap():Promise<MetadataRoute.Sitemap>{
     {url:`${base}/categories`,lastModified:now,changeFrequency:"weekly",priority:.8},
     {url:`${base}/blog`,lastModified:now,changeFrequency:"weekly",priority:.7},
     {url:`${base}/contact`,lastModified:now,changeFrequency:"monthly",priority:.7},
+    {url:`${base}/about`,lastModified:now,changeFrequency:"monthly",priority:.75},
     {url:`${base}/how-to`,lastModified:now,changeFrequency:"monthly",priority:.6},
     {url:`${base}/guides`,lastModified:now,changeFrequency:"monthly",priority:.8},
     ...guides.map(guide=>({url:`${base}/guides/${guide.slug}`,lastModified:now,changeFrequency:"monthly" as const,priority:guide.area==="PC Building"?.8:.75})),

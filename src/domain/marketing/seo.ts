@@ -10,8 +10,8 @@ export type GlobalSeoSettings={
 };
 
 const defaults:GlobalSeoSettings={
-  siteTitle:"Innozanzi | Laptops, Computers & Custom PCs",titleTemplate:"%s | Innozanzi",
-  description:"Buy laptops, computers, components and everyday technology online in South Africa. Build a compatible custom PC, pay securely and follow your delivery.",
+  siteTitle:"Innozanzi | Computer, Laptop, Gaming & PC Specialists",titleTemplate:"%s | Innozanzi",
+  description:"Shop computers, laptops, PC components, gaming gear, servers and specialist technology in South Africa. Build a compatible PC online and buy it at your pace.",
   businessName:brand.name,siteUrl:brand.siteUrl,
   defaultImage:brand.assets.socialImage,logo:brand.assets.schemaLogo,
   twitter:"",facebook:"",linkedin:"",instagram:"",phone:brand.contact.phone,email:brand.contact.email,
@@ -41,5 +41,5 @@ export async function entityMetadata(input:{entityType:string;entityId:string;pa
 export function safeJsonLd(value:unknown){return JSON.stringify(value).replace(/</g,"\\u003c")}
 
 export async function organisationJsonLd(){
-  const global=await globalSeoSettings();return{"@context":"https://schema.org","@type":["Organization","LocalBusiness"],"@id":`${global.siteUrl}/#organization`,name:global.businessName,url:global.siteUrl,logo:absoluteUrl(global.logo,global.siteUrl),email:global.email,telephone:global.phone,address:{"@type":"PostalAddress",streetAddress:global.address,addressCountry:"ZA"},areaServed:global.serviceAreas.split(",").map(name=>({"@type":"Country",name:name.trim()})),sameAs:[global.facebook,global.linkedin,global.instagram].filter(Boolean)};
+  const global=await globalSeoSettings();return{"@context":"https://schema.org","@type":["Organization","ComputerStore","OnlineStore"],"@id":`${global.siteUrl}/#organization`,name:global.businessName,url:global.siteUrl,description:global.description,logo:absoluteUrl(global.logo,global.siteUrl),email:global.email,telephone:global.phone,address:{"@type":"PostalAddress",streetAddress:global.address,addressCountry:"ZA"},areaServed:global.serviceAreas.split(",").map(name=>({"@type":"Country",name:name.trim()})),knowsAbout:["Computers","Laptops","Custom PCs","PC components","Gaming hardware","Servers","Networking","Backup power"],sameAs:[global.facebook,global.linkedin,global.instagram].filter(Boolean)};
 }

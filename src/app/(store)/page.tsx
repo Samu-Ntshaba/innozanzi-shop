@@ -11,7 +11,7 @@ import { LazyProductShelf } from "@/components/store/lazy-product-shelf";
 import { homepageShelves } from "@/domain/catalogue/homepage-shelves";
 
 export const dynamic = "force-dynamic";
-export async function generateMetadata():Promise<Metadata>{return entityMetadata({entityType:"STATIC_PAGE",entityId:"homepage",path:"/",title:"Laptops, Computers & Custom PCs in South Africa | Innozanzi",description:"Buy laptops, computers, components and everyday technology online. Build a compatible custom PC, pay securely and follow your nationwide delivery with Innozanzi.",image:"/social/innozanzi-share.png",keywords:["laptops South Africa","buy computers online","custom PC builder","computer components","Innozanzi"]})}
+export async function generateMetadata():Promise<Metadata>{return entityMetadata({entityType:"STATIC_PAGE",entityId:"homepage",path:"/",title:"Computer, Laptop, Gaming & Custom PC Specialists | Innozanzi",description:"Shop computers, laptops, PC components, gaming gear, servers and specialist technology online in South Africa. Build a compatible PC and buy it at your pace.",image:"/social/innozanzi-share.png",keywords:["computer shop South Africa","laptops South Africa","buy computers online","custom PC builder South Africa","gaming PC shop","computer components","servers South Africa","Innozanzi"]})}
 
 const trustItems = [
   { icon: Truck, title: "Nationwide delivery", body: "Trusted courier partners across South Africa" },

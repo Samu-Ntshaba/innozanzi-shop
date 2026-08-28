@@ -22,7 +22,7 @@ export const adminNavGroups: readonly NavGroup[] = [
     { links: [["Invoices", "/admin/invoices"], ["Reports", "/admin/reports"], ["Partnerships", "/admin/partnerships"]] },
   ] },
   { label: "Marketing", icon: Megaphone, sections: [
-    { links: [["Overview", "/admin/marketing"], ["LinkedIn generator", "/admin/marketing/linkedin"], ["Analytics", "/admin/marketing/analytics"], ["Product combos", "/admin/marketing/combos"]] },
+    { links: [["Overview", "/admin/marketing"], ["Marketing resources", "/admin/marketing/resources"], ["LinkedIn generator", "/admin/marketing/linkedin"], ["Analytics", "/admin/marketing/analytics"], ["Product combos", "/admin/marketing/combos"]] },
     { label: "Content", links: [["Homepage", "/admin/marketing/homepage"], ["Blog", "/admin/marketing/blog"], ["Website popups", "/admin/marketing/popups"], ["Media library", "/admin/marketing/media"], ["Email marketing", "/admin/email-marketing"]] },
     { label: "Search & discovery", links: [["Global SEO", "/admin/marketing/seo"], ["Page SEO", "/admin/marketing/page-seo"], ["SEO audit", "/admin/marketing/audit"], ["Redirects", "/admin/marketing/redirects"]] },
   ] },
@@ -50,6 +50,7 @@ export const adminRoutePermissions: Record<string, string> = {
   "/admin/partnerships/requests": "partnership.request.view",
   "/admin/partnerships/agreements": "partnership.view",
   "/admin/marketing": "marketing.dashboard.view",
+  "/admin/marketing/resources": "marketing.content.view",
   "/admin/marketing/linkedin": "marketing.content.view",
   "/admin/marketing/analytics": "marketing.analytics.view",
   "/admin/marketing/homepage": "marketing.content.view",
