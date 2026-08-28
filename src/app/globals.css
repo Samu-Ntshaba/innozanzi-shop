@@ -109,6 +109,17 @@ button, a, input, select, textarea { touch-action: manipulation; }
 
 @keyframes system-spin { to { transform: rotate(360deg); } }
 
+@keyframes pc-welcome-rise { 0% { opacity: 0; transform: translateY(4rem) scale(.65) rotate(-18deg); } 55% { opacity: 1; transform: translateY(-.35rem) scale(1.06) rotate(4deg); } 100% { opacity: 1; transform: translateY(0) scale(1) rotate(0); } }
+@keyframes pc-welcome-copy { from { opacity: 0; transform: translateY(1rem); } to { opacity: 1; transform: translateY(0); } }
+@keyframes pc-welcome-orbit { to { transform: rotate(360deg); } }
+@keyframes pc-welcome-spark { 50% { opacity: .35; transform: translate(.4rem,-.35rem) scale(.7); } }
+.pc-welcome-grid { opacity: .24; background-image: linear-gradient(rgb(56 189 248 / .11) 1px,transparent 1px),linear-gradient(90deg,rgb(56 189 248 / .11) 1px,transparent 1px),radial-gradient(circle at 50% 44%,rgb(14 165 233 / .24),transparent 34%); background-size: 34px 34px,34px 34px,100% 100%; mask-image: linear-gradient(to bottom,transparent,black 20%,black 80%,transparent); }
+.pc-welcome-rise { animation: pc-welcome-rise 1.15s cubic-bezier(.16,1,.3,1) both; }
+.pc-welcome-copy { animation: pc-welcome-copy .75s .55s ease-out both; }
+.pc-welcome-orbit { border-top-color: rgb(125 211 252 / .65); animation: pc-welcome-orbit 11s linear infinite; }
+.pc-welcome-orbit-delay { animation-direction: reverse; animation-duration: 8s; }
+.pc-welcome-spark { animation: pc-welcome-spark 1.4s ease-in-out infinite; }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
 }
