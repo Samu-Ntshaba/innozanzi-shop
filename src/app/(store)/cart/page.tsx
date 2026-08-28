@@ -1,9 +1,12 @@
 import Image from "next/image";
 import Link from "next/link";
 import type { Metadata } from "next";
+import Decimal from "decimal.js";
 import { removeCartItemAction, updateCartItemAction, removeSupplierCartItemAction, updateSupplierCartItemAction } from "@/domain/cart/actions";
 import { getCurrentCart } from "@/domain/cart/service";
-import { calculateCart, activeUnitPrice } from "@/domain/cart/calculations";
+import { activeUnitPrice } from "@/domain/cart/calculations";
+import { resolveQuotationCart } from "@/domain/catalogue/product-source";
+import { deliveryFee, FREE_DELIVERY_THRESHOLD } from "@/domain/checkout/delivery";
 import { formatZar } from "@/lib/money";
 import { requireUser } from "@/domain/auth/session";
 import { prisma } from "@/lib/prisma";
@@ -17,7 +20,10 @@ export default async function CartPage({ searchParams }: { searchParams: Promise
   const cart = await getCurrentCart();
   const items = cart?.items ?? [];
   const supplierItems = cart?.supplierItems ?? [];
-  const totals = calculateCart(items);
+  const lines = cart && (items.length || supplierItems.length) ? await resolveQuotationCart(cart, new Decimal(5)) : [];
+  const productTotal = lines.reduce((sum, line) => sum.plus(line.grossUnit.mul(line.quantity)), new Decimal(0));
+  const delivery = deliveryFee(productTotal);
+  const orderTotal = productTotal.plus(delivery);
   const supplierProducts = await prisma.supplierCatalogueProduct.findMany({ where: { OR: supplierItems.map(x => ({ supplierId: x.supplierId, supplierProductId: x.supplierProductId })) }, select: { supplierId: true, supplierProductId: true, name: true, slug: true, images: true, availability: true } });
 
   return <main className="mx-auto max-w-7xl px-4 py-7 sm:px-6 sm:py-10 lg:px-8">
@@ -33,7 +39,7 @@ export default async function CartPage({ searchParams }: { searchParams: Promise
           {supplierItems.length ? <div className="pt-5"><h2 className="text-xl font-semibold">Supplier-stock items</h2><p className="text-sm text-slate-600">Live stock and price are confirmed at checkout.</p></div> : null}
           {supplierItems.map(item => { const product=supplierProducts.find(p=>p.supplierId===item.supplierId&&p.supplierProductId===item.supplierProductId); return <article key={item.id} className="grid grid-cols-[80px_minmax(0,1fr)] gap-3 rounded-lg border border-amber-200 p-3"><div className="relative aspect-square bg-slate-50">{product?.images[0]?<Image src={product.images[0]} alt={product.name} fill sizes="80px" className="object-contain p-2"/>:null}</div><div><Link className="font-semibold" href={product?`/supplier-products/${product.slug}`:"/shop"}>{product?.name??item.supplierSku}</Link><p className="text-sm text-slate-500">Live price is confirmed securely at checkout</p><div className="mt-3 flex gap-3"><form action={updateSupplierCartItemAction}><input type="hidden" name="itemId" value={item.id}/><input className="h-11 w-20 rounded-lg border px-2" name="quantity" type="number" min="1" defaultValue={item.quantity}/><button className="ml-2 text-sm underline">Update</button></form><form action={removeSupplierCartItemAction}><input type="hidden" name="itemId" value={item.id}/><button className="min-h-11 text-sm text-red-700 underline">Remove</button></form></div></div></article> })}
         </section>
-        <aside className="h-fit rounded-lg border border-slate-200 bg-slate-50 p-4 sm:p-6 lg:sticky lg:top-36"><h2 className="text-xl font-semibold">Cart summary</h2>{items.length?<dl className="mt-4 space-y-2"><div className="flex justify-between"><dt>Priced products</dt><dd>{formatZar(totals.gross)}</dd></div></dl>:null}<Link className="mt-6 block min-h-12 rounded-md bg-sky-700 px-5 py-3 text-center font-semibold text-white" href="/checkout">Proceed to checkout</Link><p className="mt-2 text-xs text-slate-500">Supplier-stock pricing is calculated safely at checkout.</p><Link className="mt-3 block py-3 text-center text-sm text-slate-600 underline" href="/shop">Add more products</Link></aside>
+        <aside className="h-fit rounded-lg border border-slate-200 bg-slate-50 p-4 sm:p-6 lg:sticky lg:top-36"><h2 className="text-xl font-semibold">Cart summary</h2><dl className="mt-4 space-y-3 text-sm"><div className="flex justify-between"><dt>Products</dt><dd>{formatZar(productTotal)}</dd></div><div className="flex justify-between"><dt>Delivery</dt><dd className={delivery.gt(0)?"font-semibold":"font-semibold text-emerald-700"}>{delivery.gt(0)?formatZar(delivery):"FREE"}</dd></div><div className="flex justify-between border-t border-slate-200 pt-3 text-base font-bold"><dt>Total</dt><dd>{formatZar(orderTotal)}</dd></div></dl>{delivery.gt(0)?<p className="mt-3 rounded-lg bg-white p-3 text-xs leading-5 text-slate-600">R100 delivery applies below {formatZar(FREE_DELIVERY_THRESHOLD)}. Add {formatZar(FREE_DELIVERY_THRESHOLD.minus(productTotal))} more for free delivery.</p>:<p className="mt-3 text-xs font-semibold text-emerald-700">You qualify for free delivery.</p>}<Link className="mt-6 block min-h-12 rounded-md bg-sky-700 px-5 py-3 text-center font-semibold text-white" href="/checkout">Proceed to checkout</Link><p className="mt-2 text-xs text-slate-500">Prices and supplier stock are checked again securely at checkout.</p><Link className="mt-3 block py-3 text-center text-sm text-slate-600 underline" href="/shop">Add more products</Link></aside>
       </div>}
   </main>;
 }

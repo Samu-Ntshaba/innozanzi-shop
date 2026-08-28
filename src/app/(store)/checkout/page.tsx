@@ -7,6 +7,7 @@ import { requireUser } from "@/domain/auth/session";
 import { getCurrentCart } from "@/domain/cart/service";
 import { resolveQuotationCart } from "@/domain/catalogue/product-source";
 import { placeRetailOrder } from "@/domain/checkout/actions";
+import { deliveryFee, FREE_DELIVERY_THRESHOLD } from "@/domain/checkout/delivery";
 import { formatZar } from "@/lib/money";
 import { prisma } from "@/lib/prisma";
 
@@ -23,7 +24,9 @@ export default async function CheckoutPage() {
   const lines = await resolveQuotationCart(cart, new Decimal(5));
   const subtotal = lines.reduce((sum, line) => sum.plus(line.netUnit.mul(line.quantity)), new Decimal(0));
   const vat = lines.reduce((sum, line) => sum.plus(line.vatUnit.mul(line.quantity)), new Decimal(0));
-  const total = subtotal.plus(vat);
+  const productTotal = subtotal.plus(vat);
+  const delivery = deliveryFee(productTotal);
+  const total = productTotal.plus(delivery);
   const itemCount = lines.reduce((sum, line) => sum + line.quantity, 0);
 
   return <main className="min-h-screen bg-slate-50 pb-16">
@@ -48,7 +51,7 @@ export default async function CheckoutPage() {
       </div>
       <aside className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm lg:sticky lg:top-28">
         <div className="border-b border-slate-200 p-5 sm:p-6"><div className="flex items-center justify-between"><h2 className="text-xl font-bold text-slate-950">Order summary</h2><span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">{itemCount} {itemCount === 1 ? "item" : "items"}</span></div><div className="mt-5 max-h-64 space-y-4 overflow-auto pr-1">{lines.map(line => <div className="flex justify-between gap-4 text-sm" key={`${line.sourceType}-${line.sourceId}`}><div className="min-w-0"><p className="line-clamp-2 font-semibold leading-5 text-slate-800">{line.productName}</p><p className="mt-1 text-xs text-slate-500">Quantity {line.quantity}</p></div><span className="shrink-0 font-semibold text-slate-900">{formatZar(line.grossUnit.mul(line.quantity))}</span></div>)}</div></div>
-        <div className="border-b border-slate-200 bg-slate-50 p-5 sm:p-6"><dl className="space-y-3 text-sm"><div className="flex justify-between text-slate-600"><dt>Subtotal</dt><dd>{formatZar(subtotal)}</dd></div>{vat.gt(0) ? <div className="flex justify-between text-slate-600"><dt>VAT</dt><dd>{formatZar(vat)}</dd></div> : null}<div className="flex items-end justify-between border-t border-slate-200 pt-4"><dt className="text-base font-bold text-slate-950">Order total</dt><dd className="text-2xl font-black tracking-tight text-slate-950">{formatZar(total)}</dd></div></dl></div>
+        <div className="border-b border-slate-200 bg-slate-50 p-5 sm:p-6"><dl className="space-y-3 text-sm"><div className="flex justify-between text-slate-600"><dt>Subtotal</dt><dd>{formatZar(subtotal)}</dd></div>{vat.gt(0) ? <div className="flex justify-between text-slate-600"><dt>VAT</dt><dd>{formatZar(vat)}</dd></div> : null}<div className="flex justify-between text-slate-600"><dt>Delivery</dt><dd className={delivery.gt(0)?"font-semibold text-slate-900":"font-semibold text-emerald-700"}>{delivery.gt(0)?formatZar(delivery):"FREE"}</dd></div>{delivery.gt(0)?<p className="rounded-lg bg-sky-50 px-3 py-2 text-xs leading-5 text-sky-900">R100 delivery applies because the product total is below {formatZar(FREE_DELIVERY_THRESHOLD)}.</p>:<p className="text-xs font-semibold text-emerald-700">You qualify for free delivery.</p>}<div className="flex items-end justify-between border-t border-slate-200 pt-4"><dt className="text-base font-bold text-slate-950">Order total</dt><dd className="text-2xl font-black tracking-tight text-slate-950">{formatZar(total)}</dd></div></dl></div>
         <PaymentMethodSelector total={formatZar(total)}/>
       </aside>
     </form>
