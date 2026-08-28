@@ -30,7 +30,8 @@ export async function getHomepageShelfProducts(key:string) {
 export async function getHomepageCatalogue() {
   try {
     const merchandiseWhere={active:true,availability:"IN_STOCK" as const,images:{isEmpty:false}};
-    const [supplierCategories, featured, specials, popular, brands,supplierNewest,total,inStock,laptopsAndComputers,monitors,accessories,networking,powerAndBackup] = await Promise.all([
+    const now=new Date();
+    const [supplierCategories, featured, specials, popular, brands,supplierNewest,total,inStock,laptopsAndComputers,monitors,accessories,networking,powerAndBackup,promotions,unboxed,lastChance] = await Promise.all([
       prisma.supplierCatalogueProduct.groupBy({by:["category"],where:{active:true,category:{not:null}},_count:true,orderBy:{_count:{category:"desc"}},take:8}),
       prisma.product.findMany({ where: { status: "PUBLISHED", deletedAt: null,isTestData:false, isFeatured: true }, take: 8, orderBy: { updatedAt: "desc" }, select: productCardSelect }),
       prisma.product.findMany({ where: { status: "PUBLISHED", deletedAt: null,isTestData:false, isSpecial: true }, take: 8, orderBy: { updatedAt: "desc" }, select: productCardSelect }),
@@ -43,6 +44,9 @@ export async function getHomepageCatalogue() {
       prisma.supplierCatalogueProduct.findMany({where:{...merchandiseWhere,costPrice:{gt:0},OR:[{categoryPath:{startsWith:"Computer peripherals/Keyboards/"}},{categoryPath:{startsWith:"Computer peripherals/Mice/"}},{categoryPath:{startsWith:"Computer peripherals/Headsets/"}},{categoryPath:{startsWith:"Computer peripherals/Hubs & docking stations"}},{categoryPath:{startsWith:"Computer peripherals/Stands and cooling"}}]},orderBy:{costPrice:"asc"},take:12,select:supplierCardSelect}),
       prisma.supplierCatalogueProduct.findMany({where:{...merchandiseWhere,costPrice:{gt:0},category:"Networking & security"},orderBy:{costPrice:"asc"},take:12,select:supplierCardSelect}),
       prisma.supplierCatalogueProduct.findMany({where:{...merchandiseWhere,costPrice:{gt:0},OR:[{categoryPath:{startsWith:"Power/UPS & inverters"}},{categoryPath:{startsWith:"Power/Portable power stations"}},{categoryPath:{startsWith:"Power/Power banks"}}]},orderBy:{costPrice:"asc"},take:12,select:supplierCardSelect}),
+      prisma.supplierCatalogueProduct.findMany({where:{...merchandiseWhere,stock:{gt:0},costPrice:{gt:0},promotionalPrice:{not:null},AND:[{OR:[{promotionStartsAt:null},{promotionStartsAt:{lte:now}}]},{OR:[{promotionEndsAt:null},{promotionEndsAt:{gte:now}}]}]},orderBy:[{promotionEndsAt:"asc"},{sourceUpdatedAt:"desc"}],take:4,select:supplierCardSelect}),
+      prisma.supplierCatalogueProduct.findMany({where:{...merchandiseWhere,stock:{gt:0},costPrice:{gt:0},categoryPath:{contains:"|Unboxed",mode:"insensitive"}},orderBy:{sourceUpdatedAt:"desc"},take:4,select:supplierCardSelect}),
+      prisma.supplierCatalogueProduct.findMany({where:{...merchandiseWhere,stock:{gt:0},costPrice:{gt:0},categoryPath:{contains:"|Last Chance",mode:"insensitive"}},orderBy:{stock:"asc"},take:4,select:supplierCardSelect}),
     ]);
     const categories=supplierCategories.map((x,index)=>({id:`supplier-${index}`,name:x.category!,slug:x.category!,description:`${x._count.toLocaleString("en-ZA")} catalogue products`,imagePath:null}));
     const supplierCards=supplierNewest.map(supplierCard);
@@ -50,20 +54,22 @@ export async function getHomepageCatalogue() {
     const curated={laptopsAndComputers:computerCards.slice(0,4),monitors:monitorCards.slice(0,4),accessories:accessoryCards.slice(0,4),networking:networkCards.slice(0,4),powerAndBackup:powerCards.slice(0,4)};
     const rotation=Math.floor(Date.now()/86_400_000);
     const affordable=[...supplierCards,...computerCards,...monitorCards,...accessoryCards,...powerCards].filter((product,index,array)=>array.findIndex(row=>row.id===product.id)===index);const heroProducts=affordable.length?[affordable[rotation%affordable.length],affordable[(rotation+1)%affordable.length],affordable[(rotation+2)%affordable.length]].filter((x):x is ProductCardData=>Boolean(x)):[];
-    return { categories, featured:featured.length?featured:supplierCards.slice(0,4), newest:supplierCards, specials, popular, brands,total,inStock,...curated,heroProducts };
+    return { categories, featured:featured.length?featured:supplierCards.slice(0,4), newest:supplierCards, specials, popular, brands,total,inStock,...curated,heroProducts,promotions:promotions.map(supplierCard),unboxed:unboxed.map(supplierCard),lastChance:lastChance.map(supplierCard) };
   } catch (error) {
     console.error("Catalogue unavailable", error);
-    return { categories: [], featured: [], newest: [], specials: [], popular: [], brands: [],total:0,inStock:0,laptopsAndComputers:[],monitors:[],accessories:[],networking:[],powerAndBackup:[],heroProducts:[] };
+    return { categories: [], featured: [], newest: [], specials: [], popular: [], brands: [],total:0,inStock:0,laptopsAndComputers:[],monitors:[],accessories:[],networking:[],powerAndBackup:[],heroProducts:[],promotions:[],unboxed:[],lastChance:[] };
   }
 }
 
-export async function getCatalogue(input: { search?: string; category?: string; brand?: string; availability?:string; promotion?:string; sort?: string; page?: number }) {
+export async function getCatalogue(input: { search?: string; category?: string; brand?: string; availability?:string; promotion?:string; collection?:string; sort?: string; page?: number }) {
   const page = Math.max(1, input.page ?? 1);
   const pageSize = 12;
   const search=input.search?.trim();
   const searchTerms=catalogueSearchTerms(search);
   let category=input.category?.trim();try{if(category)category=decodeURIComponent(category)}catch{/* Keep the original category. */}
   const businessComputers=category==="business-computers";
+  const catalogueNow=new Date();
+  const promotionsOnly=input.promotion==="active"||input.collection==="promotions";
   const where = {
     status: "PUBLISHED" as const,
     deletedAt: null,
@@ -75,16 +81,17 @@ export async function getCatalogue(input: { search?: string; category?: string; 
   const orderBy = input.sort === "name" ? { name: "asc" as const } : { publishedAt: "desc" as const };
 
   try {
-    const supplierWhere={active:true,AND:[...(search?[{OR:searchTerms.flatMap(term=>[{name:{contains:term,mode:"insensitive" as const}},{supplierSku:{contains:term,mode:"insensitive" as const}},{manufacturerSku:{contains:term,mode:"insensitive" as const}},{brand:{contains:term,mode:"insensitive" as const}},{category:{contains:term,mode:"insensitive" as const}},{categoryPath:{contains:term,mode:"insensitive" as const}},{description:{contains:term,mode:"insensitive" as const}},{shortDescription:{contains:term,mode:"insensitive" as const}}])}]:[]),...(businessComputers?[{category:"Computers",OR:[{categoryPath:{contains:"Creator",mode:"insensitive" as const}},{categoryPath:{contains:"Notebooks",mode:"insensitive" as const}},{name:{contains:"workstation",mode:"insensitive" as const}}]}]:input.category?[{category:{equals:input.category,mode:"insensitive" as const}}]:[])],...(input.brand?{brand:{equals:input.brand,mode:"insensitive" as const}}:{}),...(input.availability==="in-stock"?{availability:"IN_STOCK"}:{}),...(input.promotion==="active"?{promotionalPrice:{not:null}}:{})};
+    const supplierWhere={active:true,AND:[...(search?[{OR:searchTerms.flatMap(term=>[{name:{contains:term,mode:"insensitive" as const}},{supplierSku:{contains:term,mode:"insensitive" as const}},{manufacturerSku:{contains:term,mode:"insensitive" as const}},{brand:{contains:term,mode:"insensitive" as const}},{category:{contains:term,mode:"insensitive" as const}},{categoryPath:{contains:term,mode:"insensitive" as const}},{description:{contains:term,mode:"insensitive" as const}},{shortDescription:{contains:term,mode:"insensitive" as const}}])}]:[]),...(businessComputers?[{category:"Computers",OR:[{categoryPath:{contains:"Creator",mode:"insensitive" as const}},{categoryPath:{contains:"Notebooks",mode:"insensitive" as const}},{name:{contains:"workstation",mode:"insensitive" as const}}]}]:input.category?[{category:{equals:input.category,mode:"insensitive" as const}}]:[]),...(input.collection==="unboxed"?[{categoryPath:{contains:"|Unboxed",mode:"insensitive" as const}}]:[]),...(input.collection==="last-chance"?[{categoryPath:{contains:"|Last Chance",mode:"insensitive" as const}}]:[]),...(promotionsOnly?[{promotionalPrice:{not:null}},{OR:[{promotionStartsAt:null},{promotionStartsAt:{lte:catalogueNow}}]},{OR:[{promotionEndsAt:null},{promotionEndsAt:{gte:catalogueNow}}]}]:[])],...(input.brand?{brand:{equals:input.brand,mode:"insensitive" as const}}:{}),...(input.availability==="in-stock"?{availability:"IN_STOCK"}:{})};
+    const supplierOnly=Boolean(input.promotion||input.collection);
     const [supplierTotal,manualTotal,supplierCategories,supplierBrands,manualCategories,manualBrands]=await Promise.all([
-      prisma.supplierCatalogueProduct.count({where:supplierWhere}),prisma.product.count({where}),
+      prisma.supplierCatalogueProduct.count({where:supplierWhere}),supplierOnly?Promise.resolve(0):prisma.product.count({where}),
       prisma.supplierCatalogueProduct.findMany({where:{active:true,category:{not:null}},distinct:["category"],select:{category:true},orderBy:{category:"asc"}}),
       prisma.supplierCatalogueProduct.findMany({where:{active:true,brand:{not:null}},distinct:["brand"],select:{brand:true},orderBy:{brand:"asc"}}),
       prisma.category.findMany({where:{isActive:true},orderBy:{name:"asc"},select:{name:true,slug:true}}),prisma.brand.findMany({where:{isActive:true},orderBy:{name:"asc"},select:{name:true,slug:true}})
     ]);
     const skip=(page-1)*pageSize;const supplierTake=Math.max(0,Math.min(pageSize,supplierTotal-skip));const manualSkip=Math.max(0,skip-supplierTotal);const [supplierProducts,manualProducts]=await Promise.all([
       supplierTake?prisma.supplierCatalogueProduct.findMany({where:supplierWhere,orderBy:input.sort==="name"?{name:"asc"}:input.sort==="stock"?{stock:"desc"}:input.sort==="oldest"?{sourceUpdatedAt:"asc"}:{sourceUpdatedAt:"desc"},skip,take:supplierTake,select:supplierCardSelect}):[],
-      supplierTake<pageSize?prisma.product.findMany({where,orderBy,skip:manualSkip,take:pageSize-supplierTake,select:productCardSelect}):[]
+      !supplierOnly&&supplierTake<pageSize?prisma.product.findMany({where,orderBy,skip:manualSkip,take:pageSize-supplierTake,select:productCardSelect}):[]
     ]);
     const products=[...supplierProducts.map(supplierCard),...manualProducts];
     const total=supplierTotal+manualTotal;const categories=[...supplierCategories.map(x=>({name:x.category!,slug:x.category!})),...manualCategories];const brands=[...supplierBrands.map(x=>({name:x.brand!,slug:x.brand!})),...manualBrands];

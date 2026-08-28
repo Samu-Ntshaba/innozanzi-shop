@@ -9,7 +9,7 @@ function BrandRail({duplicate=false}:{duplicate?:boolean}){
 export function BrandPartners(){
   return <section aria-labelledby="brand-partners-title" className="border-y border-slate-200 bg-white">
     <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-      <div className="flex items-center justify-between gap-4"><h2 className="text-xl font-semibold text-slate-950 sm:text-2xl" id="brand-partners-title">Brands we work with</h2><Link className="shrink-0 text-sm font-semibold text-sky-800 hover:underline" href="/shop">View all products</Link></div>
+      <div className="flex items-center justify-between gap-4"><h2 className="text-xl font-semibold text-slate-950 sm:text-2xl" id="brand-partners-title">Brands available in our catalogue</h2><Link className="shrink-0 text-sm font-semibold text-sky-800 hover:underline" href="/shop">View all products</Link></div>
       <div className="brand-marquee mt-4 overflow-hidden" role="region" aria-label="Supplier brands"><div className="brand-marquee-track flex w-max"><BrandRail/><BrandRail duplicate/></div></div>
     </div>
   </section>;

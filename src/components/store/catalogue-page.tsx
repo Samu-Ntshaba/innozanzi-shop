@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ProductCard } from "./product-card";
 import { getCatalogue } from "@/domain/catalogue/queries";
 
-type CatalogueParams = { search?: string; category?: string; brand?: string; availability?: string; promotion?: string; sort?: string; page?: string };
+type CatalogueParams = { search?: string; category?: string; brand?: string; availability?: string; promotion?: string; collection?: string; sort?: string; page?: string };
 
 export async function CataloguePage({ params, heading = "Shop technology" }: { params: CatalogueParams; heading?: string }) {
   const result = await getCatalogue({ ...params, page: Number(params.page) || 1 });
@@ -11,7 +11,7 @@ export async function CataloguePage({ params, heading = "Shop technology" }: { p
     <select className="h-12 min-w-0 rounded-lg border border-zinc-300 bg-white px-3 text-base sm:text-sm" name="category" defaultValue={params.category}><option value="">All categories</option>{result.categories.map(category => <option key={category.slug} value={category.slug}>{category.name}</option>)}</select>
     <select className="h-12 min-w-0 rounded-lg border border-zinc-300 bg-white px-3 text-base sm:text-sm" name="brand" defaultValue={params.brand}><option value="">All brands</option>{result.brands.map(brand => <option key={brand.slug} value={brand.slug}>{brand.name}</option>)}</select>
     <select className="h-12 min-w-0 rounded-lg border border-zinc-300 bg-white px-3 text-base sm:text-sm" name="availability" defaultValue={params.availability}><option value="">Any availability</option><option value="in-stock">In stock</option></select>
-    <select className="h-12 min-w-0 rounded-lg border border-zinc-300 bg-white px-3 text-base sm:text-sm" name="promotion" defaultValue={params.promotion}><option value="">All catalogue products</option><option value="active">Supplier promotions</option></select>
+    <select className="h-12 min-w-0 rounded-lg border border-zinc-300 bg-white px-3 text-base sm:text-sm" name="collection" defaultValue={params.collection}><option value="">All catalogue products</option><option value="promotions">On promotion</option><option value="unboxed">Unboxed</option><option value="last-chance">Last chance</option></select>
     <select className="h-12 min-w-0 rounded-lg border border-zinc-300 bg-white px-3 text-base sm:text-sm" name="sort" defaultValue={params.sort}><option value="newest">Recently updated</option><option value="name">Name A–Z</option><option value="stock">Most available</option><option value="oldest">Oldest updated</option></select>
     <button className="h-12 rounded-md bg-[#071b33] px-4 text-sm font-semibold text-white" type="submit">Show products</button>
   </>;

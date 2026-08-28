@@ -39,7 +39,11 @@ export default async function HomePage() {
       <div className="hidden sm:block"><BrandPartners /></div>
       <div className="bg-white"><RecommendationSection recommendations={recommendations}/></div>
 
-      <div className="bg-slate-50/70">
+      {catalogue.promotions.length?<div className="bg-slate-50/70"><ProductSection eyebrow="Current supplier offers" title="Products on promotion" products={catalogue.promotions} href="/shop?collection=promotions&availability=in-stock" /></div>:null}
+      {catalogue.unboxed.length?<ProductSection eyebrow="Limited open-box availability" title="Unboxed products" products={catalogue.unboxed} href="/shop?collection=unboxed&availability=in-stock" />:null}
+      {catalogue.lastChance.length?<div className="bg-slate-50/70"><ProductSection eyebrow="Limited supplier stock" title="Last chance" products={catalogue.lastChance} href="/shop?collection=last-chance&availability=in-stock" /></div>:null}
+
+      <div className="bg-white">
         <ProductSection eyebrow="Popular everyday technology" title="Laptops & computers" products={catalogue.laptopsAndComputers} href="/shop?search=laptop&availability=in-stock" />
       </div>
       <ProductSection eyebrow="Work, study and play" title="Monitors" products={catalogue.monitors} href="/shop?search=monitor&availability=in-stock" />
