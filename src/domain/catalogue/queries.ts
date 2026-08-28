@@ -50,11 +50,15 @@ export async function getHomepageCatalogue() {
     ]);
     const categories=supplierCategories.map((x,index)=>({id:`supplier-${index}`,name:x.category!,slug:x.category!,description:`${x._count.toLocaleString("en-ZA")} catalogue products`,imagePath:null}));
     const supplierCards=supplierNewest.map(supplierCard);
+    const promotionCards=promotions.map(product=>({...supplierCard(product),offerType:"PROMOTION" as const}));
+    const unboxedCards=unboxed.map(product=>({...supplierCard(product),offerType:"UNBOXED" as const}));
+    const lastChanceCards=lastChance.map(product=>({...supplierCard(product),offerType:"LAST_CHANCE" as const}));
     const computerCards=laptopsAndComputers.map(supplierCard),monitorCards=monitors.map(supplierCard),accessoryCards=accessories.map(supplierCard),networkCards=networking.map(supplierCard),powerCards=powerAndBackup.map(supplierCard);
     const curated={laptopsAndComputers:computerCards.slice(0,4),monitors:monitorCards.slice(0,4),accessories:accessoryCards.slice(0,4),networking:networkCards.slice(0,4),powerAndBackup:powerCards.slice(0,4)};
-    const rotation=Math.floor(Date.now()/86_400_000);
-    const affordable=[...supplierCards,...computerCards,...monitorCards,...accessoryCards,...powerCards].filter((product,index,array)=>array.findIndex(row=>row.id===product.id)===index);const heroProducts=affordable.length?[affordable[rotation%affordable.length],affordable[(rotation+1)%affordable.length],affordable[(rotation+2)%affordable.length]].filter((x):x is ProductCardData=>Boolean(x)):[];
-    return { categories, featured:featured.length?featured:supplierCards.slice(0,4), newest:supplierCards, specials, popular, brands,total,inStock,...curated,heroProducts,promotions:promotions.map(supplierCard),unboxed:unboxed.map(supplierCard),lastChance:lastChance.map(supplierCard) };
+    const priorityOffers=[promotionCards[0],unboxedCards[0],lastChanceCards[0]].filter(product=>product!==undefined);
+    const supplierOffers=[...priorityOffers,...promotionCards,...unboxedCards,...lastChanceCards,...supplierCards.map(product=>({...product,offerType:"SPECIAL" as const}))].filter((product,index,array)=>array.findIndex(row=>row.id===product.id)===index);
+    const heroProducts=supplierOffers.slice(0,3);
+    return { categories, featured:featured.length?featured:supplierCards.slice(0,4), newest:supplierCards, specials, popular, brands,total,inStock,...curated,heroProducts,promotions:promotionCards,unboxed:unboxedCards,lastChance:lastChanceCards };
   } catch (error) {
     console.error("Catalogue unavailable", error);
     return { categories: [], featured: [], newest: [], specials: [], popular: [], brands: [],total:0,inStock:0,laptopsAndComputers:[],monitors:[],accessories:[],networking:[],powerAndBackup:[],heroProducts:[],promotions:[],unboxed:[],lastChance:[] };
@@ -151,5 +155,5 @@ export type ProductCardData = {
   id:string;name:string;slug:string;sku:string;stockStatus:string;
   regularPrice?:{toString():string}|string|null;salePrice?:{toString():string}|string|null;saleStartsAt?:Date|null;saleEndsAt?:Date|null;
   brand:{name:string;slug:string}|null;category:{name:string;slug:string};
-  images:{path:string;altText:string|null}[];source?:"supplier";
+  images:{path:string;altText:string|null}[];source?:"supplier";offerType?:"PROMOTION"|"UNBOXED"|"LAST_CHANCE"|"SPECIAL";
 };

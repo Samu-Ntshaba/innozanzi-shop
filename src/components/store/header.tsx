@@ -44,12 +44,12 @@ export async function StoreHeader() {
       </form>
       <nav aria-label="Customer shortcuts" className="ml-auto flex shrink-0 items-center gap-1">
         <Link className="hidden items-center gap-2 whitespace-nowrap rounded-md p-2 text-sm font-medium text-slate-700 hover:bg-slate-50 sm:flex" href="/contact"><Headphones className="size-5" /><span className="hidden 2xl:inline">Help</span></Link>
-        {auth ? <Link aria-label="Account" className="grid size-11 place-items-center rounded-md text-slate-700 hover:bg-slate-50 xl:flex xl:w-auto xl:gap-2 xl:px-3" href="/account"><UserRound className="size-5" /><span className="hidden xl:inline">Account</span></Link> : <>
+        {auth ? <Link aria-label="Account" title="Account" className="grid size-11 place-items-center rounded-md text-slate-700 hover:bg-slate-50" href="/account"><UserRound className="size-5" /></Link> : <>
           <Link aria-label="Log in" className="grid size-11 place-items-center whitespace-nowrap rounded-md text-slate-700 hover:bg-slate-50 xl:flex xl:w-auto xl:gap-2 xl:px-3" href="/sign-in"><LogIn className="size-5" /><span className="hidden xl:inline">Log in</span></Link>
           <Link className="hidden min-h-10 items-center gap-2 whitespace-nowrap rounded-md bg-sky-700 px-4 text-sm font-bold text-white hover:bg-sky-800 sm:flex" href="/register"><UserPlus className="size-4" />Sign up</Link>
         </>}
-        <Link aria-label={auth ? `Cart with ${cartCount} item${cartCount === 1 ? "" : "s"}` : "Log in to create a cart"} className="relative flex size-11 items-center justify-center rounded-md bg-[#071b33] text-white sm:w-auto sm:gap-2 sm:px-4" href={auth ? "/cart" : "/sign-in"}>
-          <ShoppingCart className="size-5" /><span className="hidden sm:inline">Cart</span>
+        <Link aria-label={auth ? `Cart with ${cartCount} item${cartCount === 1 ? "" : "s"}` : "Log in to create a cart"} title={auth?"Cart":"Log in to create a cart"} className="relative grid size-11 place-items-center rounded-md bg-[#071b33] text-white" href={auth ? "/cart" : "/sign-in"}>
+          <ShoppingCart className="size-5" />
           {cartCount ? <span className="absolute -right-1 -top-1 grid size-5 place-items-center rounded-full bg-sky-600 text-[10px] font-bold text-white">{cartCount > 9 ? "9+" : cartCount}</span> : null}
         </Link>
       </nav>
