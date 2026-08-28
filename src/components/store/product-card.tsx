@@ -9,9 +9,13 @@ export function ProductCard({ product,recommendationId }: { product: ProductCard
   const image = product.images[0];
   const inStock = product.stockStatus === "IN_STOCK" || product.stockStatus === "LOW_STOCK";
   const now=new Date();const saleActive=product.salePrice&&(!product.saleStartsAt||product.saleStartsAt<=now)&&(!product.saleEndsAt||product.saleEndsAt>=now);const price=saleActive?product.salePrice:product.regularPrice;
+  const regular=product.regularPrice?Number(product.regularPrice.toString()):null,sale=saleActive?Number(product.salePrice!.toString()):null;
+  const savingPercent=regular&&sale&&sale<regular?Math.round((1-sale/regular)*100):null;
+  const flags=product.marketingFlags??[];
   return (
     <article className="group flex h-full flex-col overflow-hidden rounded-lg border border-slate-200 bg-white transition hover:border-slate-400 hover:shadow-md">
       <Link href={href} className="relative block aspect-[4/3] overflow-hidden bg-white sm:aspect-square">
+        {(saleActive||flags.length)?<div className="absolute left-3 top-3 z-10 flex max-w-[calc(100%-1.5rem)] flex-wrap gap-1.5">{saleActive?<span className="rounded-full bg-emerald-600 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-white shadow-sm">{savingPercent?`Save ${savingPercent}%`:"On promotion"}</span>:null}{flags.includes("UNBOXED")?<span className="rounded-full bg-sky-700 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-white shadow-sm">Unboxed</span>:null}{flags.includes("LAST_CHANCE")?<span className="rounded-full bg-amber-500 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-slate-950 shadow-sm">Last chance</span>:null}{flags.includes("SPECIAL")&&!saleActive?<span className="rounded-full bg-[#071b33] px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-white shadow-sm">Special</span>:null}</div>:null}
         {image ? <Image src={image.path} alt={image.altText ?? product.name} fill sizes="(max-width: 479px) 100vw, (max-width: 1023px) 50vw, 25vw" className="object-contain p-4 transition duration-300 group-hover:scale-105 sm:p-5" /> : <div className="grid h-full place-items-center bg-slate-50 px-3 text-center text-xs text-slate-400">Product image coming soon</div>}
       </Link>
       <div className="flex min-w-0 flex-1 flex-col border-t border-slate-100 p-3.5 sm:p-4">

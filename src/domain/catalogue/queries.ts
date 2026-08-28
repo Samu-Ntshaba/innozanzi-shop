@@ -3,6 +3,9 @@ import { isDailySpecial, supplierRetailPrice } from "./retail-pricing";
 import { catalogueSearchTerms } from "./search";
 import { homepageShelf } from "./homepage-shelves";
 
+export type ProductMarketingFlag="PROMOTION"|"UNBOXED"|"LAST_CHANCE"|"SPECIAL";
+export function supplierMarketingFlags(categoryPath:string|null|undefined,promotionActive:boolean,special:boolean):ProductMarketingFlag[]{const path=categoryPath?.toLowerCase()??"",flags:ProductMarketingFlag[]=[];if(promotionActive)flags.push("PROMOTION");if(path.includes("|unboxed"))flags.push("UNBOXED");if(path.includes("|last chance"))flags.push("LAST_CHANCE");if(special&&!promotionActive)flags.push("SPECIAL");return flags}
+
 const productCardSelect = {
   id: true,
   name: true,
@@ -18,9 +21,9 @@ const productCardSelect = {
   images: { where: { isPrimary: true }, take: 1, select: { path: true, altText: true } },
 } as const;
 
-const supplierCardSelect = {id:true,name:true,slug:true,supplierSku:true,availability:true,brand:true,category:true,images:true,costPrice:true,recommendedRetail:true,promotionalPrice:true,promotionStartsAt:true,promotionEndsAt:true} as const;
-type SupplierCardRow = {id:string;name:string;slug:string;supplierSku:string;availability:string;brand:string|null;category:string|null;images:string[];costPrice:{toString():string}|null;recommendedRetail:{toString():string}|null;promotionalPrice:{toString():string}|null;promotionStartsAt:Date|null;promotionEndsAt:Date|null};
-const supplierCard = (p:SupplierCardRow):ProductCardData => {const price=p.costPrice?supplierRetailPrice({costPrice:p.costPrice.toString(),recommendedRetail:p.recommendedRetail?.toString(),promotionalPrice:p.promotionalPrice?.toString(),promotionStartsAt:p.promotionStartsAt,promotionEndsAt:p.promotionEndsAt,special:isDailySpecial(p.id)}):null;return{id:p.id,name:p.name,slug:p.slug,sku:p.supplierSku,stockStatus:p.availability==="IN_STOCK"?"IN_STOCK":"OUT_OF_STOCK",brand:p.brand?{name:p.brand,slug:p.brand.toLowerCase()}:null,category:{name:p.category??"Catalogue",slug:p.category??"catalogue"},images:p.images.slice(0,1).map(path=>({path,altText:p.name})),regularPrice:price?.regularPrice.toString()??null,salePrice:price?.salePrice?.toString()??null,saleStartsAt:null,saleEndsAt:null,source:"supplier"}};
+const supplierCardSelect = {id:true,name:true,slug:true,supplierSku:true,availability:true,brand:true,category:true,categoryPath:true,images:true,costPrice:true,recommendedRetail:true,promotionalPrice:true,promotionStartsAt:true,promotionEndsAt:true} as const;
+type SupplierCardRow = {id:string;name:string;slug:string;supplierSku:string;availability:string;brand:string|null;category:string|null;categoryPath:string|null;images:string[];costPrice:{toString():string}|null;recommendedRetail:{toString():string}|null;promotionalPrice:{toString():string}|null;promotionStartsAt:Date|null;promotionEndsAt:Date|null};
+const supplierCard = (p:SupplierCardRow):ProductCardData => {const special=isDailySpecial(p.id),price=p.costPrice?supplierRetailPrice({costPrice:p.costPrice.toString(),recommendedRetail:p.recommendedRetail?.toString(),promotionalPrice:p.promotionalPrice?.toString(),promotionStartsAt:p.promotionStartsAt,promotionEndsAt:p.promotionEndsAt,special}):null,marketingFlags=supplierMarketingFlags(p.categoryPath,Boolean(price?.promotionActive),special);return{id:p.id,name:p.name,slug:p.slug,sku:p.supplierSku,stockStatus:p.availability==="IN_STOCK"?"IN_STOCK":"OUT_OF_STOCK",brand:p.brand?{name:p.brand,slug:p.brand.toLowerCase()}:null,category:{name:p.category??"Catalogue",slug:p.category??"catalogue"},images:p.images.slice(0,1).map(path=>({path,altText:p.name})),regularPrice:price?.regularPrice.toString()??null,salePrice:price?.salePrice?.toString()??null,saleStartsAt:null,saleEndsAt:null,source:"supplier",marketingFlags}};
 
 export async function getHomepageShelfProducts(key:string) {
   const shelf=homepageShelf(key);if(!shelf)return [];
@@ -155,5 +158,5 @@ export type ProductCardData = {
   id:string;name:string;slug:string;sku:string;stockStatus:string;
   regularPrice?:{toString():string}|string|null;salePrice?:{toString():string}|string|null;saleStartsAt?:Date|null;saleEndsAt?:Date|null;
   brand:{name:string;slug:string}|null;category:{name:string;slug:string};
-  images:{path:string;altText:string|null}[];source?:"supplier";offerType?:"PROMOTION"|"UNBOXED"|"LAST_CHANCE"|"SPECIAL";
+  images:{path:string;altText:string|null}[];source?:"supplier";offerType?:"PROMOTION"|"UNBOXED"|"LAST_CHANCE"|"SPECIAL";marketingFlags?:ProductMarketingFlag[];
 };

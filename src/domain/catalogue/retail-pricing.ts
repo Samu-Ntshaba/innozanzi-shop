@@ -10,10 +10,16 @@ export function minimumRetailPrice(cost: Decimal.Value) {
 }
 
 export function supplierRetailPrice(input:{costPrice:Decimal.Value;recommendedRetail?:Decimal.Value|null;promotionalPrice?:Decimal.Value|null;promotionStartsAt?:Date|null;promotionEndsAt?:Date|null;special?:boolean;now?:Date}){
-  const now=input.now??new Date();const floor=minimumRetailPrice(input.costPrice);const promotionActive=input.promotionalPrice&&(!input.promotionStartsAt||input.promotionStartsAt<=now)&&(!input.promotionEndsAt||input.promotionEndsAt>=now);
-  const reference=new Decimal(promotionActive?input.promotionalPrice!:input.recommendedRetail??floor);const regular=Decimal.max(floor,reference).toDecimalPlaces(2);
-  const discounted=regular.mul(new Decimal(1).minus(DAILY_SPECIAL_DISCOUNT_PERCENT.div(100))).toDecimalPlaces(2,Decimal.ROUND_DOWN);
-  return{regularPrice:regular,salePrice:input.special?Decimal.max(floor,discounted):null,minimumPrice:floor};
+  const now=input.now??new Date();
+  const standardFloor=minimumRetailPrice(input.costPrice);
+  const promotionActive=Boolean(input.promotionalPrice&&new Decimal(input.promotionalPrice).lt(input.costPrice)&&(!input.promotionStartsAt||input.promotionStartsAt<=now)&&(!input.promotionEndsAt||input.promotionEndsAt>=now));
+  const activeFloor=promotionActive?minimumRetailPrice(input.promotionalPrice!):standardFloor;
+  const regular=Decimal.max(standardFloor,input.recommendedRetail??standardFloor).toDecimalPlaces(2);
+  const promotionalRetail=promotionActive?activeFloor:null;
+  const dailyDiscount=regular.mul(new Decimal(1).minus(DAILY_SPECIAL_DISCOUNT_PERCENT.div(100))).toDecimalPlaces(2,Decimal.ROUND_DOWN);
+  const saleCandidate=promotionalRetail??(input.special?Decimal.max(activeFloor,dailyDiscount):null);
+  const salePrice=saleCandidate&&saleCandidate.lt(regular)?saleCandidate:null;
+  return{regularPrice:regular,salePrice,minimumPrice:activeFloor,promotionActive};
 }
 
 export function isDailySpecial(id:string,now=new Date()){
