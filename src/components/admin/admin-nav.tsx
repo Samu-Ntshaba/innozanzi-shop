@@ -16,7 +16,7 @@ export const adminNavGroups: readonly NavGroup[] = [
     { links: [["Delivery", "/admin/delivery-notes"], ["Logistics", "/admin/logistics"], ["Returns", "/admin/returns"], ["Inventory", "/admin/inventory"]] },
   ] },
   { label: "Catalogue", icon: Boxes, sections: [
-    { links: [["Products", "/admin/products"], ["Suppliers & feeds", "/admin/syntech"], ["Suppliers", "/admin/suppliers"]] },
+    { links: [["Products", "/admin/products"], ["Reviews", "/admin/reviews"], ["Suppliers & feeds", "/admin/syntech"], ["Suppliers", "/admin/suppliers"]] },
   ] },
   { label: "Business", icon: BriefcaseBusiness, sections: [
     { links: [["Invoices", "/admin/invoices"], ["Reports", "/admin/reports"], ["Partnerships", "/admin/partnerships"]] },
