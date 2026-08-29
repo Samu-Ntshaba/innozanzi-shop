@@ -1,4 +1,4 @@
-import { CircleUserRound, Headphones, Home, LogIn, Menu, Search, ShoppingBag, ShoppingCart, UserPlus } from "lucide-react";
+import { CircleUserRound, Headphones, LogIn, Menu, Search, ShoppingCart, UserPlus } from "lucide-react";
 import Link from "next/link";
 import { BrandLogo } from "@/components/brand-logo";
 import { getCurrentCart } from "@/domain/cart/service";
@@ -61,12 +61,6 @@ export async function StoreHeader() {
       {categories.map(category => <Link key={category} className="text-sm font-medium text-slate-600 hover:text-slate-950" href={`/categories/${encodeURIComponent(category)}`}>{category}</Link>)}
       <Link className="text-sm font-semibold text-sky-800 hover:underline" href="/categories">More categories</Link>
       <Link className="ml-auto text-sm font-medium text-slate-600 hover:text-slate-950" href="/blog">Insights</Link>
-    </nav>
-    <nav aria-label="Mobile shortcuts" className="fixed inset-x-0 bottom-0 z-50 grid grid-cols-4 border-t border-slate-200 bg-white/98 px-[max(.5rem,env(safe-area-inset-left))] pb-[env(safe-area-inset-bottom)] shadow-[0_-8px_24px_rgba(15,23,42,.10)] backdrop-blur lg:hidden">
-      <Link className="flex min-h-16 flex-col items-center justify-center gap-1 text-[11px] font-semibold text-slate-600" href="/"><Home className="size-5"/>Home</Link>
-      <Link className="flex min-h-16 flex-col items-center justify-center gap-1 text-[11px] font-semibold text-slate-600" href="/shop"><ShoppingBag className="size-5"/>Products</Link>
-      <Link className={`relative flex min-h-16 flex-col items-center justify-center gap-1 text-[11px] font-semibold ${auth?"text-sky-800":"text-slate-600"}`} href={auth?"/account":"/sign-in"}>{auth?<><CircleUserRound className="size-5"/><span className="absolute left-1/2 top-2 ml-2 size-2 rounded-full bg-emerald-500"/></>:<LogIn className="size-5"/>}{auth?"Account":"Log in"}</Link>
-      <Link className="relative flex min-h-16 flex-col items-center justify-center gap-1 text-[11px] font-semibold text-slate-600" href={auth?"/cart":"/sign-in"}><ShoppingCart className="size-5"/>{cartCount?<span className="absolute left-1/2 top-1 ml-2 grid size-5 place-items-center rounded-full bg-sky-700 text-[10px] font-bold text-white">{cartCount>9?"9+":cartCount}</span>:null}Cart</Link>
     </nav>
   </header>;
 }
