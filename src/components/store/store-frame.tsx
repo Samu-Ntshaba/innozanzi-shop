@@ -2,7 +2,7 @@
 
 import { usePathname } from "next/navigation";
 
-export function StoreFrame({ children, header, footer, support, marketing }: { children: React.ReactNode; header: React.ReactNode; footer: React.ReactNode; support: React.ReactNode; marketing: React.ReactNode }) {
+export function StoreFrame({ children, header, footer, marketing }: { children: React.ReactNode; header: React.ReactNode; footer: React.ReactNode; marketing: React.ReactNode }) {
   const pathname = usePathname();
   const focusedWorkspace = pathname === "/build-a-pc" || pathname === "/gaming";
 
@@ -14,7 +14,6 @@ export function StoreFrame({ children, header, footer, support, marketing }: { c
     {header}
     {children}
     {footer}
-    {support}
     {marketing}
   </div>;
 }
