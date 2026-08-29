@@ -1,0 +1,22 @@
+import { activeUnitPrice } from "@/domain/cart/calculations";
+import { isDailySpecial, supplierRetailPrice } from "@/domain/catalogue/retail-pricing";
+import { deliveryFee } from "@/domain/checkout/delivery";
+import { globalSeoSettings } from "@/domain/marketing/seo";
+import { prisma } from "@/lib/prisma";
+
+export const dynamic="force-dynamic";
+const xml=(value:unknown)=>String(value??"").replace(/[<>&"']/g,char=>({"<":"&lt;",">":"&gt;","&":"&amp;",'"':"&quot;","'":"&apos;"})[char]!);
+const plain=(value:string|null|undefined)=>value?.replace(/<[^>]+>/g," ").replace(/\s+/g," ").trim().slice(0,5000)||"Technology product available from Innozanzi in South Africa.";
+const item=(input:{id:string;title:string;description:string;link:string;image:string;availability:string;price:string;brand?:string|null;mpn?:string|null;gtin?:string|null;category?:string|null})=>`<item><g:id>${xml(input.id)}</g:id><title>${xml(input.title)}</title><description>${xml(input.description)}</description><link>${xml(input.link)}</link><g:image_link>${xml(input.image)}</g:image_link><g:availability>${input.availability}</g:availability><g:price>${xml(input.price)} ZAR</g:price><g:condition>new</g:condition>${input.brand?`<g:brand>${xml(input.brand)}</g:brand>`:""}${input.mpn?`<g:mpn>${xml(input.mpn)}</g:mpn>`:""}${input.gtin?`<g:gtin>${xml(input.gtin)}</g:gtin>`:""}${!input.brand&&!input.mpn&&!input.gtin?"<g:identifier_exists>no</g:identifier_exists>":""}${input.category?`<g:product_type>${xml(input.category)}</g:product_type>`:""}<g:shipping><g:country>ZA</g:country><g:service>Standard delivery</g:service><g:price>${deliveryFee(input.price).toFixed(2)} ZAR</g:price></g:shipping></item>`;
+
+export async function GET(){
+  const[{siteUrl:base,businessName},local,supplier]=await Promise.all([
+    globalSeoSettings(),
+    prisma.product.findMany({where:{status:"PUBLISHED",deletedAt:null,isTestData:false,images:{some:{}}},select:{id:true,name:true,slug:true,sku:true,barcode:true,currency:true,regularPrice:true,salePrice:true,saleStartsAt:true,saleEndsAt:true,shortDescription:true,description:true,stockStatus:true,brand:{select:{name:true}},category:{select:{name:true}},images:{orderBy:[{isPrimary:"desc"},{sortOrder:"asc"}],take:1,select:{path:true}}}}),
+    prisma.supplierCatalogueProduct.findMany({where:{active:true,costPrice:{gt:0},images:{isEmpty:false}},select:{id:true,name:true,slug:true,supplierSku:true,manufacturerSku:true,barcode:true,currency:true,costPrice:true,recommendedRetail:true,promotionalPrice:true,promotionStartsAt:true,promotionEndsAt:true,shortDescription:true,description:true,availability:true,stock:true,brand:true,category:true,images:true}}),
+  ]);
+  const localItems=local.map(product=>{const price=activeUnitPrice(product);return item({id:`local-${product.id}`,title:product.name,description:plain(product.shortDescription??product.description),link:`${base}/products/${product.slug}`,image:new URL(product.images[0].path,base).toString(),availability:["IN_STOCK","LOW_STOCK"].includes(product.stockStatus)?"in_stock":"out_of_stock",price:price.toFixed(2),brand:product.brand?.name,mpn:null,gtin:product.barcode,category:product.category.name})});
+  const supplierItems=supplier.map(product=>{const retail=supplierRetailPrice({costPrice:product.costPrice!,recommendedRetail:product.recommendedRetail,promotionalPrice:product.promotionalPrice,promotionStartsAt:product.promotionStartsAt,promotionEndsAt:product.promotionEndsAt,special:isDailySpecial(product.id)}),price=retail.salePrice??retail.regularPrice;return item({id:`supplier-${product.id}`,title:product.name,description:plain(product.shortDescription??product.description),link:`${base}/supplier-products/${product.slug}`,image:new URL(product.images[0],base).toString(),availability:product.stock>0&&product.availability==="IN_STOCK"?"in_stock":"out_of_stock",price:price.toFixed(2),brand:product.brand,mpn:product.manufacturerSku,gtin:product.barcode,category:product.category})});
+  const body=`<?xml version="1.0" encoding="UTF-8"?><rss xmlns:g="http://base.google.com/ns/1.0" version="2.0"><channel><title>${xml(businessName)} products</title><link>${xml(base)}</link><description>Current Innozanzi online product catalogue for South Africa.</description>${localItems.join("")}${supplierItems.join("")}</channel></rss>`;
+  return new Response(body,{headers:{"content-type":"application/xml; charset=utf-8","cache-control":"public, max-age=0, s-maxage=3600, stale-while-revalidate=86400","x-content-type-options":"nosniff"}});
+}

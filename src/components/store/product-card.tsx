@@ -28,7 +28,7 @@ export function ProductCard({ product,recommendationId }: { product: ProductCard
         <div className="mt-auto pt-4">
           <div className="flex items-end justify-between gap-2">
             <div className="min-w-0">{price?<><p className="text-xl font-bold tracking-tight text-slate-950">{formatZar(price.toString())}</p>{saleActive&&product.regularPrice?<p className="text-xs text-slate-500 line-through">{formatZar(product.regularPrice.toString())}</p>:<p className="text-[11px] text-slate-500">VAT included</p>}</>:<><p className="text-base font-semibold tracking-tight text-slate-950">Request a price</p><p className="text-[11px] text-slate-500">For this supplier item</p></>}</div>
-            <Link aria-label={`View ${product.name}`} href={href} className="grid size-10 place-items-center rounded-md border border-slate-300 text-slate-800 hover:border-sky-700 hover:text-sky-800"><ArrowRight className="size-4" /></Link>
+            <Link aria-label={`View ${product.name}`} href={href} className="grid size-11 place-items-center rounded-md border border-slate-300 text-slate-800 hover:border-sky-700 hover:text-sky-800"><ArrowRight className="size-4" /></Link>
           </div>
         </div>
       </div>

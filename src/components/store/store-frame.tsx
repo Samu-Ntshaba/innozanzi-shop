@@ -10,7 +10,7 @@ export function StoreFrame({ children, header, footer, support, marketing }: { c
     return <div className="min-h-dvh bg-[#050b14]">{children}</div>;
   }
 
-  return <div className="storefront min-h-screen bg-white">
+  return <div className="storefront min-h-screen bg-white pb-16 lg:pb-0">
     {header}
     {children}
     {footer}

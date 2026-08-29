@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
 import { isTestModeEnvironment } from "@/lib/test-mode";
 import { brand } from "@/config/brand";
+import { deliveryFee } from "@/domain/checkout/delivery";
 
 export type GlobalSeoSettings={
   siteTitle:string;titleTemplate:string;description:string;businessName:string;siteUrl:string;
@@ -39,6 +40,8 @@ export async function entityMetadata(input:{entityType:string;entityId:string;pa
 }
 
 export function safeJsonLd(value:unknown){return JSON.stringify(value).replace(/</g,"\\u003c")}
+
+export function merchantShippingDetails(price:string|number){return{"@type":"OfferShippingDetails",shippingRate:{"@type":"MonetaryAmount",value:deliveryFee(price).toFixed(2),currency:"ZAR"},shippingDestination:{"@type":"DefinedRegion",addressCountry:"ZA"}}}
 
 export async function organisationJsonLd(){
   const global=await globalSeoSettings();return{"@context":"https://schema.org","@type":["Organization","ComputerStore","OnlineStore"],"@id":`${global.siteUrl}/#organization`,name:global.businessName,url:global.siteUrl,description:global.description,logo:absoluteUrl(global.logo,global.siteUrl),email:global.email,telephone:global.phone,address:{"@type":"PostalAddress",streetAddress:global.address,addressCountry:"ZA"},areaServed:global.serviceAreas.split(",").map(name=>({"@type":"Country",name:name.trim()})),knowsAbout:["Computers","Laptops","Custom PCs","PC components","Gaming hardware","Servers","Networking","Backup power"],sameAs:[global.facebook,global.linkedin,global.instagram].filter(Boolean)};

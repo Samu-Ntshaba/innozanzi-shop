@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Suspense } from "react";
 
 import "./globals.css";
@@ -14,6 +14,8 @@ import {
 } from "@/domain/marketing/seo";
 import { isTestModeEnvironment } from "@/lib/test-mode";
 import { brand } from "@/config/brand";
+
+export const viewport:Viewport={width:"device-width",initialScale:1,viewportFit:"cover",themeColor:"#071b33",colorScheme:"light"};
 
 export async function generateMetadata(): Promise<Metadata> {
   const settings = await globalSeoSettings();
