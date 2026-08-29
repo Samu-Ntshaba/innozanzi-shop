@@ -1674,6 +1674,9 @@ model PcProject {
   userId              String          @db.Uuid
   name                String
   buildType           String          @default("PC_ONLY")
+  intendedUse         String          @default("BALANCED")
+  performanceTarget   String          @default("SMOOTH")
+  gamePreferences     String[]
   status              PcProjectStatus @default(PLANNING)
   aiAnalysis          Json?
   analysisFingerprint String?

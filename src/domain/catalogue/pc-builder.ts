@@ -24,6 +24,8 @@ const paths:Record<PcBuildStepKey,string[]> = {
   cpu:["Components/CPU/"],motherboard:["Components/Motherboards/"],memory:["Components/Memory/Desktop memory"],storage:["Components/Solid state drives/Consumer","Components/Hard disk drives"],graphics:["Components/Graphics cards/"],power:["Components/Power supplies/"],case:["Components/Chassis/"],cooling:["Components/Cooling/"],monitor:["Computer peripherals/Monitors/"],keyboard:["Computer peripherals/Keyboards/"],mouse:["Computer peripherals/Mice/"],audio:["Computer peripherals/Headsets/","Computer peripherals/Speakers"],
 };
 
+export function productMatchesPcBuildStep(stepKey:PcBuildStepKey,categoryPath:string|null|undefined){return paths[stepKey].some(path=>categoryPath?.startsWith(path))}
+
 const stringSpecs=(value:unknown)=>{if(!value||typeof value!=="object"||Array.isArray(value))return{};return Object.fromEntries(Object.entries(value as Record<string,unknown>).filter(([,entry])=>entry!==null&&entry!==undefined).map(([key,entry])=>[key,typeof entry==="object"?JSON.stringify(entry):String(entry)]))};
 
 export async function getPcBuilderSteps():Promise<PcBuildStep[]> {
