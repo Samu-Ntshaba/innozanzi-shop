@@ -1368,6 +1368,7 @@ model Supplier {
   feeds             SupplierFeed[]
   catalogueProducts SupplierCatalogueProduct[]
   syncRuns          SupplierSyncRun[]
+  procurements      OrderProcurement[]
 
   @@index([isActive, companyName])
   @@index([deletedAt])
@@ -1662,11 +1663,36 @@ model Order {
   deliveryNotes        DeliveryNote[]
   returnCases          ReturnCase[]
   transports           TransportRecord[]
+  procurements         OrderProcurement[]
 
   @@index([userId, createdAt])
   @@index([status, createdAt])
   @@index([paymentStatus, createdAt])
   @@index([email, createdAt])
+}
+
+model OrderProcurement {
+  id                    String    @id @default(uuid()) @db.Uuid
+  orderId               String    @db.Uuid
+  supplierId            String    @db.Uuid
+  status                String    @default("DRAFT")
+  requestNumber         String    @unique
+  supplierReference     String?
+  supplierInvoiceNumber String?
+  supplierInvoiceTotal  Decimal?  @db.Decimal(19, 4)
+  expectedArrivalAt     DateTime?
+  orderedAt             DateTime?
+  confirmedAt           DateTime?
+  receivedAt            DateTime?
+  internalNote          String?   @db.Text
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  order                 Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  supplier              Supplier  @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+
+  @@unique([orderId, supplierId])
+  @@index([status, expectedArrivalAt])
+  @@index([supplierId, createdAt])
 }
 
 model PcProject {
