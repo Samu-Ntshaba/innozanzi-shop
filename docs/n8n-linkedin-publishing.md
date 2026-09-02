@@ -1,39 +1,28 @@
-# n8n LinkedIn publishing
+# n8n social publishing
 
-The recommended workflow prepares one factual product post on weekdays and
-requires human approval before LinkedIn publishing. LinkedIn credentials never
-enter the shop application.
+The shop is the source of truth for eligible products, campaign focus and publication history. n8n owns schedules, optional AI rewriting, human approval and social-network credentials.
 
-## Shop configuration
+## API contract
 
-Set `N8N_LINKEDIN_WEBHOOK_SECRET` to a long random value in Railway and use the
-same value in n8n's HTTP Header Auth credential. The integration endpoint is:
+Use `Authorization: Bearer <N8N_SOCIAL_WEBHOOK_SECRET>` on both operations:
 
-- `GET /api/integrations/n8n/linkedin` — returns one active, in-stock product,
-  its public image/link and a prepared caption.
-- `POST /api/integrations/n8n/linkedin` — records `PUBLISHED`, `REJECTED` or
-  `FAILED`, including the LinkedIn post ID and URL when available.
+- `GET /api/integrations/n8n/social?stream=EVERGREEN&channel=LINKEDIN&slot=2026-09-02-AM&format=SINGLE`
+- `POST /api/integrations/n8n/social`
 
-Both operations require `Authorization: Bearer <secret>`. Supplier cost and RRP
-are never returned. Products published during the previous 90 days are excluded.
+GET returns a stable `deliveryId`, verified public assets, campaign direction and a safe baseline caption. Supplier cost and internal stock quantities are never exposed. Retries with the same stream, channel and slot return the same delivery.
 
-## n8n workflow
+POST writes back `APPROVED`, `PUBLISHED`, `REJECTED` or `FAILED`, plus the exact caption and optional `externalId`, `externalUrl` or `error`. Published fingerprints and source products are excluded for 90 days.
 
-Import `n8n/innozanzi-linkedin-approval.json`, then configure:
+## Two n8n workflows
 
-1. An HTTP Header Auth credential containing the shared bearer token.
-2. The Innozanzi shop base URL.
-3. An email credential and approval recipient.
-4. A LinkedIn developer application connected to the Innozanzi company page.
-5. LinkedIn OAuth with `w_organization_social` and the company organization URN.
+Import `n8n/innonzanzi.json` for evergreen publishing. It runs at 09:00 and 15:00 Africa/Johannesburg on weekdays.
 
-Keep the workflow inactive until the GET request, approval email and a private
-test post have all succeeded. Use LinkedIn's current Posts API version header.
-The workflow must not publish when approval is absent, expired or rejected.
+Duplicate it as `Innozanzi · Campaign focus`, choose a separate schedule, and change `stream=EVERGREEN` to `stream=CAMPAIGN`. A 404 means there is no active campaign and should be treated as a clean no-op.
 
-## Recommended schedule
+Configure `INNOZANZI_SHOP_URL`, `LINKEDIN_APPROVAL_EMAIL`, `LINKEDIN_ORGANIZATION_URN` and `LINKEDIN_API_VERSION`, plus HTTP Header Auth, Gmail approval and LinkedIn OAuth credentials. Keep publishing disabled until the fetch, approval, image handling and a private LinkedIn test succeed.
 
-Start at 08:00 Africa/Johannesburg, Monday to Friday. Review results after four
-weeks before increasing frequency. Three daily posts should only be enabled when
-three genuinely different content streams exist and repetition checks remain in
-place.
+## Content generation
+
+The response includes a conservative baseline `caption`. n8n may rewrite it with its own OpenAI credential, but must use the API response as grounded context and must not invent prices, discounts, stock counts, delivery times, specifications, partnerships or performance claims. Send the exact final caption back in the result.
+
+Start with one image per post. `format=CAROUSEL` already returns up to five products, but multi-image LinkedIn publishing requires registering and uploading every asset before creating the post.

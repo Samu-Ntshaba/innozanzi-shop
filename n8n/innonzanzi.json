@@ -1,5 +1,5 @@
 {
-  "name": "innonzanzi",
+  "name": "Innozanzi · Evergreen social publishing",
   "active": false,
   "settings": {
     "timezone": "Africa/Johannesburg",
@@ -20,7 +20,7 @@
           "interval": [
             {
               "field": "cronExpression",
-              "expression": "0 8 * * 1-5"
+              "expression": "0 9,15 * * 1-5"
             }
           ]
         }
@@ -33,7 +33,7 @@
       "typeVersion": 4.2,
       "position": [240, 0],
       "parameters": {
-        "url": "={{$vars.INNOZANZI_SHOP_URL + '/api/integrations/n8n/linkedin'}}",
+        "url": "={{$vars.INNOZANZI_SHOP_URL + '/api/integrations/n8n/social?stream=EVERGREEN&channel=LINKEDIN&slot=' + $now.toFormat('yyyy-LL-dd-HH')}}",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "options": {
@@ -152,13 +152,13 @@
       "notes": "Enable this node together with Publish on LinkedIn after a successful private test.",
       "parameters": {
         "method": "POST",
-        "url": "={{$vars.INNOZANZI_SHOP_URL + '/api/integrations/n8n/linkedin'}}",
+        "url": "={{$vars.INNOZANZI_SHOP_URL + '/api/integrations/n8n/social'}}",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
-        "body": "={{JSON.stringify({candidateId: $('Get product post').item.json.candidateId, status: 'PUBLISHED', caption: $('Get product post').item.json.caption})}}",
+        "body": "={{JSON.stringify({deliveryId: $('Get product post').item.json.deliveryId, status: 'PUBLISHED', caption: $('Get product post').item.json.caption, externalId: $json.id})}}",
         "options": {
           "timeout": 30000
         }
@@ -178,13 +178,13 @@
       "position": [960, 120],
       "parameters": {
         "method": "POST",
-        "url": "={{$vars.INNOZANZI_SHOP_URL + '/api/integrations/n8n/linkedin'}}",
+        "url": "={{$vars.INNOZANZI_SHOP_URL + '/api/integrations/n8n/social'}}",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
-        "body": "={{JSON.stringify({candidateId: $('Get product post').item.json.candidateId, status: 'REJECTED'})}}",
+        "body": "={{JSON.stringify({deliveryId: $('Get product post').item.json.deliveryId, status: 'REJECTED'})}}",
         "options": {
           "timeout": 30000
         }

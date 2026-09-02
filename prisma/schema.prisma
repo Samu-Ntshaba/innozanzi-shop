@@ -2957,6 +2957,59 @@ model MarketingSetting {
   @@index([updatedAt])
 }
 
+model SocialCampaign {
+  id                String           @id @default(uuid()) @db.Uuid
+  name              String
+  objective         String
+  audience          String
+  status            String           @default("DRAFT")
+  focusType         String
+  instructions      String?          @db.Text
+  targetProductIds  String[]         @default([])
+  targetFeatureKeys String[]         @default([])
+  channels          String[]         @default(["LINKEDIN"])
+  postsPerDay       Int              @default(1)
+  priority          Int              @default(100)
+  startsAt          DateTime
+  endsAt            DateTime
+  createdById       String?          @db.Uuid
+  updatedById       String?          @db.Uuid
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  deliveries        SocialDelivery[]
+
+  @@index([status, startsAt, endsAt])
+  @@index([priority, startsAt])
+}
+
+model SocialDelivery {
+  id            String          @id @default(uuid()) @db.Uuid
+  campaignId    String?         @db.Uuid
+  stream        String
+  channel       String
+  slotKey       String
+  contentType   String
+  sourceType    String
+  sourceIds     String[]        @default([])
+  fingerprint   String
+  payload       Json
+  status        String          @default("RESERVED")
+  caption       String?         @db.Text
+  externalId    String?
+  externalUrl   String?
+  error         String?         @db.Text
+  reservedUntil DateTime?
+  publishedAt   DateTime?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  campaign      SocialCampaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+
+  @@unique([stream, channel, slotKey])
+  @@index([status, channel, createdAt])
+  @@index([fingerprint, createdAt])
+  @@index([campaignId, createdAt])
+}
+
 model SeoRecord {
   id                   String   @id @default(uuid()) @db.Uuid
   entityType           String
