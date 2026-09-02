@@ -104,7 +104,7 @@ export async function reserveSocialContent(input: SocialInput) {
 
   let material: SocialMaterial | null = await productPayload(input, campaign?.targetProductIds.length ? campaign.targetProductIds : undefined);
   if (campaign?.focusType === "FEATURE" && campaign.targetFeatureKeys.length) {
-    const assets = campaign.targetFeatureKeys.map(key => ({ key, ...featureLibrary[key] })).filter(item => item.title).map(item => ({ ...item, url: `${siteUrl()}${item.url}` }));
+    const assets = campaign.targetFeatureKeys.map(key => ({ key, ...featureLibrary[key] })).filter(item => item.title).map(item => ({ ...item, url: `${siteUrl()}${item.url}`, images: [`${siteUrl()}/social/innozanzi-share.png`] }));
     if (assets.length) material = { contentType: "FEATURE_FOCUS", sourceType: "FEATURE", sourceIds: campaign.targetFeatureKeys, assets };
   }
   if (!material) return null;
