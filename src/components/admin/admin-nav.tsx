@@ -23,6 +23,7 @@ export const adminNavGroups: readonly NavGroup[] = [
   ] },
   { label: "Marketing", icon: Megaphone, sections: [
     { links: [["Overview", "/admin/marketing"], ["Blog & insights", "/admin/marketing/blog"], ["Social media", "/admin/marketing/social"], ["Settings", "/admin/marketing/settings"]] },
+    { label: "SEO", links: [["Global SEO", "/admin/marketing/seo"], ["Page SEO", "/admin/marketing/page-seo"], ["SEO audit", "/admin/marketing/audit"]] },
   ] },
   { label: "Settings", icon: Settings2, sections: [
     { links: [["Website content", "/admin/content"], ["Staff & access", "/admin/access-control"], ["Audit log", "/admin/audit-log"]] },
