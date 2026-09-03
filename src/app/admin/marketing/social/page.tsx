@@ -1,44 +1,19 @@
-import { EmptyState, AdminPage, Panel, StatusBadge, buttonClass, inputClass, secondaryButtonClass, tableClass } from "@/components/admin/admin-ui";
+import Image from "next/image";
+import Link from "next/link";
+import { AdminPage, EmptyState, Panel, StatusBadge, buttonClass } from "@/components/admin/admin-ui";
 import { requirePermission } from "@/domain/auth/session";
-import { createSocialCampaign, setSocialCampaignStatus } from "@/domain/marketing/social-actions";
-import { socialFeatures } from "@/domain/marketing/social-automation";
+import { generateSocialContentNow } from "@/domain/marketing/social-actions";
 import { prisma } from "@/lib/prisma";
+const labels: Record<string, string> = { PRODUCT: "Product spotlight", SPECIAL: "Product special", PC_BUILDER: "Build a PC", GAMING: "Gaming", INSIGHT: "Blog insight" };
 
-const localInput = (date: Date) => new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
-
-export default async function SocialMarketingPage() {
-  await requirePermission("marketing.content.view");
-  const [products, campaigns, deliveries] = await Promise.all([
-    prisma.supplierCatalogueProduct.findMany({ where: { active: true, availability: "IN_STOCK", stock: { gt: 0 }, images: { isEmpty: false } }, select: { id: true, name: true, brand: true }, orderBy: [{ brand: "asc" }, { name: "asc" }], take: 500 }),
-    prisma.socialCampaign.findMany({ include: { _count: { select: { deliveries: true } } }, orderBy: [{ startsAt: "desc" }], take: 50 }),
-    prisma.socialDelivery.findMany({ include: { campaign: { select: { name: true } } }, orderBy: { createdAt: "desc" }, take: 50 }),
-  ]);
-  const start = new Date(); start.setMinutes(0, 0, 0);
-  const end = new Date(start.getTime() + 7 * 86_400_000);
-  return <AdminPage title="Social media automation" description="Control campaign focus in the shop while n8n schedules, drafts, approves and publishes each post. Every attempt writes back to prevent repetition.">
-    <Panel title="Create a focus campaign" description="Campaign posts are a separate stream from the evergreen product rotation. Higher priority wins when campaigns overlap.">
-      <form action={createSocialCampaign} className="grid gap-4 lg:grid-cols-2">
-        <label>Campaign name<input className={`${inputClass} mt-1`} name="name" placeholder="PC Builder focus week" required /></label>
-        <label>Focus type<select className={`${inputClass} mt-1`} name="focusType"><option value="PRODUCT">Selected products</option><option value="FEATURE">Site feature or insight</option><option value="MIXED">Products and features</option></select></label>
-        <label>Objective<input className={`${inputClass} mt-1`} name="objective" placeholder="Generate qualified PC-build enquiries" required /></label>
-        <label>Audience<input className={`${inputClass} mt-1`} name="audience" defaultValue="South African businesses and technology buyers" required /></label>
-        <label>Starts<input className={`${inputClass} mt-1`} name="startsAt" type="datetime-local" defaultValue={localInput(start)} required /></label>
-        <label>Ends<input className={`${inputClass} mt-1`} name="endsAt" type="datetime-local" defaultValue={localInput(end)} required /></label>
-        <label>Posts per day<input className={`${inputClass} mt-1`} name="postsPerDay" type="number" min="1" max="4" defaultValue="1" /></label>
-        <label>Priority<input className={`${inputClass} mt-1`} name="priority" type="number" min="1" max="1000" defaultValue="100" /></label>
-        <fieldset><legend className="text-sm">Channels</legend><div className="mt-2 flex flex-wrap gap-4 text-sm">{["LINKEDIN", "FACEBOOK", "INSTAGRAM"].map(channel => <label className="flex items-center gap-2" key={channel}><input name="channels" type="checkbox" value={channel} defaultChecked={channel === "LINKEDIN"}/>{channel}</label>)}</div></fieldset>
-        <label>Status<select className={`${inputClass} mt-1`} name="status"><option value="DRAFT">Draft</option><option value="ACTIVE">Active</option></select></label>
-        <label>Feature focus<select className={`${inputClass} mt-1 min-h-32`} name="targetFeatureKeys" multiple>{Object.entries(socialFeatures).map(([key, feature]) => <option key={key} value={key}>{feature.title}</option>)}</select><small className="text-slate-500">Use Ctrl/Cmd to select more than one.</small></label>
-        <label>Product focus<select className={`${inputClass} mt-1 min-h-32`} name="targetProductIds" multiple>{products.map(product => <option key={product.id} value={product.id}>{product.brand ? `${product.brand} · ` : ""}{product.name}</option>)}</select><small className="text-slate-500">Only active, in-stock products with images are shown.</small></label>
-        <label className="lg:col-span-2">Content direction<textarea className={`${inputClass} mt-1 min-h-24`} name="instructions" placeholder="Angles to use, claims to avoid, campaign context, and desired call to action." /></label>
-        <button className={`${buttonClass} lg:col-span-2`}>Create campaign</button>
-      </form>
-    </Panel>
-    <Panel title="Campaigns">
-      {campaigns.length ? <table className={tableClass}><thead><tr><th>Campaign</th><th>Focus</th><th>Window</th><th>Channels</th><th>Posts</th><th>Status</th><th>Action</th></tr></thead><tbody>{campaigns.map(campaign => <tr key={campaign.id}><td><strong>{campaign.name}</strong><small className="block text-slate-500">{campaign.objective}</small></td><td>{campaign.focusType}</td><td>{campaign.startsAt.toLocaleDateString("en-ZA")} – {campaign.endsAt.toLocaleDateString("en-ZA")}</td><td>{campaign.channels.join(", ")}</td><td>{campaign._count.deliveries}</td><td><StatusBadge value={campaign.status}/></td><td><form action={setSocialCampaignStatus}><input type="hidden" name="id" value={campaign.id}/><input type="hidden" name="status" value={campaign.status === "ACTIVE" ? "PAUSED" : "ACTIVE"}/><button className={secondaryButtonClass}>{campaign.status === "ACTIVE" ? "Pause" : "Activate"}</button></form></td></tr>)}</tbody></table> : <EmptyState title="No focus campaigns" description="Create a timed product or feature focus above. Evergreen product rotation can continue independently."/>}
-    </Panel>
-    <Panel title="Recent publishing ledger" description="Reserved, approved, rejected, failed and published attempts from every n8n social workflow.">
-      {deliveries.length ? <table className={tableClass}><thead><tr><th>Created</th><th>Stream</th><th>Channel</th><th>Content</th><th>Campaign</th><th>Status</th><th>Published URL</th></tr></thead><tbody>{deliveries.map(delivery => <tr key={delivery.id}><td>{delivery.createdAt.toLocaleString("en-ZA")}</td><td>{delivery.stream}</td><td>{delivery.channel}</td><td>{delivery.contentType}</td><td>{delivery.campaign?.name ?? "—"}</td><td><StatusBadge value={delivery.status}/></td><td>{delivery.externalUrl ? <a className="text-sky-700 underline" href={delivery.externalUrl} target="_blank" rel="noreferrer">Open post</a> : "—"}</td></tr>)}</tbody></table> : <EmptyState title="No publishing activity" description="The ledger will populate when n8n requests its first delivery."/>}
-    </Panel>
+export default async function SocialMarketingPage({ searchParams }: { searchParams: Promise<{ result?: string }> }) {
+  await requirePermission("marketing.content.view"); const { result } = await searchParams;
+  const items = await prisma.socialContent.findMany({ orderBy: [{ contentDate: "desc" }, { createdAt: "desc" }], take: 80 });
+  return <AdminPage title="Social media" description="Four branded, human-sounding posts are prepared every day and emailed for manual publishing." actions={<Link className="text-sm font-semibold text-sky-700" href="/admin/marketing/settings">Settings</Link>}>
+    {result === "generated" ? <p className="rounded-lg bg-emerald-50 p-3 text-sm text-emerald-800">Today’s four posts were created and emailed.</p> : null}
+    {result === "already-generated" ? <p className="rounded-lg bg-sky-50 p-3 text-sm text-sky-800">Today’s content already exists, so nothing was repeated.</p> : null}
+    {result === "failed" ? <p className="rounded-lg bg-red-50 p-3 text-sm text-red-800">Generation failed. Check the recipient, OpenAI, storage and email configuration, then try again.</p> : null}
+    <Panel title="Daily content plan" description="The system always creates one useful post in each category. Product sources are rotated so recent subjects are not needlessly repeated."><div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{["Product spotlight", "Current special", "Build a PC", "Gaming"].map((label, index) => <div className="rounded-lg border border-slate-200 p-4" key={label}><span className="text-xs font-black text-sky-700">POST {index + 1}</span><h3 className="mt-1 font-bold">{label}</h3></div>)}</div><form action={generateSocialContentNow} className="mt-5"><button className={buttonClass}>Generate today’s posts now</button></form></Panel>
+    <Panel title="Content history" description="Every generated image and caption is saved here, including extra social posts created for blog insights.">{items.length ? <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">{items.map(item => <article className="overflow-hidden rounded-xl border border-slate-200 bg-white" key={item.id}><div className="relative aspect-square bg-slate-100"><Image src={item.imageUrl} alt={item.imageAlt} fill sizes="(max-width: 768px) 100vw, 33vw" className="object-cover"/></div><div className="p-4"><div className="flex items-center justify-between gap-2"><span className="text-xs font-black uppercase text-sky-700">{labels[item.contentType] ?? item.contentType}</span><StatusBadge value={item.emailStatus}/></div><h3 className="mt-2 font-bold">{item.title}</h3><p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-600">{item.caption}</p><div className="mt-4 flex items-center justify-between text-xs text-slate-500"><span>{item.contentDate.toLocaleDateString("en-ZA")}</span><a className="font-semibold text-sky-700" href={item.imageUrl} target="_blank" rel="noreferrer">Full-size image</a></div></div></article>)}</div> : <EmptyState title="No social content yet" description="Configure the recipient, then generate the first four posts."/>}</Panel>
   </AdminPage>;
 }

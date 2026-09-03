@@ -3010,6 +3010,31 @@ model SocialDelivery {
   @@index([campaignId, createdAt])
 }
 
+model SocialContent {
+  id            String   @id @default(uuid()) @db.Uuid
+  contentDate   DateTime @db.Date
+  contentType   String
+  title         String
+  caption       String   @db.Text
+  imageUrl      String
+  imageAlt      String
+  destinationUrl String?
+  sourceType    String
+  sourceId      String?
+  fingerprint   String   @unique
+  generationKey String   @unique
+  emailStatus   String   @default("PENDING")
+  emailedAt     DateTime?
+  error         String?  @db.Text
+  createdById   String?  @db.Uuid
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([contentDate, contentType])
+  @@index([sourceType, sourceId])
+  @@index([createdAt])
+}
+
 model SeoRecord {
   id                   String   @id @default(uuid()) @db.Uuid
   entityType           String

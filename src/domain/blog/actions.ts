@@ -10,6 +10,7 @@ import { requirePermission } from "@/domain/auth/session";
 import { getOpenAIClient } from "@/lib/openai";
 import { prisma } from "@/lib/prisma";
 import { createSupabaseAdmin } from "@/lib/supabase";
+import { generateBlogSocialContent } from "@/domain/marketing/social-content";
 
 const sourceSchema = z.object({ title: z.string().trim().min(1).max(240), url: z.string().url() });
 const draftSchema = z.object({
@@ -172,6 +173,8 @@ export async function refreshBlogGeneration(id: string) {
     if (!sources.length) throw new Error("Research completed without verifiable source links.");
     const completed = await prisma.blogPost.update({ where: { id }, data: { ...draft, slug: await uniqueSlug(draft.title, id), sources, updatedById: post.updatedById } });
     await prisma.auditLog.create({ data: { actorId: post.updatedById ?? post.createdById, action: "blog.ai.generate.completed", entityType: "BlogPost", entityId: id, after: { responseId, sourceCount: sources.length } } });
+    try { await generateBlogSocialContent(completed, post.updatedById ?? post.createdById); }
+    catch (socialError) { console.error("Blog social suggestion failed", socialError); }
     return completed;
   } catch (error) {
     console.error("Blog background generation check failed", error);
