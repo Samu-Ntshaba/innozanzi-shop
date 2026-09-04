@@ -5,6 +5,29 @@ export type PublicPolicy = {
 };
 
 export const publicPolicies: Record<string, PublicPolicy> = {
+  "ai-shopping": {
+    title: "AI Shopping Assistance Policy",
+    description: "How Innozanzi AI product recommendations work and what customers should verify before purchasing.",
+    content: `Last updated: 4 September 2026
+
+1. Purpose
+Innozanzi AI provides informational shopping assistance based on product information available in the Innozanzi Shop catalogue. It is designed to help customers find relevant products and possible PC configurations; it is not professional engineering or technical advice.
+
+2. Product facts, pricing and stock
+The platform confirms product identifiers, current selling prices and stock through the normal catalogue and checkout systems. Availability and pricing can change. Adding a recommendation to a cart does not reserve stock.
+
+3. PC compatibility
+Where supported, platform compatibility rules validate PC component combinations and override generated wording. Customers should still review the full manufacturer specifications, physical clearances, firmware support, power requirements and included accessories before purchase.
+
+4. Limitations
+AI may occasionally misunderstand a request or produce an incorrect recommendation. Recommendations use the information supplied to the system and may omit a requirement that is not present in the catalogue data. Final product specifications must be reviewed before purchase.
+
+5. Purchases, returns and warranties
+Normal Innozanzi Shop checkout, payment, returns and warranty terms apply to products selected with AI assistance. AI assistance does not create a separate guarantee or change a manufacturer warranty.
+
+6. Information and retention
+We limit prompts, use structured shopping intent where practical, and store operational usage data needed for rate limiting, security, cost monitoring and service improvement. We do not need to retain full prompt text for ordinary usage analytics. See our Privacy Policy for more information.`,
+  },
   terms: {
     title: "Terms & Conditions",
     description: "The terms governing use of the Innozanzi online shop, purchases, payments, delivery and customer support.",

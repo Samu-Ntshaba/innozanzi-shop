@@ -1,0 +1,2 @@
+export const isShoppingRequest=(text:string)=>/\b(laptop|computer|pc|gaming|monitor|screen|keyboard|mouse|headset|printer|router|wifi|ssd|storage|ram|memory|gpu|graphics|cpu|processor|motherboard|power supply|psu|case|cooler|tech|tablet|phone|server|workstation|autocad|office|stream|build|component|accessor)/i.test(text);
+export const estimateAIRequestCost=(input:number,output:number,inputRate:number,outputRate:number)=>(input/1_000_000)*inputRate+(output/1_000_000)*outputRate;

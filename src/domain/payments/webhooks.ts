@@ -32,6 +32,7 @@ export async function processPaymentEvent(provider: "PAYSTACK" | "YOCO", event: 
       await tx.deliveryTrackingEvent.create({ data: { orderId: payment.orderId, status: "PAYMENT_VERIFIED", publicNote: "Your payment has been confirmed. We are preparing your order for fulfilment.", internalNote: `${provider} webhook ${event.eventId}` } });
       const staff = await tx.user.findMany({ where: { status: "ACTIVE", deletedAt: null, accountType: "INTERNAL_EMPLOYEE" }, select: { id: true } });
       if (staff.length) await tx.notification.createMany({ data: staff.map(({ id }) => ({ userId: id, type: "ORDER_PAID", channel: "IN_APP", subject: `Paid order ${payment.order.orderNumber}`, body: `Payment is verified. Fulfilment must accept order ${payment.order.orderNumber}.`, status: "SENT" as const, sentAt: new Date(), data: { orderId: payment.orderId, orderNumber: payment.order.orderNumber, category: "REQUIRES_ACTION" } })) });
+      if(payment.order.aiRecommendationId){await tx.aIUsage.updateMany({where:{recommendationId:payment.order.aiRecommendationId},data:{orderId:payment.orderId}});await tx.recommendationEvent.create({data:{userId:payment.order.userId,sessionId:payment.order.userId?`user:${payment.order.userId}`:`order:${payment.orderId}`,eventType:"AI_ORDER_COMPLETED",entityType:"ORDER",entityId:payment.orderId,recommendationId:payment.order.aiRecommendationId,context:"payment"}})}
     }
     if(event.status==="PAID"&&payment.order.pcProjectId){
       const sourceIds=payment.order.items.map(item=>item.sourceId).filter((id):id is string=>Boolean(id));

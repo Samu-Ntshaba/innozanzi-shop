@@ -33,6 +33,7 @@ const fingerprint = (parts: string[]) => createHash("sha256").update(parts.sort(
 const siteUrl = () => (process.env.NEXT_PUBLIC_SITE_URL ?? "https://shop.innozanzi.co.za").replace(/\/$/, "");
 
 const featureLibrary: Record<string, { title: string; summary: string; url: string }> = {
+  AI_SHOPPING_ASSISTANT: { title: "Ask Innozanzi AI", summary: "Tell Innozanzi AI your budget and what you need to receive a short recommendation from currently available products, or a compatibility-checked PC build.", url: "/shop" },
   PC_BUILDER: { title: "Plan a purpose-built PC", summary: "Help customers choose compatible components around the work, gaming or performance outcome they need.", url: "/pc-builder" },
   GAMING: { title: "Gaming technology", summary: "Explore practical gaming setups, upgrades and accessories without inventing performance claims.", url: "/shop?category=gaming" },
   BUSINESS_PROCUREMENT: { title: "Business technology procurement", summary: "Explain how structured requirements, availability checks and quotations simplify purchasing.", url: "/business" },

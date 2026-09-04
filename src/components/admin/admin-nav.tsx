@@ -10,7 +10,7 @@ type NavGroup = { label: string; icon: typeof Building2; sections: readonly NavS
 
 export const adminNavGroups: readonly NavGroup[] = [
   { label: "Daily work", icon: Building2, sections: [
-    { links: [["Overview", "/admin"], ["Orders", "/admin/orders"], ["Payments", "/admin/payments"], ["Customers", "/admin/customers"], ["Customer support", "/admin/help-desk"]] },
+    { links: [["Overview", "/admin"], ["AI", "/admin/ai"], ["Orders", "/admin/orders"], ["Payments", "/admin/payments"], ["Customers", "/admin/customers"], ["Customer support", "/admin/help-desk"]] },
   ] },
   { label: "Fulfilment", icon: Boxes, sections: [
     { links: [["Delivery", "/admin/delivery-notes"], ["Logistics", "/admin/logistics"], ["Returns", "/admin/returns"], ["Inventory", "/admin/inventory"]] },
@@ -37,6 +37,7 @@ type AdminNavProps = {
 
 export const adminRoutePermissions: Record<string, string> = {
   "/admin": "reports.view",
+  "/admin/ai": "marketing.analytics.view",
   "/admin/customers": "customers.manage",
   "/admin/help-desk": "customers.manage",
   "/admin/calendar": "customers.manage",
