@@ -15,6 +15,7 @@ import {
 } from "@/integrations/email/templates";
 import { mailDeliveryMode } from "@/integrations/email/provider";
 import { getOpenAIClient } from "@/lib/openai";
+import { marketingBusinessRules } from "@/config/business-facts";
 import {
   fallbackCampaignCopy,
   renderProductCampaign,
@@ -329,7 +330,8 @@ export async function generateProductCampaign(formData: FormData) {
       model: process.env.OPENAI_MODEL ?? "gpt-5.6-luna",
       store: false,
       max_output_tokens: 900,
-      input: `Write concise e-commerce email copy for Innozanzi Shop, a South African specialist store for computers, laptops, PC components, gaming, servers and useful technology.
+      input: `Write concise e-commerce email copy for Innozanzi Shop, a South African online specialist store for computers, laptops, PC components, gaming, servers and useful technology.
+${marketingBusinessRules}
 Campaign goal: ${data.goal}
 Tone: ${data.tone.toLowerCase()}
 Products (use only these facts): ${JSON.stringify(items.map(item => ({ name: item.name, slug: item.slug, sku: item.sku, shortDescription: item.shortDescription, brand: item.brand, category: item.category })))}

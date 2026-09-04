@@ -24,12 +24,18 @@ body {
   color: var(--foreground);
 }
 
+img, video, canvas, svg { max-width: 100%; }
+.storefront main, .storefront section, .storefront article, .storefront form { min-width: 0; }
+.storefront table { max-width: 100%; }
+
 html { -webkit-text-size-adjust: 100%; }
 button, a, input, select, textarea { touch-action: manipulation; }
 
 @media (max-width: 639px) {
   input, select, textarea { font-size: 16px; }
   .storefront main { scroll-margin-top: 8rem; }
+  .storefront button, .storefront a { -webkit-tap-highlight-color: transparent; }
+  .storefront [role="dialog"] { overscroll-behavior: contain; }
 }
 
 .storefront {

@@ -1,7 +1,5 @@
 import { prisma } from "@/lib/prisma";
 import type { PaymentEvent } from "@/integrations/payments/provider";
-import { enqueueEmail } from "@/integrations/email/outbox";
-import { emailTemplates } from "@/integrations/email/templates";
 import { notifyStaffOfPaidOrder } from "@/domain/notifications/order-alerts";
 import { assertPaymentEventMatches } from "@/domain/payments/validation";
 
@@ -45,6 +43,6 @@ export async function processPaymentEvent(provider: "PAYSTACK" | "YOCO", event: 
     await tx.auditLog.create({ data: { action: "payment.webhook", entityType: "Payment", entityId: payment.id, metadata: { eventId: event.eventId, provider } } });
     return { duplicate: false, paymentId: payment.id, order: payment.order, amount: payment.amount.toString() };
   });
-  if (!result.duplicate && event.status === "PAID") await Promise.all([enqueueEmail(emailTemplates.paymentReceived(result.order.email, result.order.orderNumber, result.amount), result.order.userId ?? undefined),notifyStaffOfPaidOrder(result.order.id)]);
+  if (!result.duplicate && event.status === "PAID") await notifyStaffOfPaidOrder(result.order.id);
   return { duplicate: result.duplicate, paymentId: result.paymentId };
 }

@@ -11,6 +11,7 @@ import { getOpenAIClient } from "@/lib/openai";
 import { prisma } from "@/lib/prisma";
 import { createSupabaseAdmin } from "@/lib/supabase";
 import { generateBlogSocialContent } from "@/domain/marketing/social-content";
+import { marketingBusinessRules } from "@/config/business-facts";
 
 const sourceSchema = z.object({ title: z.string().trim().min(1).max(240), url: z.string().url() });
 const draftSchema = z.object({
@@ -89,7 +90,8 @@ export async function generateBlogDraft(formData: FormData) {
       background: true,
       tools: [{ type: "web_search" }],
       include: ["web_search_call.action.sources"],
-      input: `Research and write a useful article for Innozanzi, a South African business technology procurement and support company.
+      input: `Research and write a useful article for Innozanzi Shop, a South African online technology retailer and technology procurement company.
+${marketingBusinessRules}
 Topic: ${blogLabel(input.topic)}
 Audience: ${blogLabel(input.audience)}
 Editorial direction: ${input.direction || "Choose a timely, practical angle based on credible current information."}

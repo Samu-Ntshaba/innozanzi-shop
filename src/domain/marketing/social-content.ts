@@ -4,6 +4,7 @@ import path from "node:path";
 import sharp from "sharp";
 import { z } from "zod";
 import { brand } from "@/config/brand";
+import { marketingBusinessRules } from "@/config/business-facts";
 import { enqueueEmail } from "@/integrations/email/outbox";
 import { getOpenAIClient } from "@/lib/openai";
 import { prisma } from "@/lib/prisma";
@@ -72,7 +73,7 @@ async function createCopy(sources: Source[]) {
   const response = await getOpenAIClient().responses.create({
     model: process.env.OPENAI_SOCIAL_MODEL ?? process.env.OPENAI_MODEL ?? "gpt-5.6",
     store: false,
-    input: `Write four daily social posts for Innozanzi Shop in South Africa using only the supplied facts. One post per type: PRODUCT, SPECIAL, PC_BUILDER, GAMING.\n\n${JSON.stringify(sources)}\n\nSound like a helpful, commercially sharp human—not an AI or a corporate brochure. Use plain South African English, short natural sentences, a clear customer benefit, and a direct but honest call to action. Sell without pressure. Never invent a price, discount percentage, stock quantity, specification, performance result, delivery promise or partnership. Include the supplied URL naturally. Use at most 3 relevant hashtags. For SPECIAL, say it is a special but do not state a price unless supplied. Return JSON only.`,
+    input: `Write four daily social posts for Innozanzi Shop using only the supplied facts. One post per type: PRODUCT, SPECIAL, PC_BUILDER, GAMING.\n\n${marketingBusinessRules}\n\nSources: ${JSON.stringify(sources)}\n\nSound like a professional, helpful South African online technology retailer—not an AI or a corporate brochure. Use plain South African English, short natural sentences, a clear customer benefit, and a direct but honest online call to action. Sell without pressure. Include the supplied URL naturally. Use at most 3 relevant hashtags. For SPECIAL, do not state a price unless supplied. Return JSON only.`,
     text: { format: { type: "json_schema", name: "daily_social_posts", strict: true, schema: { type: "object", additionalProperties: false, properties: { posts: { type: "array", minItems: 4, maxItems: 4, items: { type: "object", additionalProperties: false, properties: { type: { type: "string", enum: DAILY_SOCIAL_TYPES }, title: { type: "string", minLength: 5, maxLength: 90 }, caption: { type: "string", minLength: 40, maxLength: 1500 }, imageAlt: { type: "string", minLength: 10, maxLength: 220 } }, required: ["type", "title", "caption", "imageAlt"] } } }, required: ["posts"] } } },
   }, { timeout: 60_000 });
   const parsed = copySchema.parse(JSON.parse(response.output_text));
@@ -162,7 +163,7 @@ export async function generateBlogSocialContent(post: { id: string; title: strin
   const existing = await prisma.socialContent.findUnique({ where: { generationKey } });
   if (existing) return existing;
   const url = `${baseUrl()}/blog/${post.slug}`;
-  const response = await getOpenAIClient().responses.create({ model: process.env.OPENAI_SOCIAL_MODEL ?? process.env.OPENAI_MODEL ?? "gpt-5.6", store: false, input: `Write one natural, human social caption that sells the value of this Innozanzi insight without sounding like AI. Use plain English, a clear reason to read, this URL, and no more than 3 hashtags. Do not invent facts. Title: ${post.title}\nExcerpt: ${post.excerpt}\nURL: ${url}` }, { timeout: 30_000 });
+  const response = await getOpenAIClient().responses.create({ model: process.env.OPENAI_SOCIAL_MODEL ?? process.env.OPENAI_MODEL ?? "gpt-5.6", store: false, input: `Write one natural, human social caption that sells the value of this Innozanzi insight without sounding like AI. ${marketingBusinessRules} Use plain English, a clear reason to read, this URL, and no more than 3 hashtags. Title: ${post.title}\nExcerpt: ${post.excerpt}\nURL: ${url}` }, { timeout: 30_000 });
   const caption = response.output_text.trim();
   const source: Source = { type: "PC_BUILDER", sourceType: "BLOG", sourceId: post.id, name: post.title, detail: post.excerpt, url };
   const bytes = post.coverImageUrl ? await brandedProductArtwork({ ...source, image: post.coverImageUrl }, post.title) : await brandedFeatureArtwork(source, post.title, settings.brandDirection);

@@ -30,6 +30,9 @@ export function orderStageContext(status: string) {
   return STAGE_COPY[status] ?? { phase: status.replaceAll("_", " "), reason: "This order is awaiting its next system event.", next: "Review the order", owner: "Operations", customer: "Order received" };
 }
 
+const CUSTOMER_STATUS_LABELS: Record<string,string> = { DRAFT:"Order started",PENDING:"Order placed",AWAITING_PAYMENT:"Awaiting payment",PAYMENT_UNDER_REVIEW:"Payment under review",PAID:"Payment confirmed",PAYMENT_VERIFIED:"Payment confirmed",PROCESSING:"Order being processed",SOURCING_ITEMS:"Products being prepared",ITEMS_RECEIVED:"Products ready for packing",PACKING:"Order being packed",READY_FOR_DELIVERY:"Delivery being scheduled",DISPATCHED:"Out for delivery",IN_TRANSIT:"Out for delivery",SHIPPED:"Out for delivery",DELIVERED:"Delivered",COMPLETED:"Order completed",CANCELLED:"Order cancelled",REFUNDED:"Order refunded",PARTIALLY_REFUNDED:"Order partially refunded" };
+export function customerOrderStatusLabel(status:string){return CUSTOMER_STATUS_LABELS[status]??"Order update"}
+
 export function allowedOrderTransitions(status: string) {
   return FULFILMENT_TRANSITIONS[status] ?? [];
 }

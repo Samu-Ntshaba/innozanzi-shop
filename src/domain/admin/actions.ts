@@ -133,7 +133,10 @@ export async function setOrderStatus(formData: FormData) {
         await tx.quotationStatusHistory.create({ data: { quotationId: before.convertedQuotation.id, fromStatus: before.convertedQuotation.status, toStatus: "CANCELLED", actorId: context.user.id, note } });
       }
     }
-    await tx.order.update({ where: { id }, data: { status, paymentStatus: status === "CANCELLED" ? "REFUNDED" : undefined, completedAt: status === "COMPLETED" ? new Date() : undefined, cancelledAt: status === "CANCELLED" ? new Date() : undefined } });
+    const transitionTime = new Date();
+    await tx.order.update({ where: { id }, data: { status, paymentStatus: status === "CANCELLED" ? "REFUNDED" : undefined, completedAt: status === "COMPLETED" ? transitionTime : undefined, cancelledAt: status === "CANCELLED" ? transitionTime : undefined } });
+    if (status === "DELIVERED" && before.shipments[0]) await tx.shipment.update({ where: { id: before.shipments[0].id }, data: { status: "DELIVERED", deliveredAt: transitionTime } });
+    if (["DISPATCHED", "IN_TRANSIT"].includes(status) && before.shipments[0]) await tx.shipment.update({ where: { id: before.shipments[0].id }, data: { status: "IN_TRANSIT", shippedAt: status === "DISPATCHED" ? transitionTime : undefined } });
     await tx.orderStatusHistory.create({ data: { orderId: id, fromStatus: before.status, toStatus: status, actorId: context.user.id, note } });
     await tx.deliveryTrackingEvent.create({ data: { orderId: id, status, actorId: context.user.id, publicNote: note, internalNote: internalNote || null } });
     await tx.auditLog.create({ data: { actorId: context.user.id, action: status === "CANCELLED" ? "order.cancel-and-release" : "order.status", entityType: "Order", entityId: id, before: { status: before.status, paymentStatus: before.paymentStatus }, after: { status, note, refundConfirmed: status === "CANCELLED" ? true : undefined } } });

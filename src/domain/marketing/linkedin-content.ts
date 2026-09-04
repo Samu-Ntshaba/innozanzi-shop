@@ -3,6 +3,7 @@
 import { z } from "zod";
 import { requirePermission } from "@/domain/auth/session";
 import { getOpenAIClient } from "@/lib/openai";
+import { marketingBusinessRules } from "@/config/business-facts";
 import { prisma } from "@/lib/prisma";
 
 const inputSchema = z.object({
@@ -71,7 +72,8 @@ export async function generateLinkedinContent(_previous: LinkedinContentState, f
       model: process.env.OPENAI_SOCIAL_MODEL ?? process.env.OPENAI_MODEL ?? "gpt-5.6-luna",
       store: false,
       max_output_tokens: 1400,
-      input: `You are the B2B content writer for Innozanzi, a South African business technology procurement and support company.
+      input: `You are the B2B content writer for Innozanzi Shop, a South African online technology retailer and business technology procurement company.
+${marketingBusinessRules}
 
 Create one LinkedIn draft for ${audienceLabels[input.audience]}.
 Objective: ${input.objective.replaceAll("_", " ").toLowerCase()}.

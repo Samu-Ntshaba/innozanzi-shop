@@ -1,9 +1,10 @@
-import { CircleUserRound, Headphones, LogIn, Menu, Search, ShoppingCart, UserPlus } from "lucide-react";
+import { CircleUserRound, Headphones, LogIn, Search, ShoppingCart, UserPlus } from "lucide-react";
 import Link from "next/link";
 import { BrandLogo } from "@/components/brand-logo";
 import { getCurrentCart } from "@/domain/cart/service";
 import { getAuthContext } from "@/domain/auth/session";
 import { prisma } from "@/lib/prisma";
+import { MobileMenu } from "@/components/store/mobile-menu";
 
 export async function StoreHeader() {
   let cartCount = 0;
@@ -20,21 +21,7 @@ export async function StoreHeader() {
   }
   return <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur">
     <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-3 px-3 py-3 sm:gap-5 sm:px-6 lg:flex-nowrap lg:px-8">
-      <details className="group relative lg:hidden">
-        <summary aria-label="Open menu" style={{ listStyle: "none" }} className="grid size-11 cursor-pointer place-items-center rounded-md border border-slate-300 text-slate-700 [&::-webkit-details-marker]:hidden"><Menu className="size-5" /></summary>
-        <nav aria-label="Mobile product navigation" className="absolute left-0 top-[3.25rem] z-50 w-[min(19rem,calc(100vw-1.5rem))] rounded-lg border border-slate-200 bg-white p-2 shadow-lg">
-          <Link className="block rounded-md bg-[#071b33] px-4 py-3 font-semibold text-white" href="/shop">All products</Link>
-          {categories.map(category=><Link className="block rounded-md px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50" href={`/categories/${encodeURIComponent(category)}`} key={category}>{category}</Link>)}
-          <Link className="block rounded-md px-4 py-3 text-sm font-semibold text-sky-800 hover:bg-slate-50" href="/categories">More categories</Link>
-          <Link className="block rounded-md bg-violet-50 px-4 py-3 text-sm font-bold text-violet-800" href="/gaming">Gaming</Link>
-          <Link className="block rounded-md px-4 py-3 text-sm font-semibold text-sky-800 hover:bg-slate-50" href="/build-a-pc">Build a PC</Link>
-          <Link className="block rounded-md px-4 py-3 text-sm font-semibold text-sky-800 hover:bg-slate-50" href="/blog">Insights</Link>
-          <div className="mt-2 border-t border-slate-200 pt-2">{auth
-            ? <Link className="block rounded-md px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50" href="/account">Account</Link>
-            : <><Link className="block rounded-md px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50" href="/sign-in">Log in</Link><Link className="block rounded-md bg-sky-700 px-4 py-3 text-sm font-bold text-white" href="/register">Sign up</Link></>}
-          </div>
-        </nav>
-      </details>
+      <MobileMenu categories={categories} signedIn={Boolean(auth)}/>
       <BrandLogo className="w-28 min-[380px]:w-36 sm:w-44" priority />
       <form action="/shop" className="order-last w-full basis-full sm:order-none sm:flex-1 sm:basis-auto">
         <label className="flex w-full items-center overflow-hidden rounded-md border border-slate-300 bg-white focus-within:border-sky-700 focus-within:ring-1 focus-within:ring-sky-700">
