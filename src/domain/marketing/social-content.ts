@@ -30,7 +30,7 @@ const baseUrl = () => (process.env.NEXT_PUBLIC_SITE_URL ?? brand.siteUrl).replac
 const dayString = (date = new Date()) => new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Johannesburg", year: "numeric", month: "2-digit", day: "2-digit" }).format(date);
 const dateOnly = (day: string) => new Date(`${day}T00:00:00.000Z`);
 const fingerprint = (parts: string[]) => createHash("sha256").update(parts.join("|")).digest("hex");
-type GenerationStage="COPY"|"PRODUCT_ARTWORK"|"FEATURE_ARTWORK"|"STORAGE"|"EMAIL";
+type GenerationStage="CATALOGUE"|"COPY"|"PRODUCT_ARTWORK"|"FEATURE_ARTWORK"|"STORAGE"|"EMAIL";
 const stageError=(stage:GenerationStage,error:unknown)=>new Error(`SOCIAL_${stage}: ${error instanceof Error?error.message:"Unknown failure"}`);
 async function atStage<T>(stage:GenerationStage,work:()=>Promise<T>){try{return await work()}catch(error){throw stageError(stage,error)}}
 const retryable=(error:unknown)=>{const status=typeof error==="object"&&error&&"status" in error?Number((error as {status?:unknown}).status):0,message=error instanceof Error?error.message:"";return status===429||status>=500||/timeout|timed out|fetch failed|ECONNRESET|temporar/i.test(message)};
@@ -59,7 +59,7 @@ export async function socialSettings() {
 
 async function chooseSources(day: string): Promise<Source[]> {
   const recent = await prisma.socialContent.findMany({ where: { sourceId: { not: null }, createdAt: { gte: new Date(Date.now() - 90 * 86_400_000) } }, select: { sourceId: true } });
-  const excluded = recent.flatMap(row => row.sourceId ? [row.sourceId] : []);
+  const excluded = recent.flatMap(row => row.sourceId && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(row.sourceId) ? [row.sourceId] : []);
   const common = { active: true, availability: "IN_STOCK", stock: { gt: 0 }, images: { isEmpty: false }, id: excluded.length ? { notIn: excluded } : undefined };
   const now = new Date();
   let [product, special] = await Promise.all([
@@ -148,7 +148,7 @@ export async function generateDailySocialContent(options: { date?: Date; actorId
   const day = dayString(options.date);
   const existing = await prisma.socialContent.findMany({ where: { generationKey: { startsWith: `daily:${day}:` } }, orderBy: { contentType: "asc" } });
   if (existing.length === 4) {if(existing.some(item=>item.emailStatus!=="SENT"))await atStage("EMAIL",()=>emailContent(existing.map(item=>item.id),day,settings.recipientEmail,"Four ready-to-post ideas are attached. Review them, then publish manually on the channels that fit."));return { status: "already-generated", created: 0, items: existing }}
-  const sources = await chooseSources(day);
+  const sources = await atStage("CATALOGUE",()=>chooseSources(day));
   const posts = await atStage("COPY",()=>createCopy(sources));
   const created:typeof existing = [];
   for (const source of sources) {
