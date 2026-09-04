@@ -19,14 +19,7 @@ export default async function ContactPage({ searchParams }: { searchParams: Prom
     <main>
       <section className="border-b border-slate-200 bg-slate-50">
         <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8">
-          <p className="text-sm font-bold uppercase tracking-[.14em] text-sky-700">Contact Innozanzi</p>
-          <div className="mt-3 grid gap-5 lg:grid-cols-[minmax(0,1fr)_25rem] lg:items-end">
-            <div>
-              <h1 className="max-w-3xl text-4xl font-bold tracking-tight text-slate-950 sm:text-5xl">How can we help?</h1>
-              <p className="mt-5 max-w-2xl text-lg leading-8 text-slate-600">Tell us what you need. We will route your request to the right person and keep the conversation in one tracked place.</p>
-            </div>
-            <p className="border-l-2 border-sky-600 pl-5 text-sm leading-6 text-slate-600">For product questions, orders, payments, delivery or technical support, use the form below.</p>
-          </div>
+          <h1 className="text-4xl font-bold tracking-tight text-slate-950 sm:text-5xl">How can we help?</h1>
         </div>
       </section>
 
@@ -44,10 +37,7 @@ export default async function ContactPage({ searchParams }: { searchParams: Prom
             </div>
           ) : (
             <form action={submitHelpDeskTicket} className="grid gap-x-5 gap-y-5 sm:grid-cols-2">
-              <div className="border-b border-slate-200 pb-5 sm:col-span-2">
-                <h2 className="text-2xl font-bold tracking-tight text-slate-950">Send us a message</h2>
-                <p className="mt-2 text-sm leading-6 text-slate-600">Required fields are marked with an asterisk. You will receive a reference number after submitting.</p>
-              </div>
+              <h2 className="border-b border-slate-200 pb-5 text-2xl font-bold tracking-tight text-slate-950 sm:col-span-2">Send us a message</h2>
               <label className={label}>Name <span className="text-sky-700">*</span><input className={input} name="name" autoComplete="name" required /></label>
               <label className={label}>Email <span className="text-sky-700">*</span><input className={input} name="email" type="email" autoComplete="email" required /></label>
               <label className={label}>Phone <span className="font-normal text-slate-500">(optional)</span><input className={input} name="phone" type="tel" autoComplete="tel" /></label>
@@ -55,10 +45,7 @@ export default async function ContactPage({ searchParams }: { searchParams: Prom
               <label className={label}>Request type<select className={input} name="category" defaultValue="OTHER">{["ORDER", "PAYMENT", "PRODUCT", "DELIVERY", "TECHNICAL", "ACCOUNT", "OTHER"].map((item) => <option key={item} value={item}>{item.charAt(0) + item.slice(1).toLowerCase()}</option>)}</select></label>
               <label className={label}>Subject <span className="text-sky-700">*</span><input className={input} name="subject" placeholder="A short summary" required /></label>
               <label className={`${label} sm:col-span-2`}>Message <span className="text-sky-700">*</span><textarea className={`${input} min-h-40 py-3`} name="message" placeholder="Include a product or order reference if you have one." required /></label>
-              <div className="flex flex-col gap-3 border-t border-slate-200 pt-5 sm:col-span-2 sm:flex-row sm:items-center sm:justify-between">
-                <p className="max-w-md text-xs leading-5 text-slate-500">Submitting this form creates a tracked support request and emails you a confirmation.</p>
-                <button className="min-h-12 rounded-lg bg-[#071b33] px-6 font-semibold text-white transition hover:bg-slate-800">Send message</button>
-              </div>
+              <div className="flex justify-end border-t border-slate-200 pt-5 sm:col-span-2"><button className="min-h-12 rounded-lg bg-sky-700 px-6 font-semibold text-white transition hover:bg-sky-800">Send message</button></div>
             </form>
           )}
         </div>
@@ -68,7 +55,7 @@ export default async function ContactPage({ searchParams }: { searchParams: Prom
           <div className="mt-5 divide-y divide-slate-200 border-y border-slate-200">
             <a className="group flex gap-4 py-5" href={whatsappUrl()} target="_blank" rel="noreferrer">
               <MessageCircle className="mt-0.5 size-5 shrink-0 text-sky-700" />
-              <div><p className="font-semibold text-slate-950">WhatsApp</p><p className="mt-1 text-sm leading-6 text-slate-600">Best for a quick question or ticket follow-up.</p><span className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-sky-700">Start a chat <ArrowUpRight className="size-3.5" /></span></div>
+              <div><p className="font-semibold text-slate-950">WhatsApp</p><span className="mt-1 inline-flex items-center gap-1 text-sm font-semibold text-sky-700">Start a chat <ArrowUpRight className="size-3.5" /></span></div>
             </a>
             <a className="flex gap-4 py-5" href={`mailto:${supportEmail}`}>
               <Mail className="mt-0.5 size-5 shrink-0 text-sky-700" />

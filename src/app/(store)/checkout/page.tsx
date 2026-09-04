@@ -1,7 +1,7 @@
 import Decimal from "decimal.js";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ChevronLeft, LockKeyhole, MapPin, PackageCheck, ShieldCheck, Truck } from "lucide-react";
+import { ChevronLeft, LockKeyhole, MapPin } from "lucide-react";
 import { PaymentMethodSelector } from "@/components/store/payment-method-selector";
 import { requireUser } from "@/domain/auth/session";
 import { getCurrentCart } from "@/domain/cart/service";
@@ -47,7 +47,6 @@ export default async function CheckoutPage() {
             <label className={`${label} sm:col-span-2`}>Delivery notes <span className="font-normal text-slate-400">(optional)</span><textarea className={`${input} h-auto min-h-24 py-3`} name="notes" placeholder="Access instructions or anything our delivery team should know"/></label>
           </div>
         </section>
-        <section className="grid gap-4 rounded-2xl border border-slate-200 bg-white p-5 text-sm shadow-sm sm:grid-cols-3 sm:p-6"><div className="flex gap-3"><Truck className="size-5 shrink-0 text-sky-700"/><div><strong>Nationwide delivery</strong><p className="mt-1 text-xs leading-5 text-slate-500">Tracked fulfilment across South Africa.</p></div></div><div className="flex gap-3"><ShieldCheck className="size-5 shrink-0 text-sky-700"/><div><strong>Secure payment</strong><p className="mt-1 text-xs leading-5 text-slate-500">Payment details are protected.</p></div></div><div className="flex gap-3"><PackageCheck className="size-5 shrink-0 text-sky-700"/><div><strong>Stock rechecked</strong><p className="mt-1 text-xs leading-5 text-slate-500">Availability is confirmed on order.</p></div></div></section>
       </div>
       <aside className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm lg:sticky lg:top-28">
         <div className="border-b border-slate-200 p-5 sm:p-6"><div className="flex items-center justify-between"><h2 className="text-xl font-bold text-slate-950">Order summary</h2><span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">{itemCount} {itemCount === 1 ? "item" : "items"}</span></div><div className="mt-5 max-h-64 space-y-4 overflow-auto pr-1">{lines.map(line => <div className="flex justify-between gap-4 text-sm" key={`${line.sourceType}-${line.sourceId}`}><div className="min-w-0"><p className="line-clamp-2 font-semibold leading-5 text-slate-800">{line.productName}</p><p className="mt-1 text-xs text-slate-500">Quantity {line.quantity}</p></div><span className="shrink-0 font-semibold text-slate-900">{formatZar(line.grossUnit.mul(line.quantity))}</span></div>)}</div></div>
