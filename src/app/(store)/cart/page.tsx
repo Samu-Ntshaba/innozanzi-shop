@@ -23,7 +23,7 @@ export default async function CartPage({ searchParams }: { searchParams: Promise
   const delivery = deliveryFee(productTotal);
   const orderTotal = productTotal.plus(delivery);
   const supplierProducts = await prisma.supplierCatalogueProduct.findMany({ where: { OR: supplierItems.map(x => ({ supplierId: x.supplierId, supplierProductId: x.supplierProductId })) }, select: { supplierId: true, supplierProductId: true, name: true, slug: true, images: true, availability: true } });
-  return <main className="mx-auto max-w-7xl px-4 py-7 sm:px-6 sm:py-10 lg:px-8">
+  return <main className="mx-auto max-w-7xl px-4 pb-28 pt-7 sm:px-6 sm:py-10 lg:px-8">
     <h1 className="text-3xl font-semibold sm:text-4xl">Your cart</h1>
     {params.error ? <p className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">That requested quantity is unavailable.</p> : null}
     {params.status === "added" ? <p className="mt-4 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-700">Product added to your cart.</p> : null}
@@ -37,5 +37,6 @@ export default async function CartPage({ searchParams }: { searchParams: Promise
         </section>
         <aside className="h-fit rounded-lg border border-slate-200 bg-slate-50 p-4 sm:p-6 lg:sticky lg:top-36"><h2 className="text-xl font-semibold">Cart summary</h2><dl className="mt-4 space-y-3 text-sm"><div className="flex justify-between"><dt>Products</dt><dd>{formatZar(productTotal)}</dd></div><div className="flex justify-between"><dt>Delivery</dt><dd className={delivery.gt(0)?"font-semibold":"font-semibold text-emerald-700"}>{delivery.gt(0)?formatZar(delivery):"FREE"}</dd></div><div className="flex justify-between border-t border-slate-200 pt-3 text-base font-bold"><dt>Total</dt><dd>{formatZar(orderTotal)}</dd></div></dl>{delivery.gt(0)?<p className="mt-3 rounded-lg bg-white p-3 text-xs leading-5 text-slate-600">Add {formatZar(FREE_DELIVERY_THRESHOLD.minus(productTotal))} for free delivery.</p>:<p className="mt-3 text-xs font-semibold text-emerald-700">Free delivery</p>}<Link className="mt-6 block min-h-12 rounded-md bg-sky-700 px-5 py-3 text-center font-semibold text-white" href="/checkout">Proceed to checkout</Link><Link className="mt-3 block py-3 text-center text-sm text-slate-600 underline" href="/shop">Continue shopping</Link></aside>
       </div>}
+    {items.length||supplierItems.length?<div className="fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white/95 px-4 py-3 shadow-[0_-4px_18px_rgba(15,23,42,.08)] backdrop-blur sm:hidden"><div className="flex items-center gap-3"><div className="min-w-0 flex-1"><p className="text-xs text-slate-500">Total</p><strong>{formatZar(orderTotal)}</strong></div><Link className="inline-flex min-h-11 items-center rounded-lg bg-sky-700 px-5 text-sm font-bold text-white" href="/checkout">Checkout</Link></div></div>:null}
   </main>;
 }
