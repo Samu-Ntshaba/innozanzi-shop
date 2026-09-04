@@ -6,6 +6,7 @@ import { z } from "zod";
 import { brand } from "@/config/brand";
 import { marketingBusinessRules } from "@/config/business-facts";
 import { enqueueEmail } from "@/integrations/email/outbox";
+import { mailDeliveryMode } from "@/integrations/email/provider";
 import { getOpenAIClient } from "@/lib/openai";
 import { prisma } from "@/lib/prisma";
 import { createSupabaseAdmin } from "@/lib/supabase";
@@ -29,6 +30,13 @@ const baseUrl = () => (process.env.NEXT_PUBLIC_SITE_URL ?? brand.siteUrl).replac
 const dayString = (date = new Date()) => new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Johannesburg", year: "numeric", month: "2-digit", day: "2-digit" }).format(date);
 const dateOnly = (day: string) => new Date(`${day}T00:00:00.000Z`);
 const fingerprint = (parts: string[]) => createHash("sha256").update(parts.join("|")).digest("hex");
+type GenerationStage="COPY"|"PRODUCT_ARTWORK"|"FEATURE_ARTWORK"|"STORAGE"|"EMAIL";
+const stageError=(stage:GenerationStage,error:unknown)=>new Error(`SOCIAL_${stage}: ${error instanceof Error?error.message:"Unknown failure"}`);
+async function atStage<T>(stage:GenerationStage,work:()=>Promise<T>){try{return await work()}catch(error){throw stageError(stage,error)}}
+const retryable=(error:unknown)=>{const status=typeof error==="object"&&error&&"status" in error?Number((error as {status?:unknown}).status):0,message=error instanceof Error?error.message:"";return status===429||status>=500||/timeout|timed out|fetch failed|ECONNRESET|temporar/i.test(message)};
+async function withTransientRetry<T>(work:()=>Promise<T>){try{return await work()}catch(error){if(!retryable(error))throw error;return work()}}
+
+export async function socialGenerationReadiness(){const settings=await socialSettings();return{recipient:Boolean(settings.recipientEmail),openai:Boolean(process.env.OPENAI_API_KEY),storage:Boolean(process.env.SUPABASE_URL&&process.env.SUPABASE_SECRET_KEY),email:mailDeliveryMode()!=="unconfigured"}}
 
 export function authorisedMarketingCron(request: Request) {
   const expected = process.env.CRON_SECRET;
@@ -64,18 +72,18 @@ async function chooseSources(day: string): Promise<Source[]> {
   const productSource = (type: "PRODUCT" | "SPECIAL", item: typeof product): Source => ({ type, sourceType: "SUPPLIER_PRODUCT", sourceId: item.id, name: item.name, detail: clean(item.shortDescription ?? item.description).slice(0, 500), image: item.images[0], url: `${baseUrl()}/supplier-products/${item.slug}` });
   return [
     productSource("PRODUCT", product), productSource("SPECIAL", special),
-    { type: "PC_BUILDER", sourceType: "FEATURE", sourceId: `PC_BUILDER:${day}`, name: "Build your PC", detail: "Innozanzi PC Workshop helps people select compatible components around their budget and intended use.", url: `${baseUrl()}/pc-builder` },
+    { type: "PC_BUILDER", sourceType: "FEATURE", sourceId: `PC_BUILDER:${day}`, name: "Build your PC", detail: "Innozanzi PC Workshop helps people select compatible components around their budget and intended use.", url: `${baseUrl()}/build-a-pc` },
     { type: "GAMING", sourceType: "FEATURE", sourceId: `GAMING:${day}`, name: "Innozanzi Gaming", detail: "A practical place to discover gaming PCs, components, upgrades and accessories.", url: `${baseUrl()}/gaming` },
   ];
 }
 
 async function createCopy(sources: Source[]) {
-  const response = await getOpenAIClient().responses.create({
+  const response = await withTransientRetry(()=>getOpenAIClient().responses.create({
     model: process.env.OPENAI_SOCIAL_MODEL ?? process.env.OPENAI_MODEL ?? "gpt-5.6",
     store: false,
     input: `Write four daily social posts for Innozanzi Shop using only the supplied facts. One post per type: PRODUCT, SPECIAL, PC_BUILDER, GAMING.\n\n${marketingBusinessRules}\n\nSources: ${JSON.stringify(sources)}\n\nSound like a professional, helpful South African online technology retailer—not an AI or a corporate brochure. Use plain South African English, short natural sentences, a clear customer benefit, and a direct but honest online call to action. Sell without pressure. Include the supplied URL naturally. Use at most 3 relevant hashtags. For SPECIAL, do not state a price unless supplied. Return JSON only.`,
     text: { format: { type: "json_schema", name: "daily_social_posts", strict: true, schema: { type: "object", additionalProperties: false, properties: { posts: { type: "array", minItems: 4, maxItems: 4, items: { type: "object", additionalProperties: false, properties: { type: { type: "string", enum: DAILY_SOCIAL_TYPES }, title: { type: "string", minLength: 5, maxLength: 90 }, caption: { type: "string", minLength: 40, maxLength: 1500 }, imageAlt: { type: "string", minLength: 10, maxLength: 220 } }, required: ["type", "title", "caption", "imageAlt"] } } }, required: ["posts"] } } },
-  }, { timeout: 60_000 });
+  }, { timeout: 60_000 }));
   const parsed = copySchema.parse(JSON.parse(response.output_text));
   if (new Set(parsed.posts.map(post => post.type)).size !== 4) throw new Error("The content model did not return all four post types.");
   return parsed.posts;
@@ -96,7 +104,7 @@ async function brandedProductArtwork(source: Source, title: string) {
 }
 
 async function brandedFeatureArtwork(source: Source, title: string, direction: string) {
-  const result = await getOpenAIClient().images.generate({ model: process.env.OPENAI_IMAGE_MODEL ?? "gpt-image-2", prompt: `Create a realistic premium social photograph for a South African technology retailer. Subject: ${source.detail}. ${direction}. Natural lighting, believable equipment and people where relevant, editorial commercial photography, uncluttered, no text, no logo, no watermark, no futuristic fantasy, no synthetic AI aesthetic.`, size: "1024x1024", quality: "medium", output_format: "webp" }, { timeout: 90_000 });
+  const result = await withTransientRetry(()=>getOpenAIClient().images.generate({ model: process.env.OPENAI_IMAGE_MODEL ?? "gpt-image-2", prompt: `Create a realistic premium social photograph for a South African technology retailer. Subject: ${source.detail}. ${direction}. Natural lighting, believable equipment and people where relevant, editorial commercial photography, uncluttered, no text, no logo, no watermark, no futuristic fantasy, no synthetic AI aesthetic.`, size: "1024x1024", quality: "medium", output_format: "webp" }, { timeout: 90_000 }));
   const encoded = result.data?.[0]?.b64_json;
   if (!encoded) throw new Error("The image service returned no feature image.");
   const logo = await readFile(path.join(process.cwd(), "public/brand/innozanzi-shop-logo-white.png"));
@@ -112,7 +120,7 @@ async function uploadArtwork(bytes: Buffer, day: string, type: string) {
     if (made.error) throw made.error;
   }
   const objectPath = `social/${day}/${type.toLowerCase()}-${randomUUID()}.webp`;
-  const uploaded = await storage.storage.from(bucket).upload(objectPath, bytes, { contentType: "image/webp", upsert: false });
+  const uploaded = await withTransientRetry(()=>storage.storage.from(bucket).upload(objectPath, bytes, { contentType: "image/webp", upsert: false }));
   if (uploaded.error) throw uploaded.error;
   return storage.storage.from(bucket).getPublicUrl(objectPath).data.publicUrl;
 }
@@ -139,20 +147,20 @@ export async function generateDailySocialContent(options: { date?: Date; actorId
   if (!settings.recipientEmail) throw new Error("Set the social content recipient email in Marketing settings first.");
   const day = dayString(options.date);
   const existing = await prisma.socialContent.findMany({ where: { generationKey: { startsWith: `daily:${day}:` } }, orderBy: { contentType: "asc" } });
-  if (existing.length === 4) return { status: "already-generated", created: 0, items: existing };
+  if (existing.length === 4) {if(existing.some(item=>item.emailStatus!=="SENT"))await atStage("EMAIL",()=>emailContent(existing.map(item=>item.id),day,settings.recipientEmail,"Four ready-to-post ideas are attached. Review them, then publish manually on the channels that fit."));return { status: "already-generated", created: 0, items: existing }}
   const sources = await chooseSources(day);
-  const posts = await createCopy(sources);
-  const created = [];
+  const posts = await atStage("COPY",()=>createCopy(sources));
+  const created:typeof existing = [];
   for (const source of sources) {
     const generationKey = `daily:${day}:${source.type}`;
     const prior = await prisma.socialContent.findUnique({ where: { generationKey } });
     if (prior) { created.push(prior); continue; }
     const post = posts.find(item => item.type === source.type)!;
-    const bytes = source.image ? await brandedProductArtwork(source, post.title) : await brandedFeatureArtwork(source, post.title, settings.brandDirection);
-    const imageUrl = await uploadArtwork(bytes, day, source.type);
+    const bytes = source.image ? await atStage("PRODUCT_ARTWORK",()=>brandedProductArtwork(source,post.title)) : await atStage("FEATURE_ARTWORK",()=>brandedFeatureArtwork(source,post.title,settings.brandDirection));
+    const imageUrl = await atStage("STORAGE",()=>uploadArtwork(bytes,day,source.type));
     created.push(await prisma.socialContent.create({ data: { contentDate: dateOnly(day), contentType: source.type, title: post.title, caption: post.caption, imageUrl, imageAlt: post.imageAlt, destinationUrl: source.url, sourceType: source.sourceType, sourceId: source.sourceId, fingerprint: fingerprint([source.type, source.sourceId, post.caption]), generationKey, createdById: options.actorId } }));
   }
-  await emailContent(created.map(item => item.id), day, settings.recipientEmail, "Four ready-to-post ideas are attached. Review them, then publish manually on the channels that fit.");
+  await atStage("EMAIL",()=>emailContent(created.map(item=>item.id),day,settings.recipientEmail,"Four ready-to-post ideas are attached. Review them, then publish manually on the channels that fit."));
   return { status: "generated", created: created.length, items: created };
 }
 

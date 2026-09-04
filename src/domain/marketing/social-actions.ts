@@ -18,5 +18,5 @@ export async function saveSocialSettings(formData: FormData) {
 export async function generateSocialContentNow() {
   const ctx = await requirePermission("marketing.content.edit");
   try { const result = await generateDailySocialContent({ actorId: ctx.user.id }); revalidatePath("/admin/marketing/social"); redirect(`/admin/marketing/social?result=${result.status}`); }
-  catch (error) { if ((error as { digest?: string })?.digest?.startsWith("NEXT_REDIRECT")) throw error; console.error("Manual social generation failed", error); redirect("/admin/marketing/social?result=failed"); }
+  catch (error) { if ((error as { digest?: string })?.digest?.startsWith("NEXT_REDIRECT")) throw error; console.error("Manual social generation failed", error); const match=error instanceof Error?error.message.match(/^SOCIAL_(COPY|PRODUCT_ARTWORK|FEATURE_ARTWORK|STORAGE|EMAIL):/):null;redirect(`/admin/marketing/social?result=failed&stage=${match?.[1]??"CONFIGURATION"}`); }
 }
