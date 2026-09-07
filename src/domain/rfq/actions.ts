@@ -125,7 +125,7 @@ export async function analyseRfqSource(formData: FormData) {
   const source = await prisma.rfqSource.findUniqueOrThrow({ where: { id: sourceId }, include: { rfq: true } });
   await scopedRfq(source.rfqId, context);
   if (!source.extractedText) throw new Error("This source has no readable content.");
-  const rate = consumeRateLimit(`rfq-analysis:${context.user.id}`, 12, 60 * 60_000);
+  const rate = await consumeRateLimit(`rfq-analysis:${context.user.id}`, 12, 60 * 60_000);
   if (!rate.allowed) throw new Error(`Analysis limit reached. Try again in ${rate.retryAfterSeconds} seconds.`);
   await prisma.rfqSource.update({ where: { id: sourceId }, data: { processingStatus: "PROCESSING", analysisError: null } });
   try {

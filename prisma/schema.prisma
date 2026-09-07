@@ -4547,3 +4547,10 @@ model AIUsage {
   @@index([anonymousSessionId, createdAt])
   @@index([orderId])
 }
+
+model SecurityRateLimit {
+  key String @id
+  count Int
+  resetAt DateTime @db.Timestamptz
+  @@index([resetAt])
+}

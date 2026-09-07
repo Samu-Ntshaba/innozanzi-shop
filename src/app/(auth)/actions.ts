@@ -1,5 +1,7 @@
 "use server";
 
+import { safeLocalRedirect } from "@/lib/security/redirect";
+import { clientAddress } from "@/lib/security/request";
 import { createHash, randomBytes } from "node:crypto";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
@@ -38,26 +40,26 @@ export async function loginAction(formData: FormData) {
   if (!parsed.success) redirect("/sign-in?error=invalid");
 
   const requestHeaders = await headers();
-  const ip = requestHeaders.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+  const ip = clientAddress(requestHeaders);
   const rateLimitKey = `${ip}:${parsed.data.email}`;
-  if (!consumeAuthAttempt(rateLimitKey)) redirect("/sign-in?error=rate-limited");
+  if (!(await consumeRateLimit(`login-ip:${ip}`, 30, 15 * 60_000)).allowed || !await consumeAuthAttempt(`login-account:${parsed.data.email}`, 10) || !await consumeAuthAttempt(rateLimitKey)) redirect("/sign-in?error=rate-limited");
 
   const user = await prisma.user.findUnique({
     where: { email: parsed.data.email },
-    select: { id: true, email: true, passwordHash: true, status: true, mustChangePassword: true, temporaryPasswordExpiresAt: true },
+    select: { id: true, email: true, passwordHash: true, status: true, deletedAt: true, mustChangePassword: true, temporaryPasswordExpiresAt: true },
   });
   const valid = Boolean(
-    user?.passwordHash &&
+    user?.passwordHash && !user.deletedAt &&
       (user.status === "ACTIVE" || (user.status === "INVITED" && user.mustChangePassword && Boolean(user.temporaryPasswordExpiresAt && user.temporaryPasswordExpiresAt > new Date()))) &&
       (await verifyPassword(user.passwordHash, parsed.data.password)),
   );
   if (!user || !valid) redirect("/sign-in?error=invalid");
 
   await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
-  clearAuthAttempts(rateLimitKey);
+  await clearAuthAttempts(rateLimitKey);
   await createSession(user.id);
   if (user.status === "INVITED") redirect(`/activate-account?email=${encodeURIComponent(user.email)}`);
-  const returnTo=(await cookies()).get("innozanzi-return-to")?.value;(await cookies()).delete("innozanzi-return-to");redirect(returnTo?.startsWith("/")&&!returnTo.startsWith("//")?returnTo:await defaultLandingPage(user.id));
+  const returnTo=(await cookies()).get("innozanzi-return-to")?.value;(await cookies()).delete("innozanzi-return-to");redirect(safeLocalRedirect(returnTo,await defaultLandingPage(user.id)));
 }
 
 export async function registerAction(formData: FormData) {
@@ -69,8 +71,8 @@ export async function registerAction(formData: FormData) {
   if (!parsed.success) redirect("/register?error=invalid");
 
   const requestHeaders = await headers();
-  const ip = requestHeaders.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
-  if (!consumeRateLimit(`register:${ip}:${parsed.data.email}`, 5, 60 * 60_000).allowed) redirect("/register?error=rate-limited");
+  const ip = clientAddress(requestHeaders);
+  if (!(await consumeRateLimit(`register:${ip}`, 5, 60 * 60_000)).allowed) redirect("/register?error=rate-limited");
 
   const existing = await prisma.user.findUnique({
     where: { email: parsed.data.email },
@@ -144,11 +146,11 @@ export async function verifyEmailAction(formData: FormData) {
 
   const token = createHash("sha256").update(rawToken).digest("hex");
   const verification = await prisma.verificationToken.findUnique({ where: { token } });
-  const customer = await prisma.user.findUnique({ where: { email }, select: { id: true, name: true, customerProfile: { select: { id: true } } } });
+  const customer = await prisma.user.findUnique({ where: { email }, select: { id: true, name: true, status: true, deletedAt: true, customerProfile: { select: { id: true } } } });
   if (
     !verification ||
     verification.identifier !== `verify:${email}` ||
-    verification.expires <= new Date() || !customer?.customerProfile
+    verification.expires <= new Date() || !customer?.customerProfile || customer.deletedAt || customer.status !== "PENDING_VERIFICATION"
   ) {
     redirect("/verify-email?error=invalid");
   }
@@ -164,15 +166,15 @@ export async function verifyEmailAction(formData: FormData) {
   });
   await enqueueEmail(emailTemplates.welcome(email, customer.name ?? "there"), customer.id);
   await createSession(user.id);
-  const returnTo=(await cookies()).get("innozanzi-return-to")?.value;(await cookies()).delete("innozanzi-return-to");redirect(returnTo?.startsWith("/")&&!returnTo.startsWith("//")?returnTo:"/account");
+  const returnTo=(await cookies()).get("innozanzi-return-to")?.value;(await cookies()).delete("innozanzi-return-to");redirect(safeLocalRedirect(returnTo,"/account"));
 }
 
 export async function requestPasswordResetAction(formData: FormData) {
   const parsed = passwordResetRequestSchema.safeParse({ email: value(formData, "email") });
   if (parsed.success) {
     const requestHeaders = await headers();
-    const ip = requestHeaders.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
-    if (!consumeRateLimit(`password-reset:${ip}:${parsed.data.email}`, 3, 60 * 60_000).allowed) redirect("/forgot-password?status=sent");
+    const ip = clientAddress(requestHeaders);
+    if (!(await consumeRateLimit(`password-reset:${ip}`, 3, 60 * 60_000)).allowed) redirect("/forgot-password?status=sent");
     const user = await prisma.user.findFirst({ where: { email: parsed.data.email, customerProfile: { isNot: null } }, select: { id: true } });
     if (user) {
       const rawToken = randomBytes(32).toString("base64url");

@@ -5,13 +5,15 @@ import { prisma } from "@/lib/prisma";
 
 async function getPolicy(slug: string) {
   const fallback = publicPolicies[slug];
+  // Reviewed legal text is versioned with code; stale CMS copies must not override it.
+  if (fallback) return { ...fallback, slug, metaTitle: null, metaDescription: fallback.description };
   try {
     const page = await prisma.page.findUnique({ where: { slug } });
     if (page?.status === "PUBLISHED") return page;
   } catch (error) {
     console.error(`Policy page ${slug} unavailable from the database`, error);
   }
-  return fallback ? { ...fallback, slug, metaTitle: null, metaDescription: fallback.description } : null;
+  return null;
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {

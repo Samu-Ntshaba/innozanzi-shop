@@ -19,10 +19,19 @@ export async function GET(_:Request,{params}:{params:Promise<{id:string}>}){
   }});
   if(!document)return new Response("Not found",{status:404});
   const owner=document.paymentSubmission?.submittedById===auth.user.id||document.partnershipDocument?.uploadedById===auth.user.id||document.partnerRequestAttachment?.request.partnership.userId===auth.user.id||document.deliveryNoteAttachment?.deliveryNote.customerEmail?.toLowerCase()===auth.user.email.toLowerCase()||(document.returnEvidence?.customerVisible===true&&document.returnEvidence.returnCase.customerId===auth.user.id)||document.refundPaymentProof?.refund.returnCase.customerId===auth.user.id;
-  const rfqOwner=document.rfqSource?.rfq.companyId===auth.user.companyId;
-  const admin=hasPermission(auth.grants,"products.update",auth.isSuperAdministrator)||hasPermission(auth.grants,"payments.approve",auth.isSuperAdministrator)||hasPermission(auth.grants,"orders.view",auth.isSuperAdministrator)||hasPermission(auth.grants,"partnership.document.review",auth.isSuperAdministrator)||hasPermission(auth.grants,"partnership.request.manage",auth.isSuperAdministrator)||hasPermission(auth.grants,"rfq.view",auth.isSuperAdministrator)||hasPermission(auth.grants,"returns.view",auth.isSuperAdministrator)||hasPermission(auth.grants,"transport.documents.download",auth.isSuperAdministrator);
+  const rfqOwner=Boolean(auth.user.companyId && document.rfqSource && document.rfqSource.rfq.companyId===auth.user.companyId);
+  const can=(key:Parameters<typeof hasPermission>[1])=>hasPermission(auth.grants,key,auth.isSuperAdministrator);
+  const transport=Boolean(document.transportDocuments.length||document.transportQuoteDocument||document.transportExpenseDocument||document.transportPaymentProof||document.transportProofDocuments.length||document.reimbursementReceipt);
+  const admin=auth.isSuperAdministrator
+    || Boolean(document.paymentSubmission&&can("payments.approve"))
+    || Boolean(document.deliveryNoteAttachment&&can("orders.view"))
+    || Boolean(document.partnershipDocument&&can("partnership.document.review"))
+    || Boolean(document.partnerRequestAttachment&&can("partnership.request.manage"))
+    || Boolean(document.rfqSource&&can("rfq.view"))
+    || Boolean((document.returnEvidence||document.refundPaymentProof||document.distributorClaimDocument)&&can("returns.view"))
+    || Boolean(transport&&can("transport.documents.download"));
   if(!owner&&!rfqOwner&&!admin)return new Response("Forbidden",{status:403});
   const signed=await createSupabaseAdmin().storage.from(document.bucket).createSignedUrl(document.path,300);
   if(signed.error)return new Response("Document unavailable",{status:503});
-  return NextResponse.redirect(signed.data.signedUrl);
+  const response=NextResponse.redirect(signed.data.signedUrl);response.headers.set("Cache-Control","private, no-store");return response;
 }

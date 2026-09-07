@@ -1,3 +1,5 @@
+import { boundedJson } from "@/lib/security/request";
+import { consumeRateLimit } from "@/domain/auth/rate-limit";
 import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 import { getOpenAIClient } from "@/lib/openai";
@@ -30,7 +32,9 @@ export async function POST(request: Request) {
   }
 
   try {
-    const body: unknown = await request.json();
+    const limit=await consumeRateLimit("openai-service",100,3_600_000);
+    if(!limit.allowed)return NextResponse.json({error:"Request limit reached."},{status:429});
+    const body: unknown = await boundedJson(request, 90_000);
     const input =
       typeof body === "object" && body !== null && "input" in body
         ? (body as { input?: unknown }).input
@@ -62,7 +66,7 @@ export async function POST(request: Request) {
       output: response.output_text,
     });
   } catch (error) {
-    console.error("OpenAI request failed", error);
+    console.error("OpenAI request failed", error instanceof Error ? error.name : "UnknownError");
     return NextResponse.json(
       { error: "The AI request could not be completed." },
       { status: 500 },

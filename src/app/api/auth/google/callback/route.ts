@@ -1,3 +1,4 @@
+import { safeLocalRedirect } from "@/lib/security/redirect";
 import {cookies} from "next/headers";
 import {NextRequest,NextResponse} from "next/server";
 import {prisma} from "@/lib/prisma";
@@ -36,6 +37,6 @@ export async function GET(request:NextRequest){
     });
     if(created){await enqueueEmail(emailTemplates.welcome(user.email,user.name??"there"),user.id);await notifySupportOfNewUser({userId:user.id,name:user.name,email:user.email,accountType:user.accountType,source:"GOOGLE_REGISTRATION"})}
     await prisma.user.update({where:{id:user.id},data:{lastLoginAt:new Date()}});await createSession(user.id);
-    const returnTo=store.get("innozanzi-return-to")?.value;store.delete("innozanzi-return-to");return NextResponse.redirect(new URL(returnTo?.startsWith("/")&&!returnTo.startsWith("//")?returnTo:"/account",googleRedirectUri()));
+    const returnTo=store.get("innozanzi-return-to")?.value;store.delete("innozanzi-return-to");return NextResponse.redirect(new URL(safeLocalRedirect(returnTo,"/account"),googleRedirectUri()));
   }catch(error){console.error("Google authentication failed",error);return fail(error instanceof Error&&error.message==="STAFF_LINK_BLOCKED"?"google-existing-account":"google-failed")}
 }

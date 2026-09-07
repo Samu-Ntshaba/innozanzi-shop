@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
+import { clientAddress } from "@/lib/security/request";
 import { consumeRateLimit } from "@/domain/auth/rate-limit";
 import { getAuthContext, requirePermission, requireUser } from "@/domain/auth/session";
 import { enqueueEmail } from "@/integrations/email/outbox";
@@ -61,9 +62,9 @@ export async function subscribeNewsletter(formData: FormData) {
     });
   const requestHeaders = await headers();
   const ip =
-    requestHeaders.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
-  const limit = consumeRateLimit(
-    `newsletter:${ip}:${data.email}`,
+    clientAddress(requestHeaders);
+  const limit = await consumeRateLimit(
+    `newsletter:${ip}`,
     3,
     60 * 60_000,
   );
@@ -116,9 +117,9 @@ export async function submitHelpDeskTicket(formData: FormData) {
   const auth = await getAuthContext();
   const requestHeaders = await headers();
   const ip =
-    requestHeaders.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
-  const limit = consumeRateLimit(
-    `helpdesk:${ip}:${data.email}`,
+    clientAddress(requestHeaders);
+  const limit = await consumeRateLimit(
+    `helpdesk:${ip}`,
     5,
     60 * 60_000,
   );

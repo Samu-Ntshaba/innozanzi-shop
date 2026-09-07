@@ -5,10 +5,27 @@ export type PublicPolicy = {
 };
 
 export const publicPolicies: Record<string, PublicPolicy> = {
+  cookies: {
+    title: "Cookie Policy",
+    description: "Essential storage, optional analytics and how to change your choice.",
+    content: `Last updated: 7 September 2026
+
+Essential storage
+Our account session cookie lasts up to 30 days and supports authentication. Cart and workflow cookies keep requested shopping functions working. The innozanzi-ai cookie identifies anonymous AI usage for up to 180 days; separate server limits also protect against abuse. These cookies do not grant access to private accounts. The innozanzi-consent cookie remembers essential-only or analytics preferences for 180 days. A local-storage copy may support preference updates; the expiring cookie is authoritative. Session storage remembers dismissed prompts for the browser session.
+
+Optional storage
+If you choose Allow analytics, Google Analytics uses cookies such as _ga and _ga_* (typically up to two years, depending on provider settings). The innozanzi-rec cookie lasts up to 180 days and connects optional browsing events for product recommendations. Events may be associated with your account when signed in. Transaction and security records needed to operate the service are separate from optional browsing analytics.
+
+Your control
+Optional collection is off until you choose it. Cookie settings remains available on the website to change your choice. Choosing Essential only disables future optional collection and browsing-history personalisation and clears accessible analytics cookies and our recommendation cookie. Browser settings can remove remaining cookies, including ones set on other domains. Existing provider records are not automatically erased by withdrawing consent; contact support@innozanzi.co.za for privacy requests.
+
+Other providers
+Payment, account-sign-in and other external services may set cookies on their own websites when you choose to use them. Their privacy notices apply to those services. Read our Privacy Policy for processing and cross-border information.`,
+  },
   "ai-shopping": {
     title: "AI Shopping Assistance Policy",
     description: "How Innozanzi AI product recommendations work and what customers should verify before purchasing.",
-    content: `Last updated: 4 September 2026
+    content: `Last updated: 7 September 2026
 
 1. Purpose
 Innozanzi AI provides informational shopping assistance based on product information available in the Innozanzi Shop catalogue. It is designed to help customers find relevant products and possible PC configurations; it is not professional engineering or technical advice.
@@ -26,12 +43,19 @@ AI may occasionally misunderstand a request or produce an incorrect recommendati
 Normal Innozanzi Shop checkout, payment, returns and warranty terms apply to products selected with AI assistance. AI assistance does not create a separate guarantee or change a manufacturer warranty.
 
 6. Information and retention
-We limit prompts, use structured shopping intent where practical, and store operational usage data needed for rate limiting, security, cost monitoring and service improvement. We do not need to retain full prompt text for ordinary usage analytics. See our Privacy Policy for more information.`,
+We limit prompts, use structured shopping intent where practical, and store operational usage data needed for rate limiting, security, cost monitoring and service improvement. We do not need to retain full prompt text for ordinary usage analytics. See our Privacy Policy for more information.
+
+7. AI processing and human help
+Shopping prompts and selected catalogue facts are sent to OpenAI to produce suggestions. Do not enter credentials, payment data, identity numbers or sensitive information. AI cannot access your password, payment details or private order records through this shopping feature, and cannot send a product enquiry without you submitting the enquiry form.
+When you submit a product request, we send the form and displayed conversation to our support team through our email provider. Signed-in customers use their account contact details; guest details are unverified. Review the conversation before agreeing to share it. A product enquiry is not marketing consent, an order or a stock reservation. Conversation text remains in this page’s memory until you leave or refresh, unless you explicitly submit it with an enquiry.
+
+8. Fair and secure use
+Requests are limited to reduce automated abuse and cost. Attempts to override safeguards, extract confidential information, impersonate staff or request unlawful assistance may be rejected. Automated output is not an authoritative instruction to pay, disclose secrets or change banking details. Contact support@innozanzi.co.za to verify anything unexpected.`,
   },
   terms: {
     title: "Terms & Conditions",
     description: "The terms governing use of the Innozanzi online shop, purchases, payments, delivery and customer support.",
-    content: `Last updated: 27 August 2026
+    content: `Last updated: 7 September 2026
 
 1. About these terms
 These terms apply when you use shop.innozanzi.co.za, create an account, buy a product, build a PC, or ask Innozanzi (Pty) Ltd (“Innozanzi”, “we”, “us” or “our”) for help. By placing an order, you agree to these terms. A separate written quotation or agreement applies only where you specifically request and accept one.
@@ -70,12 +94,19 @@ We process personal information as described in our Privacy Policy and in accord
 We may update these terms prospectively by publishing a revised version and date. South African law governs these terms, and disputes are subject to the jurisdiction of the competent South African courts unless the parties agree to another lawful resolution process.
 
 13. Contact
-Questions about these terms may be submitted through the Help option on the website or the contact details shown on an official Innozanzi quotation or invoice.`,
+Contact Innozanzi (Pty) Ltd at support@innozanzi.co.za or +27 71 238 4185, or use /contact. You can download your order documents from your account. Contact support if you need a copy or wish to raise a dispute. These terms do not prevent complaints to the National Consumer Commission or an applicable ombud.
+
+14. Online cancellations and consumer remedies
+Where section 44 of the Electronic Communications and Transactions Act applies, consumers may cancel a goods transaction without giving a reason within seven days after receipt; only the direct cost of returning the goods may be charged, and payments must be refunded within 30 days of cancellation. Statutory exceptions may apply, including genuinely personalised goods and certain opened software; choosing standard PC components does not automatically remove cancellation rights. Contact support to arrange a return.
+Where sections 55 and 56 of the Consumer Protection Act apply and goods fail the applicable quality standards within six months after delivery, the consumer may direct repair, replacement or refund, without penalty and at the supplier’s risk and expense. Assessment establishes the facts; it does not replace a consumer’s statutory choice with a compulsory repair. Manufacturer terms do not reduce these rights.
+
+15. AI and product enquiries
+AI suggestions and product enquiries do not place orders, reserve stock or guarantee sourcing. We confirm availability, price and delivery separately. Do not use our systems to seek unlawful products, evade security, impersonate another person, or submit malicious or infringing content. We may restrict abusive use while preserving lawful consumer rights.`,
   },
   privacy: {
     title: "Privacy Policy",
     description: "How Innozanzi collects, uses, protects and manages personal information.",
-    content: `Last updated: 24 July 2026
+    content: `Last updated: 7 September 2026
 
 1. Our commitment
 Innozanzi (Pty) Ltd respects your privacy and processes personal information responsibly in accordance with the Protection of Personal Information Act, 2013 (“POPIA”) and other applicable South African law.
@@ -102,7 +133,7 @@ We keep information only as long as needed for the purpose collected, contractua
 We use reasonable administrative, technical and physical safeguards designed to prevent loss, misuse, unauthorised access or disclosure. No internet service can guarantee absolute security. Please protect your password and notify us promptly if you suspect unauthorised account activity.
 
 9. Cookies and analytics
-The website may use essential cookies for login, security, cart and preference functions, as well as limited analytics or performance technologies. Browser settings can restrict cookies, although essential website functions may then be unavailable.
+Essential cookies support login, security, carts and your saved cookie choice. Google Analytics and optional browsing-based recommendations require the analytics choice. Use Cookie settings to accept, reject or withdraw that choice. Withdrawing stops future optional collection and use; it does not automatically erase previously collected records. You can request deletion where applicable. See /policies/cookies for the inventory and durations.
 
 10. Your choices and rights
 Subject to POPIA and lawful limitations, you may ask whether we hold your personal information, request access or correction, object to certain processing, withdraw consent where processing relies on consent, request deletion where retention is no longer lawful, or complain to the Information Regulator. We may need to verify your identity before fulfilling a request.
@@ -114,6 +145,12 @@ You may unsubscribe from marketing messages using the link provided or an availa
 Our services are intended for adults and organisations. We do not knowingly collect personal information from children without appropriate lawful authority.
 
 13. Updates and enquiries
-We may update this policy when our practices or legal obligations change. The current version and date will remain available here. Privacy questions or requests may be submitted through the Help option on the website or the contact details shown on an official Innozanzi document. You may also contact South Africa’s Information Regulator if you believe your rights have not been appropriately addressed.`,
+We may update this policy when our practices or legal obligations change. The current version and date will remain available here. Send privacy, access, correction, objection or deletion requests to support@innozanzi.co.za with the subject “Privacy request”, or use /contact. Do not email identity documents unless we arrange a secure verification method. The Information Regulator’s contact and complaint procedures are available at https://inforegulator.org.za/.
+
+14. AI shopping and product requests
+OpenAI processes shopping prompts and limited catalogue facts. We request that API responses are not stored as application response objects; this is not a promise that the provider keeps no security or abuse-monitoring records. Contact details entered in the product-request form are used for human follow-up and are not submitted to the shopping model. The conversation shown in that form is shared only when you agree and submit. Our email provider processes delivery, and the request and transcript are stored in the email outbox and staff mailbox for enquiry handling. Do not include third-party personal information or sensitive data. A product request does not subscribe you to marketing.
+
+15. Security and incident handling
+Security records and request counters support abuse prevention independently of optional analytics consent. If personal information is compromised, we assess and respond and provide notifications required by POPIA. We review whether information is still required and handle lawful deletion requests across application records and service providers, subject to necessary legal retention.`,
   },
 };

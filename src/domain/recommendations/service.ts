@@ -12,7 +12,8 @@ const add=(map:Map<string,number>,key:string,value:number)=>{if(key)map.set(key,
 export type Recommendation={product:ProductCardData;reason:string;recommendationId:string};
 export async function getRecommendations(input:{limit?:number;category?:string;brand?:string;excludeIds?:string[];context?:string}={}):Promise<Recommendation[]>{
   const auth=await getAuthContext(),sessionId=(await cookies()).get("innozanzi-rec")?.value,limit=input.limit??4;
-  const events=auth?.user.id||sessionId?await prisma.recommendationEvent.findMany({where:{createdAt:{gte:new Date(Date.now()-180*86_400_000)},OR:[...(auth?.user.id?[{userId:auth.user.id}]:[]),...(sessionId?[{sessionId}]:[])]},orderBy:{createdAt:"desc"},take:500}):[];
+  const consent=(await cookies()).get("innozanzi-consent")?.value==="analytics";
+  const events=consent&&(auth?.user.id||sessionId)?await prisma.recommendationEvent.findMany({where:{createdAt:{gte:new Date(Date.now()-180*86_400_000)},OR:[...(auth?.user.id?[{userId:auth.user.id}]:[]),...(sessionId?[{sessionId}]:[])]},orderBy:{createdAt:"desc"},take:500}):[];
   const categories=new Map<string,number>(),brands=new Map<string,number>(),viewed=new Set<string>(),now=Date.now();
   for(const event of events){const decay=Math.pow(.5,(now-event.createdAt.getTime())/(30*86_400_000)),score=(weights[event.eventType]??.5)*decay;add(categories,lower(event.category),score);add(brands,lower(event.brand),score*.65);if(event.entityId)viewed.add(event.entityId);if(event.eventType==="GAMING_VISIT"){add(categories,"gaming",score);add(categories,"components",score*.7)}if(event.eventType==="BUILD_VISIT"||event.eventType==="PC_COMPONENT_SELECTED")add(categories,"components",score)}
   const rows=await prisma.supplierCatalogueProduct.findMany({where:{active:true,availability:"IN_STOCK",stock:{gt:0},costPrice:{gt:0},images:{isEmpty:false},id:{notIn:input.excludeIds??[]}},orderBy:{sourceUpdatedAt:"desc"},take:160});

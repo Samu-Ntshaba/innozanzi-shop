@@ -1,3 +1,4 @@
+import { browserMutationGuard, boundedJson } from "@/lib/security/request";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { AI_ORIGIN, aiIdentity } from "@/domain/ai-shopping/service";
@@ -8,7 +9,8 @@ import { prisma } from "@/lib/prisma";
 
 const schema=z.object({recommendationId:z.string().length(32),productIds:z.array(z.string().uuid()).min(1).max(15),kind:z.enum(["PRODUCT","PC_BUILD"])});
 export async function POST(request:Request){
-  const parsed=schema.safeParse(await request.json().catch(()=>null));if(!parsed.success)return NextResponse.json({error:"Invalid recommendation selection."},{status:400});const identity=await aiIdentity();
+  const blocked=browserMutationGuard(request);if(blocked)return blocked;
+  const parsed=schema.safeParse(await boundedJson(request).catch(()=>null));if(!parsed.success)return NextResponse.json({error:"Invalid recommendation selection."},{status:400});const identity=await aiIdentity();
   const usage=await prisma.aIUsage.findFirst({where:{recommendationId:parsed.data.recommendationId,...(identity.userId?{userId:identity.userId}:{anonymousSessionId:identity.anonymousSessionId}),requestStatus:"SUCCESS"}});if(!usage)return NextResponse.json({error:"This recommendation is no longer available."},{status:404});
   const metadata=usage.metadata&&typeof usage.metadata==="object"&&!Array.isArray(usage.metadata)?usage.metadata as Record<string,unknown>:{},allowed=Array.isArray(metadata.recommendedProductIds)?metadata.recommendedProductIds.filter((id):id is string=>typeof id==="string"):[];if(!parsed.data.productIds.every(id=>allowed.includes(id))||parsed.data.kind!==usage.intentType)return NextResponse.json({error:"This selection does not belong to the verified recommendation."},{status:400});
   const ids=[...new Set(parsed.data.productIds)],products=await prisma.supplierCatalogueProduct.findMany({where:{id:{in:ids},active:true,availability:"IN_STOCK",stock:{gt:0},costPrice:{gt:0}}});if(products.length!==ids.length)return NextResponse.json({error:"Price or stock changed. Please request a fresh recommendation."},{status:409});
