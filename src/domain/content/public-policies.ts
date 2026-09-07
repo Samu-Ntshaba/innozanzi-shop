@@ -17,7 +17,7 @@ Optional storage
 If you choose Allow analytics, Google Analytics uses cookies such as _ga and _ga_* (typically up to two years, depending on provider settings). The innozanzi-rec cookie lasts up to 180 days and connects optional browsing events for product recommendations. Events may be associated with your account when signed in. Transaction and security records needed to operate the service are separate from optional browsing analytics.
 
 Your control
-Optional collection is off until you choose it. Cookie settings remains available on the website to change your choice. Choosing Essential only disables future optional collection and browsing-history personalisation and clears accessible analytics cookies and our recommendation cookie. Browser settings can remove remaining cookies, including ones set on other domains. Existing provider records are not automatically erased by withdrawing consent; contact support@innozanzi.co.za for privacy requests.
+Optional collection is off until you choose it. Cookie preferences are available on this Cookie Policy page to change your choice. Choosing Essential only disables future optional collection and browsing-history personalisation and clears accessible analytics cookies and our recommendation cookie. Browser settings can remove remaining cookies, including ones set on other domains. Existing provider records are not automatically erased by withdrawing consent; contact support@innozanzi.co.za for privacy requests.
 
 Other providers
 Payment, account-sign-in and other external services may set cookies on their own websites when you choose to use them. Their privacy notices apply to those services. Read our Privacy Policy for processing and cross-border information.`,
@@ -133,7 +133,7 @@ We keep information only as long as needed for the purpose collected, contractua
 We use reasonable administrative, technical and physical safeguards designed to prevent loss, misuse, unauthorised access or disclosure. No internet service can guarantee absolute security. Please protect your password and notify us promptly if you suspect unauthorised account activity.
 
 9. Cookies and analytics
-Essential cookies support login, security, carts and your saved cookie choice. Google Analytics and optional browsing-based recommendations require the analytics choice. Use Cookie settings to accept, reject or withdraw that choice. Withdrawing stops future optional collection and use; it does not automatically erase previously collected records. You can request deletion where applicable. See /policies/cookies for the inventory and durations.
+Essential cookies support login, security, carts and your saved cookie choice. Google Analytics and optional browsing-based recommendations require the analytics choice. Use Cookie preferences on /policies/cookies to accept, reject or withdraw that choice. Withdrawing stops future optional collection and use; it does not automatically erase previously collected records. You can request deletion where applicable. See /policies/cookies for the inventory and durations.
 
 10. Your choices and rights
 Subject to POPIA and lawful limitations, you may ask whether we hold your personal information, request access or correction, object to certain processing, withdraw consent where processing relies on consent, request deletion where retention is no longer lawful, or complain to the Information Regulator. We may need to verify your identity before fulfilling a request.
