@@ -36,7 +36,7 @@ Missing credentials keep payment methods unavailable. Sandbox/test transactions 
 The configured database was queried read-only on 8 September 2026. It reported Syntech's latest successful import at **2026-08-03 16:51:07 UTC**, with its latest full import at **16:31:12 UTC** that day. This does not demonstrate functioning daily imports. The repository's `railway.supplier-cron.json` specifies `0 2 * * *` (04:00 SAST). Railway must have a separate cron service using that configuration; an ordinary web deployment does not create it.
 
 1. Deploy the additive commerce migration through the normal `npm start` migration step.
-2. Create/verify the Railway supplier cron service, using `railway.supplier-cron.json`, the same database and private feed variables, and `npm run automation:suppliers -- --full`.
+2. Create/verify the Railway supplier cron service, using `railway.supplier-cron.json`, the same database and private feed variables. Its daily command is `npm run automation:suppliers`, which uses Syntech's faster incremental price/stock feed. Run `npm run automation:suppliers -- --full` as a monitored maintenance task when the full endpoint is responsive, so new and discontinued catalogue records are reconciled.
 3. Run one full import and confirm fresh SUCCEEDED records in `/admin/feed-health`.
 4. Verify a second scheduled run on the following day. Configure external monitoring for failures and missed runs.
 

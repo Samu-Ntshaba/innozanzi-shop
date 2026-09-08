@@ -10,6 +10,6 @@ The application stores a refreshable supplier catalogue cache, not duplicate int
 
 Required deployment secrets are `SYNTECH_FULL_FEED_URL`, `SYNTECH_UPDATE_FEED_URL`, and `CRON_SECRET`. Schedule `POST /api/cron/supplier-sync` with `Authorization: Bearer <CRON_SECRET>` for routine incremental updates.
 
-Create a dedicated Railway Cron service using `railway.supplier-cron.json`. It runs `npm run automation:suppliers -- --full` every day at 02:00 UTC (04:00 South African Standard Time). A daily full refresh updates prices and stock, imports newly listed products, and removes products no longer present in the authoritative feed. The compact update feed remains available for an administrator-triggered incremental refresh during the day.
+Create a dedicated Railway Cron service using `railway.supplier-cron.json`. It runs `npm run automation:suppliers` every day at 02:00 UTC (04:00 South African Standard Time), using the incremental endpoint for reliable price and stock freshness. Run `npm run automation:suppliers -- --full` as a monitored maintenance task when the full endpoint is responsive; that mode imports newly listed products and removes products no longer present in the authoritative feed.
 
 The web service does not schedule itself. Production is correctly configured only when the Railway cron service exists, has the three required secrets, and its latest `SupplierSyncRun` is successful and less than 26 hours old. Review Admin → Supplier feed management after deployment and alert on failed or stale runs.
