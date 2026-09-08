@@ -1,0 +1,13 @@
+import Decimal from "decimal.js";
+import { beforeEach,expect,it,vi } from "vitest";
+import type { QuotationSourceLine } from "@/domain/catalogue/product-source";
+const mocks=vi.hoisted(()=>({findMany:vi.fn(),count:vi.fn()}));
+vi.mock("@/lib/prisma",()=>({prisma:{coupon:{findMany:mocks.findMany},couponRedemption:{count:mocks.count}}}));
+import { orderDiscount } from "@/domain/commerce/discounts";
+const line={grossUnit:new Decimal(1000),quantity:1,sourceSnapshot:{protectedFloor:"900"}} as unknown as QuotationSourceLine;
+const coupon={id:"coupon",code:"SAVE10",type:"PERCENTAGE",value:new Decimal(10),maximumDiscount:null,minimumOrderValue:null,usageLimit:10,usageLimitPerUser:1};
+beforeEach(()=>{mocks.findMany.mockResolvedValue([coupon]);mocks.count.mockResolvedValue(0);});
+it("applies a coupon only within protected headroom",async()=>{expect((await orderDiscount([line],"user","SAVE10"))?.discount.toString()).toBe("100");await expect(orderDiscount([{...line,sourceSnapshot:{protectedFloor:"950"}}],"user","SAVE10")).rejects.toThrow("unavailable");});
+it("rejects exhausted per-user limits and minimum basket failures",async()=>{mocks.count.mockResolvedValue(1);await expect(orderDiscount([line],"user","SAVE10")).rejects.toThrow();mocks.count.mockResolvedValue(0);mocks.findMany.mockResolvedValue([{...coupon,minimumOrderValue:new Decimal(2000)}]);await expect(orderDiscount([line],"user","SAVE10")).rejects.toThrow();});
+it("returns no automatic promotion when its floor cannot be protected",async()=>{expect(await orderDiscount([{...line,sourceSnapshot:{protectedFloor:"1000"}}],"user","")).toBeNull();});
+it("caps fixed/percentage discounts and validates dates in the database filter",async()=>{mocks.findMany.mockResolvedValue([{...coupon,maximumDiscount:new Decimal(50)}]);expect((await orderDiscount([line],"user","SAVE10"))?.discount.toString()).toBe("50");expect(mocks.findMany.mock.calls.at(-1)![0].where).toMatchObject({isActive:true,scope:"ORDER",automatic:false});});

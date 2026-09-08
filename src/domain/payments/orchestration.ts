@@ -1,3 +1,4 @@
+import { gatewayConfigured } from "@/integrations/payments/approved-gateways";
 import Decimal from "decimal.js";
 import { paymentAdapter } from "@/integrations/payments/adapters";
 import type { PaymentSession } from "@/integrations/payments/provider";
@@ -11,10 +12,13 @@ export async function beginHostedOrderPayment(input:{paymentId:string;callbackUr
   if(!payment||payment.provider==="EFT"||payment.provider==="MANUAL")throw new Error("Hosted payment not found");
   if(payment.status!=="PENDING")throw new Error("This payment is no longer pending");
   if(payment.currency!=="ZAR"||new Decimal(payment.amount).lte(0))throw new Error("Invalid payment amount or currency");
-  const provider=payment.provider as HostedProvider,session=await paymentAdapter(provider).initialize({paymentId:payment.id,amount:payment.amount.toString(),currency:payment.currency,email:payment.order.email,callbackUrl:input.callbackUrl,idempotencyKey:payment.idempotencyKey});
-  assertPaymentReference(session.externalReference);
-  await prisma.payment.update({where:{id:payment.id},data:{externalReference:session.externalReference,providerMetadata:{checkoutInitializedAt:new Date().toISOString(),orchestrator:"INNOZANZI_V1",hostedProvider:provider}}});
-  return session;
+  if(payment.provider==="OZOW"||payment.provider==="PAYFAST"){
+    if(!gatewayConfigured(payment.provider))throw new Error("This payment method is not available yet.");
+    await prisma.payment.update({where:{id:payment.id},data:{externalReference:payment.id}});
+    return {externalReference:payment.id,redirectUrl:`/pay/${payment.id}`};
+  }
+  throw new Error("This payment provider is retired for new payments.");
+
 }
 
 export async function verifyHostedPaymentReturn(provider:HostedProvider,reference:string){

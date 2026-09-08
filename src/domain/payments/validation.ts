@@ -6,6 +6,7 @@ export function assertPaymentReference(value:string){
 }
 
 export function assertPaymentEventMatches(event:PaymentEvent,payment:{externalReference:string|null;amount:{toString():string}}){
+  if(event.currency&&event.currency!=="ZAR")throw new Error("Payment currency mismatch");
   assertPaymentReference(event.eventId);assertPaymentReference(event.externalReference);
   if(!payment.externalReference||event.externalReference!==payment.externalReference)throw new Error("Payment reference mismatch");
   if(event.amount!==undefined&&!new Decimal(event.amount).toDecimalPlaces(2).equals(new Decimal(payment.amount.toString()).toDecimalPlaces(2)))throw new Error("Payment amount mismatch");

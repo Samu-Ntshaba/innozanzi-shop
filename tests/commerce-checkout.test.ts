@@ -1,0 +1,17 @@
+import Decimal from "decimal.js";
+import { beforeEach,expect,it,vi } from "vitest";
+import { DEFAULT_COMMERCE } from "@/domain/commerce/config";
+import type { QuotationSourceLine } from "@/domain/catalogue/product-source";
+import type { getCurrentCart } from "@/domain/cart/service";
+const mocks=vi.hoisted(()=>({resolve:vi.fn(),discount:vi.fn(),settings:vi.fn()}));
+vi.mock("@/domain/catalogue/product-source",()=>({resolveQuotationCart:mocks.resolve}));
+vi.mock("@/domain/commerce/discounts",()=>({orderDiscount:mocks.discount}));
+vi.mock("@/domain/commerce/settings",()=>({getCommerceSettings:mocks.settings}));
+import { checkoutQuote } from "@/domain/commerce/checkout";
+const cart={} as NonNullable<Awaited<ReturnType<typeof getCurrentCart>>>;
+const line=(id:string,quantity:number,price:number,floor:number)=>({sourceId:id,quantity,grossUnit:new Decimal(price),netUnit:new Decimal(price),vatUnit:new Decimal(0),vatRate:new Decimal(0),sourceSnapshot:{protectedFloor:String(floor)}} as unknown as QuotationSourceLine);
+beforeEach(()=>{mocks.resolve.mockResolvedValue([line("one",3,100,90),line("two",2,200,190)]);mocks.settings.mockResolvedValue(DEFAULT_COMMERCE);mocks.discount.mockResolvedValue({id:"coupon",code:"SAVE",discount:new Decimal(37)});});
+it("allocates savings without taking any line below its protected floor",async()=>{const quote=await checkoutQuote(cart,"user");expect(quote.productTotal.toFixed(2)).toBe("663.00");for(const line of quote.lines)expect(line.grossUnit.gte(String(line.sourceSnapshot.protectedFloor))).toBe(true);expect(quote.total.toFixed(2)).toBe("763.00");});
+it("changes the review fingerprint when price, quantity or delivery settings change",async()=>{const original=(await checkoutQuote(cart,"user")).fingerprint;mocks.settings.mockResolvedValue({...DEFAULT_COMMERCE,customerDelivery:110});expect((await checkoutQuote(cart,"user")).fingerprint).not.toBe(original);});
+it("keeps output VAT at zero in nonregistered mode",async()=>{expect((await checkoutQuote(cart,"user")).vat.toString()).toBe("0");});
+it("accounts for delivery VAT without charging it twice when registration changes",async()=>{mocks.settings.mockResolvedValue({...DEFAULT_COMMERCE,vatRegistered:true});mocks.discount.mockResolvedValue(null);const item=line("one",1,115,100);item.netUnit=new Decimal(100);item.vatUnit=new Decimal(15);item.vatRate=new Decimal(.15);mocks.resolve.mockResolvedValue([item]);const q=await checkoutQuote(cart,"user");expect(q.total.toFixed(2)).toBe("215.00");expect(q.vat.toFixed(2)).toBe("28.04");expect(q.subtotal.plus(q.vat).plus(q.delivery).toFixed(2)).toBe(q.total.toFixed(2));});

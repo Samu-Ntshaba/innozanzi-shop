@@ -1,2 +1,5 @@
-import"dotenv/config";import{prisma}from"../src/lib/prisma";import{syncSyntechFeed,type SyncMode}from"../src/integrations/syntech/feed";
-async function main(){const feed=await prisma.supplierFeed.findFirst({where:{provider:"SYNTECH"},select:{lastFullSyncAt:true}});const stale=!feed?.lastFullSyncAt||Date.now()-feed.lastFullSyncAt.getTime()>24*60*60_000;const mode:SyncMode=process.argv.includes("--full")||stale?"FULL":"INCREMENTAL";console.log(JSON.stringify({mode,...await syncSyntechFeed(mode)}))}main().catch(error=>{console.error(error);process.exitCode=1}).finally(()=>prisma.$disconnect());
+import "dotenv/config";
+import { prisma } from "../src/lib/prisma";
+import { syncAllSuppliers } from "../src/integrations/suppliers/registry";
+async function main(){const results=await syncAllSuppliers();console.log(JSON.stringify(results));if(results.some(r=>r.status==="FAILED"))process.exitCode=1;}
+main().catch(()=>{console.error("Supplier sync failed. Inspect private feed-health records.");process.exitCode=1;}).finally(()=>prisma.$disconnect());

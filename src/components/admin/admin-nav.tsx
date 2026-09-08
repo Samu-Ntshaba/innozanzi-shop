@@ -22,7 +22,7 @@ export const adminNavGroups: readonly NavGroup[] = [
     { links: [["Invoices", "/admin/invoices"], ["Reports", "/admin/reports"], ["Partnerships", "/admin/partnerships"]] },
   ] },
   { label: "Marketing", icon: Megaphone, sections: [
-    { links: [["Overview", "/admin/marketing"], ["Blog & insights", "/admin/marketing/blog"], ["Social media", "/admin/marketing/social"], ["Settings", "/admin/marketing/settings"]] },
+    { links: [["Pricing", "/admin/pricing"], ["Feed health", "/admin/feed-health"], ["Promotions", "/admin/promotions"], ["Overview", "/admin/marketing"], ["Blog & insights", "/admin/marketing/blog"], ["Social media", "/admin/marketing/social"], ["Settings", "/admin/marketing/settings"]] },
     { label: "SEO", links: [["Global SEO", "/admin/marketing/seo"], ["Page SEO", "/admin/marketing/page-seo"], ["SEO audit", "/admin/marketing/audit"]] },
   ] },
   { label: "Settings", icon: Settings2, sections: [
@@ -78,6 +78,8 @@ export const adminRoutePermissions: Record<string, string> = {
   "/admin/products": "products.view",
   "/admin/categories": "products.update",
   "/admin/brands": "products.update",
+  "/admin/pricing": "settings.manage",
+  "/admin/feed-health": "settings.manage",
   "/admin/promotions": "settings.manage",
   "/admin/reports": "reports.view",
   "/admin/returns/profitability": "returns.financial.view",

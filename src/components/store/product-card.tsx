@@ -27,7 +27,7 @@ export function ProductCard({ product,recommendationId }: { product: ProductCard
         </p>
         <div className="mt-auto pt-2.5">
           <div className="flex items-end justify-between gap-2">
-            <div className="min-w-0">{price?<><p className="text-base font-bold tracking-tight text-slate-950 sm:text-lg">{formatZar(price.toString())}</p>{saleActive&&product.regularPrice?<p className="text-[10px] text-slate-500 line-through sm:text-xs">{formatZar(product.regularPrice.toString())}</p>:<p className="hidden text-[11px] text-slate-500 sm:block">VAT included</p>}</>:<p className="text-sm font-semibold tracking-tight text-slate-950 sm:text-base">Request price</p>}</div>
+            <div className="min-w-0">{price?<><p className="text-base font-bold tracking-tight text-slate-950 sm:text-lg">{formatZar(price.toString())}</p>{saleActive&&product.regularPrice?<p className="text-[10px] text-slate-500 line-through sm:text-xs">{formatZar(product.regularPrice.toString())}</p>:<p className="hidden text-[11px] text-slate-500 sm:block">Online price</p>}</>:<p className="text-sm font-semibold tracking-tight text-slate-950 sm:text-base">Request price</p>}</div>
             <Link aria-label={`View ${product.name}`} href={href} className="grid size-10 shrink-0 place-items-center rounded-md text-slate-600 hover:bg-slate-50 hover:text-sky-800"><ArrowRight className="size-4" /></Link>
           </div>
         </div>

@@ -1,0 +1,12 @@
+import Decimal from "decimal.js";
+import { beforeEach,expect,it,vi } from "vitest";
+const mocks=vi.hoisted(()=>({transaction:vi.fn(),notify:vi.fn()}));
+vi.mock("@/lib/prisma",()=>({prisma:{$transaction:mocks.transaction}}));
+vi.mock("@/domain/notifications/order-alerts",()=>({notifyStaffOfPaidOrder:mocks.notify}));
+import { processPaymentEvent } from "@/domain/payments/webhooks";
+let status="PENDING";const updates=vi.fn();const history=vi.fn();const events=new Map();
+const payment=()=>({id:"payment",externalReference:"payment",amount:new Decimal(100),status,orderId:"order",order:{id:"order",orderNumber:"IZ-1",items:[],status:"AWAITING_PAYMENT",userId:"user"}});
+beforeEach(()=>{status="PENDING";events.clear();updates.mockClear();history.mockClear();mocks.notify.mockClear();mocks.transaction.mockImplementation(async fn=>fn({$queryRaw:async()=>[],payment:{findUnique:async()=>payment(),findUniqueOrThrow:async()=>payment(),update:async(args:{data:{status:string}})=>{updates(args);status=args.data.status;}},gatewayEvent:{findUnique:async()=>events.get("event"),create:async(args:{data:unknown})=>{events.set("event",args.data);}},order:{update:async()=>{}},orderStatusHistory:{create:history},deliveryTrackingEvent:{create:async()=>{}},user:{findMany:async()=>[]},auditLog:{create:async()=>{}}}));});
+const event={eventId:"event",externalReference:"payment",status:"PAID" as const,amount:"100.00",currency:"ZAR",raw:{providerId:"event"}};
+it("records a verified payment once across repeated notifications without claiming settlement",async()=>{expect((await processPaymentEvent("OZOW",event)).duplicate).toBe(false);expect((await processPaymentEvent("OZOW",event)).duplicate).toBe(true);expect(updates).toHaveBeenCalledTimes(1);expect(history).toHaveBeenCalledTimes(1);expect(mocks.notify).toHaveBeenCalledTimes(1);expect(updates.mock.calls[0][0].data).not.toHaveProperty("fundsAvailableAt");});
+it("rejects currency and amount tampering before any payment transition",async()=>{await expect(processPaymentEvent("PAYFAST",{...event,amount:"1"})).rejects.toThrow("amount mismatch");await expect(processPaymentEvent("OZOW",{...event,currency:"USD"})).rejects.toThrow("currency mismatch");expect(updates).not.toHaveBeenCalled();});

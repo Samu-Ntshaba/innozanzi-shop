@@ -193,6 +193,8 @@ enum PaymentStatus {
 }
 
 enum PaymentProvider {
+  OZOW
+  PAYFAST
   PAYSTACK
   YOCO
   EFT
@@ -1340,6 +1342,8 @@ model ProductDocument {
 }
 
 model Supplier {
+  approvalStatus String @default("PENDING")
+  purchasingEnabled Boolean @default(false)
   id                String                     @id @default(uuid()) @db.Uuid
   companyName       String
   registrationNo    String?
@@ -1401,6 +1405,8 @@ model SupplierFeed {
 }
 
 model SupplierCatalogueProduct {
+  identityKey String?
+  displayPreferred Boolean @default(true)
   id                String              @id @default(uuid()) @db.Uuid
   feedId            String              @db.Uuid
   supplierId        String              @db.Uuid
@@ -1449,6 +1455,8 @@ model SupplierCatalogueProduct {
   @@index([active, category])
   @@index([active, brand])
   @@index([supplierSku])
+  @@index([identityKey])
+  @@index([displayPreferred, lastSeenAt])
 }
 
 model SupplierSyncRun {
@@ -1817,6 +1825,7 @@ model OrderStatusHistory {
 }
 
 model Payment {
+  fundsAvailableAt DateTime?
   id                String            @id @default(uuid()) @db.Uuid
   orderId           String            @db.Uuid
   provider          PaymentProvider
@@ -1887,6 +1896,8 @@ model Shipment {
 }
 
 model Coupon {
+  advertised Boolean @default(false)
+  automatic Boolean @default(false)
   id                String             @id @default(uuid()) @db.Uuid
   code              String             @unique
   description       String?
@@ -4555,4 +4566,13 @@ model SecurityRateLimit {
   count Int
   resetAt DateTime @db.Timestamptz
   @@index([resetAt])
+}
+
+model GatewayEvent {
+ id String @id @default(uuid()) @db.Uuid
+ provider String
+ eventId String
+ paymentId String @db.Uuid
+ receivedAt DateTime @default(now())
+ @@unique([provider,eventId])
 }

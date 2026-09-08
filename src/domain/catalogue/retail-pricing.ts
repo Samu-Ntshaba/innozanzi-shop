@@ -1,27 +1,17 @@
 import Decimal from "decimal.js";
-
-export const MINIMUM_RETAIL_PROFIT_PERCENT = new Decimal(5);
+import { getCommerceSettings } from "@/domain/commerce/settings";
+import { protectedPrice } from "@/domain/commerce/engine";
+export const MINIMUM_RETAIL_PROFIT_PERCENT = new Decimal(5); // Legacy exports; active pricing uses the versioned contribution policy.
 export const DAILY_SPECIAL_DISCOUNT_PERCENT = new Decimal(5);
-
-const roundUp = (value: Decimal) => value.toDecimalPlaces(2, Decimal.ROUND_UP);
-
-export function minimumRetailPrice(cost: Decimal.Value) {
-  return roundUp(new Decimal(cost).mul(new Decimal(1).plus(MINIMUM_RETAIL_PROFIT_PERCENT.div(100))));
+function floor(cost:Decimal.Value,settings:Awaited<ReturnType<typeof getCommerceSettings>>){const a=protectedPrice(cost,settings,"PAYFAST"),b=protectedPrice(cost,settings,"OZOW");return a.gross.gte(b.gross)?a:b;}
+export async function minimumRetailPrice(cost:Decimal.Value){return floor(cost,await getCommerceSettings()).gross;}
+export async function supplierRetailPrice(input:{costPrice:Decimal.Value;recommendedRetail?:Decimal.Value|null;promotionalPrice?:Decimal.Value|null;promotionStartsAt?:Date|null;promotionEndsAt?:Date|null;special?:boolean;now?:Date}){
+ const settings=await getCommerceSettings(),now=input.now??new Date();
+ const promotionActive=Boolean(input.promotionalPrice&&new Decimal(input.promotionalPrice).gt(0)&&new Decimal(input.promotionalPrice).lt(input.costPrice)&&(!input.promotionStartsAt||input.promotionStartsAt<=now)&&(!input.promotionEndsAt||input.promotionEndsAt>=now));
+ const standard=floor(input.costPrice,settings),protectedResult=promotionActive?floor(input.promotionalPrice!,settings):standard;
+ const regular=Decimal.max(standard.gross,input.recommendedRetail??standard.gross).toDecimalPlaces(2,Decimal.ROUND_CEIL);
+ const salePrice=promotionActive&&protectedResult.gross.lt(regular)?protectedResult.gross:null;
+ return {regularPrice:regular,salePrice,minimumPrice:protectedResult.gross,promotionActive,protectedResult};
 }
-
-export function supplierRetailPrice(input:{costPrice:Decimal.Value;recommendedRetail?:Decimal.Value|null;promotionalPrice?:Decimal.Value|null;promotionStartsAt?:Date|null;promotionEndsAt?:Date|null;special?:boolean;now?:Date}){
-  const now=input.now??new Date();
-  const standardFloor=minimumRetailPrice(input.costPrice);
-  const promotionActive=Boolean(input.promotionalPrice&&new Decimal(input.promotionalPrice).lt(input.costPrice)&&(!input.promotionStartsAt||input.promotionStartsAt<=now)&&(!input.promotionEndsAt||input.promotionEndsAt>=now));
-  const activeFloor=promotionActive?minimumRetailPrice(input.promotionalPrice!):standardFloor;
-  const regular=Decimal.max(standardFloor,input.recommendedRetail??standardFloor).toDecimalPlaces(2);
-  const promotionalRetail=promotionActive?activeFloor:null;
-  const dailyDiscount=regular.mul(new Decimal(1).minus(DAILY_SPECIAL_DISCOUNT_PERCENT.div(100))).toDecimalPlaces(2,Decimal.ROUND_DOWN);
-  const saleCandidate=promotionalRetail??(input.special?Decimal.max(activeFloor,dailyDiscount):null);
-  const salePrice=saleCandidate&&saleCandidate.lt(regular)?saleCandidate:null;
-  return{regularPrice:regular,salePrice,minimumPrice:activeFloor,promotionActive};
-}
-
-export function isDailySpecial(id:string,now=new Date()){
-  const day=Math.floor(now.getTime()/86_400_000);let hash=day;for(const char of id)hash=(hash*31+char.charCodeAt(0))|0;return Math.abs(hash)%12===0;
-}
+// Automatic daily discounts are replaced by deliberately configured promotions.
+export function isDailySpecial(...args:unknown[]){void args;return false;}

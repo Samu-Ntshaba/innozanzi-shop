@@ -3,24 +3,37 @@ import type { PaymentEvent } from "@/integrations/payments/provider";
 import { notifyStaffOfPaidOrder } from "@/domain/notifications/order-alerts";
 import { assertPaymentEventMatches } from "@/domain/payments/validation";
 
-export async function processPaymentEvent(provider: "PAYSTACK" | "YOCO", event: PaymentEvent) {
+export async function processPaymentEvent(provider: "PAYSTACK" | "YOCO" | "OZOW" | "PAYFAST", event: PaymentEvent) {
   const result = await prisma.$transaction(async (tx) => {
     const payment = await tx.payment.findUnique({ where: { provider_externalReference: { provider, externalReference: event.externalReference } }, include: { order: { include: { items: true, convertedQuotation: true } } } });
     if (!payment) throw new Error("Unknown payment reference");
-    if (payment.status === event.status) return { duplicate: true, paymentId: payment.id, order: payment.order, amount: payment.amount.toString() };
+    await tx.$queryRaw`SELECT id FROM "Payment" WHERE id = ${payment.id}::uuid FOR UPDATE`;
+    const latest=await tx.payment.findUniqueOrThrow({where:{id:payment.id}});
+    assertPaymentEventMatches(event,payment);
+    if(provider==="OZOW"||provider==="PAYFAST"){
+      if(!event.amount||event.currency!=="ZAR")throw new Error("Missing verified amount or currency");
+      const duplicate=await tx.gatewayEvent.findUnique({where:{provider_eventId:{provider,eventId:event.eventId}}});
+      if(duplicate&&duplicate.paymentId!==payment.id)throw new Error("Gateway event reference conflict");
+      if(duplicate||latest.status==="PAID")return {duplicate:true,paymentId:payment.id,order:payment.order,amount:payment.amount.toString()};
+      await tx.gatewayEvent.create({data:{provider,eventId:event.eventId,paymentId:payment.id}});
+    }
+    if (latest.status === event.status) return { duplicate: true, paymentId: payment.id, order: payment.order, amount: payment.amount.toString() };
     if (payment.status === "PAID") return { duplicate: true, paymentId: payment.id, order: payment.order, amount: payment.amount.toString() };
     assertPaymentEventMatches(event,payment);
+    let stockIssue=false;
     if(event.status==="PAID"){
       for(const item of payment.order.items){
         if(item.sourceType==="SUPPLIER"){
           const source=await tx.supplierCatalogueProduct.findFirst({where:{id:item.sourceId??undefined,active:true}});
-          if(!source||source.stock<item.quantity)throw new Error(`Supplier availability changed for paid item ${item.productName}.`);
+          if(!source||source.stock<item.quantity)stockIssue=true;
           continue;
         }
-        if(!item.productId)throw new Error(`${item.productName} is not linked to inventory.`);
+        if(!item.productId){stockIssue=true;continue;}
         const inventory=await tx.inventory.findFirst({where:{productId:item.productId,variantId:item.variantId??null}});
-        if(!inventory||inventory.onHand-inventory.reserved<item.quantity)throw new Error(`Insufficient inventory for paid item ${item.productName}.`);
-        const updated=await tx.inventory.update({where:{id:inventory.id},data:{reserved:{increment:item.quantity}}});
+        if(!inventory||inventory.onHand-inventory.reserved<item.quantity){stockIssue=true;continue;}
+        const reserved=await tx.$queryRaw<Array<{onHand:number}>>`UPDATE "Inventory" SET "reserved"="reserved"+${item.quantity} WHERE id=${inventory.id}::uuid AND "onHand"-"reserved">=${item.quantity} RETURNING "onHand"`;
+        if(!reserved.length){stockIssue=true;continue;}
+        const updated=reserved[0];
         await tx.inventoryMovement.create({data:{inventoryId:inventory.id,type:"RESERVATION",quantity:item.quantity,balanceAfter:updated.onHand,reason:`${provider} payment stock reservation`,referenceType:"Order",referenceId:payment.orderId}});
       }
     }
@@ -28,7 +41,7 @@ export async function processPaymentEvent(provider: "PAYSTACK" | "YOCO", event: 
     const nextOrderStatus = event.status === "PAID" ? "PAYMENT_VERIFIED" : payment.order.status;
     await tx.order.update({ where: { id: payment.orderId }, data: { paymentStatus: event.status, status: nextOrderStatus } });
     if (event.status === "PAID") {
-      await tx.orderStatusHistory.create({ data: { orderId: payment.orderId, fromStatus: payment.order.status, toStatus: "PAYMENT_VERIFIED", note: `${provider} payment verified automatically` } });
+      await tx.orderStatusHistory.create({ data: { orderId: payment.orderId, fromStatus: payment.order.status, toStatus: "PAYMENT_VERIFIED", note: stockIssue?`${provider} payment received; stock exception requires procurement review`:`${provider} payment confirmed; settlement and procurement require separate review` } });
       await tx.deliveryTrackingEvent.create({ data: { orderId: payment.orderId, status: "PAYMENT_VERIFIED", publicNote: "Your payment has been confirmed. We are preparing your order for fulfilment.", internalNote: `${provider} webhook ${event.eventId}` } });
       const staff = await tx.user.findMany({ where: { status: "ACTIVE", deletedAt: null, accountType: "INTERNAL_EMPLOYEE" }, select: { id: true } });
       if (staff.length) await tx.notification.createMany({ data: staff.map(({ id }) => ({ userId: id, type: "ORDER_PAID", channel: "IN_APP", subject: `Paid order ${payment.order.orderNumber}`, body: `Payment is verified. Fulfilment must accept order ${payment.order.orderNumber}.`, status: "SENT" as const, sentAt: new Date(), data: { orderId: payment.orderId, orderNumber: payment.order.orderNumber, category: "REQUIRES_ACTION" } })) });

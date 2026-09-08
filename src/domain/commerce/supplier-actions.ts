@@ -1,0 +1,7 @@
+"use server";
+import { revalidatePath } from "next/cache";
+import { z } from "zod";
+import { requirePermission } from "@/domain/auth/session";
+import { prisma } from "@/lib/prisma";
+import { getCommerceSettings } from "./settings";
+export async function setSupplierState(form:FormData){const ctx=await requirePermission("settings.manage");const id=z.string().uuid().parse(form.get("id")),enabled=form.get("enabled")==="true",target=z.enum(["feed","purchasing"]).parse(form.get("target"));const feed=await prisma.supplierFeed.findUniqueOrThrow({where:{id},include:{supplier:true}});if(enabled&&feed.provider==="PINNACLE")throw new Error("Pinnacle requires its real XML mapping and validation before activation.");if(enabled&&target==="purchasing"){const settings=await getCommerceSettings();if(!feed.enabled||feed.supplier.approvalStatus!=="APPROVED"||!feed.lastSuccessAt||Date.now()-feed.lastSuccessAt.getTime()>settings.freshnessHours*3600000)throw new Error("A successful fresh feed and supplier approval are required before purchasing.");}await prisma.$transaction(async tx=>{if(target==="feed")await tx.supplierFeed.update({where:{id},data:{enabled}});else await tx.supplier.update({where:{id:feed.supplierId},data:{purchasingEnabled:enabled}});await tx.auditLog.create({data:{actorId:ctx.user.id,action:"supplier.operational-state",entityType:"Supplier",entityId:feed.supplierId,before:{enabled:target==="feed"?feed.enabled:feed.supplier.purchasingEnabled},after:{target,enabled}}});});revalidatePath("/","layout");}
