@@ -1,3 +1,4 @@
+import { googleTagBootstrap } from "@/lib/google-tag";
 import type { Metadata, Viewport } from "next";
 import { Suspense } from "react";
 
@@ -98,9 +99,15 @@ function versionedSocialImage(image: string) {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   const googleAnalyticsId = process.env.NEXT_PUBLIC_GOOGLE_ANALYTICS_ID ?? "G-XRS7H1W6Z7";
+  const adsId = process.env.NEXT_PUBLIC_GOOGLE_ADS_ID ?? "AW-18425004357";
+  const tagBootstrap = googleTagBootstrap(adsId);
   return (
     <html lang="en" suppressHydrationWarning className="h-full antialiased">
       <head>
+        {tagBootstrap ? <>
+          <script id="innozanzi-google-tag-bootstrap" dangerouslySetInnerHTML={{ __html: tagBootstrap }} />
+          <script async src={`https://www.googletagmanager.com/gtag/js?id=${adsId}`} />
+        </> : null}
         <link rel="sitemap" type="application/xml" title="Sitemap" href="/sitemap.xml" />
       </head>
       <body className="min-h-full">

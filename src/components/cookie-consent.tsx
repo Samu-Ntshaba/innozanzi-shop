@@ -68,6 +68,6 @@ export function CookieConsent() {
       </div>
 
     </div>
-    <label className="mt-4 flex items-start gap-3 border-t border-white/15 pt-4 text-sm"><input type="checkbox" className="mt-1" checked={advertising} onChange={e => chooseAdvertising(e.target.checked)}/><span>Allow Google Ads measurement <span className="block text-xs leading-5 text-slate-300">Optional cookies help measure advertising performance. This choice is separate from analytics. Personalised advertising is disabled.</span></span></label>
+    <label className="mt-4 flex items-start gap-3 border-t border-white/15 pt-4 text-sm"><input type="checkbox" className="mt-1" checked={advertising} onChange={e => chooseAdvertising(e.target.checked)}/><span>Allow Google Ads measurement <span className="block text-xs leading-5 text-slate-300">Optional cookies help measure advertising performance. The base tag can send cookieless signals while this is off. This choice is separate from analytics. Personalised advertising is disabled.</span></span></label>
   </section>;
 }

@@ -47,5 +47,6 @@ export function GoogleAnalytics({ measurementId, adsId }: { measurementId: strin
     if (consent.advertising && ads) window.gtag("config", ads, fields);
   }, [consent, pathname, ga, ads]);
   const id = consent.analytics && ga || consent.advertising && ads;
-  return id ? <Script id="innozanzi-google-tag" src={`https://www.googletagmanager.com/gtag/js?id=${ga || ads}`} strategy="afterInteractive"/> : null;
+  // Ads has a shared head loader; retain the consent-gated GA fallback if Ads is disabled.
+  return id && !ads ? <Script id="innozanzi-google-tag" src={`https://www.googletagmanager.com/gtag/js?id=${ga || ads}`} strategy="afterInteractive"/> : null;
 }
