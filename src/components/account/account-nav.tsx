@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 const links = [
   ["Overview", "/account", "⌂"],
   ["Profile", "/account/profile", "●"],
+  ["Delivery addresses", "/account/addresses", "⌖"],
   ["My PC Projects", "/account/pc-projects", "PC"],
   ["Orders & tracking", "/account/orders", "↗"],
   ["Returns & concerns", "/account/returns", "↩"],

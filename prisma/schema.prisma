@@ -1112,6 +1112,7 @@ model Address {
   province    String
   postalCode  String
   countryCode String      @default("ZA") @db.Char(2)
+  googlePlaceId String?
   isDefault   Boolean     @default(false)
   deletedAt   DateTime?
   createdAt   DateTime    @default(now())
@@ -3622,6 +3623,7 @@ model PaymentSubmission {
   amount           Decimal                 @db.Decimal(19, 4)
   paymentDate      DateTime
   paymentReference String
+  deliveryAddress  Json?
   customerNote     String?                 @db.Text
   status           PaymentSubmissionStatus @default(PENDING_VERIFICATION)
   rejectionReason  String?                 @db.Text

@@ -104,7 +104,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <link rel="sitemap" type="application/xml" title="Sitemap" href="/sitemap.xml" />
       </head>
       <body className="min-h-full">
-        {googleAnalyticsId ? <Suspense fallback={null}><GoogleAnalytics measurementId={googleAnalyticsId} /></Suspense> : null}
+        {(googleAnalyticsId || (process.env.NEXT_PUBLIC_GOOGLE_ADS_ID ?? "AW-18425004357")) ? <Suspense fallback={null}><GoogleAnalytics measurementId={googleAnalyticsId} adsId={process.env.NEXT_PUBLIC_GOOGLE_ADS_ID ?? "AW-18425004357"} /></Suspense> : null}
         <OrganizationSchema />
         <TestModeBanner />
         {children}

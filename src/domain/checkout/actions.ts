@@ -10,16 +10,25 @@ import { resolveQuotationCart } from "@/domain/catalogue/product-source";
 import { orderNumber } from "@/domain/quotations/lifecycle";
 import { beginHostedOrderPayment } from "@/domain/payments/orchestration";
 import { deliveryFee } from "@/domain/checkout/delivery";
+import { deliveryFromForm } from "@/domain/addresses/service";
 import { prisma } from "@/lib/prisma";
 
-const schema=z.object({recipient:z.string().trim().min(2).max(120),phone:z.string().trim().min(7).max(40),line1:z.string().trim().min(3).max(180),line2:z.string().trim().max(180).optional(),suburb:z.string().trim().max(120).optional(),city:z.string().trim().min(2).max(120),province:z.string().trim().min(2).max(120),postalCode:z.string().trim().min(3).max(12),notes:z.string().trim().max(1000).optional(),paymentMethod:z.enum(["EFT","PAYSTACK"])});
+const schema = z.object({ notes: z.string().trim().max(1000).optional(), paymentMethod: z.enum(["EFT", "PAYSTACK"]) });
 
-export async function placeRetailOrder(formData:FormData){
-  const ctx=await requireUser(),data=schema.parse(Object.fromEntries(formData)),cart=await getCurrentCart();
+export async function placeRetailOrder(_state: { error: string }, formData: FormData) {
+  const ctx = await requireUser();
+  let data;
+  try { data = { ...schema.parse(Object.fromEntries(formData)), ...await deliveryFromForm(ctx.user.id, formData) }; }
+  catch (error) { return { error: error instanceof Error && /^(Complete|Please select|Choose one|Please add)/.test(error.message) ? error.message : "Please check your delivery and payment details." }; }
+  const cart = await getCurrentCart();
   if(!cart||(!cart.items.length&&!cart.supplierItems.length))throw new Error("Your cart is empty.");
   const markup=new Decimal(5),lines=await resolveQuotationCart(cart,markup),subtotal=lines.reduce((sum,line)=>sum.plus(line.netUnit.mul(line.quantity)),new Decimal(0)),vatTotal=lines.reduce((sum,line)=>sum.plus(line.vatUnit.mul(line.quantity)),new Decimal(0)),productTotal=subtotal.plus(vatTotal),deliveryTotal=deliveryFee(productTotal),grandTotal=productTotal.plus(deliveryTotal),paymentId=randomUUID(),idempotencyKey=`retail:${cart.id}:${randomUUID()}`;
   const order=await prisma.$transaction(async tx=>{
     await tx.user.update({where:{id:ctx.user.id},data:{phone:data.phone}});
+    if (formData.get("saveAddress") === "on" && !formData.get("addressId")) {
+      const count = await tx.address.count({ where: { userId: ctx.user.id, deletedAt: null } });
+      if (count < 20) await tx.address.create({ data: { userId: ctx.user.id, type: "DELIVERY", isDefault: count === 0, recipient: data.recipient, phone: data.phone, line1: data.line1, line2: data.line2, suburb: data.suburb, city: data.city, province: data.province, postalCode: data.postalCode, googlePlaceId: data.googlePlaceId } });
+    }
     const created=await tx.order.create({data:{orderNumber:orderNumber(),userId:ctx.user.id,pcProjectId:cart.pcProjectId,origin:cart.origin,aiRecommendationId:cart.aiRecommendationId,email:ctx.user.email,phone:data.phone,subtotal,vatTotal,deliveryTotal,grandTotal,status:"AWAITING_PAYMENT",paymentStatus:"PENDING",paymentMethod:data.paymentMethod,placedAt:new Date(),customerNotes:data.notes||null,items:{create:lines.map(line=>({productId:line.productId,variantId:line.variantId,productName:line.productName,sku:line.sku??line.supplierSku??"ITEM",quantity:line.quantity,unitPrice:line.grossUnit,costPrice:line.costPrice,vatRate:line.vatRate,vatTotal:line.vatUnit.mul(line.quantity),lineTotal:line.grossUnit.mul(line.quantity),sourceType:line.sourceType,sourceId:line.sourceId,supplierId:line.supplierId,supplierSku:line.supplierSku,sourceSnapshot:line.sourceSnapshot,pricingRule:line.pricingRule,markupPercent:markup,stockSnapshot:line.available}))},addresses:{create:{type:"DELIVERY",recipient:data.recipient,phone:data.phone,line1:data.line1,line2:data.line2||null,suburb:data.suburb||null,city:data.city,province:data.province,postalCode:data.postalCode}},payments:{create:{id:paymentId,provider:data.paymentMethod,status:"PENDING",amount:grandTotal,idempotencyKey}},statusHistory:{create:{toStatus:"AWAITING_PAYMENT",actorId:ctx.user.id,note:cart.pcProjectId?"PC project component purchase":"Direct retail checkout"}}}});
     if(cart.aiRecommendationId){await tx.aIUsage.updateMany({where:{recommendationId:cart.aiRecommendationId},data:{orderId:created.id}});await tx.recommendationEvent.create({data:{userId:ctx.user.id,sessionId:`user:${ctx.user.id}`,eventType:"AI_CHECKOUT_STARTED",entityType:"ORDER",entityId:created.id,recommendationId:cart.aiRecommendationId,context:"checkout"}})}
     await tx.cart.update({where:{id:cart.id},data:{status:"CONVERTED"}});return created;

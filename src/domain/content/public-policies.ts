@@ -8,16 +8,19 @@ export const publicPolicies: Record<string, PublicPolicy> = {
   cookies: {
     title: "Cookie Policy",
     description: "Essential storage, optional analytics and how to change your choice.",
-    content: `Last updated: 7 September 2026
+    content: `Last updated: 8 September 2026
 
 Essential storage
-Our account session cookie lasts up to 30 days and supports authentication. Cart and workflow cookies keep requested shopping functions working. The innozanzi-ai cookie identifies anonymous AI usage for up to 180 days; separate server limits also protect against abuse. These cookies do not grant access to private accounts. The innozanzi-consent cookie remembers essential-only or analytics preferences for 180 days. A local-storage copy may support preference updates; the expiring cookie is authoritative. Session storage remembers dismissed prompts for the browser session.
+Our account session cookie lasts up to 30 days and supports authentication. Cart and workflow cookies keep requested shopping functions working. The innozanzi-ai cookie identifies anonymous AI usage for up to 180 days; separate server limits also protect against abuse. These cookies do not grant access to private accounts. The innozanzi-consent cookie remembers essential-only or analytics preferences for 180 days. The separate innozanzi-ad-consent cookie remembers advertising-measurement permission for 180 days. A local-storage copy may support preference updates; the expiring cookie is authoritative. Session storage remembers dismissed prompts for the browser session.
 
 Optional storage
 If you choose Allow analytics, Google Analytics uses cookies such as _ga and _ga_* (typically up to two years, depending on provider settings). The innozanzi-rec cookie lasts up to 180 days and connects optional browsing events for product recommendations. Events may be associated with your account when signed in. Transaction and security records needed to operate the service are separate from optional browsing analytics.
 
+Google Ads measurement
+If you separately allow Google Ads measurement, Google uses advertising cookies such as _gcl_* (typically up to 90 days, subject to provider settings) to measure advertising performance. We do not enable personalised advertising or send customer contact details through this tag. Analytics permission alone does not enable advertising measurement. Google may process measurement data outside South Africa.
+
 Your control
-Optional collection is off until you choose it. Cookie preferences are available on this Cookie Policy page to change your choice. Choosing Essential only disables future optional collection and browsing-history personalisation and clears accessible analytics cookies and our recommendation cookie. Browser settings can remove remaining cookies, including ones set on other domains. Existing provider records are not automatically erased by withdrawing consent; contact support@innozanzi.co.za for privacy requests.
+Optional collection is off until you choose it. Cookie preferences are available on this Cookie Policy page to change your choice. Choosing Essential only disables future optional collection and browsing-history personalisation and clears accessible analytics and advertising cookies and our recommendation cookie. Browser settings can remove remaining cookies, including ones set on other domains. Existing provider records are not automatically erased by withdrawing consent; contact support@innozanzi.co.za for privacy requests.
 
 Other providers
 Payment, account-sign-in and other external services may set cookies on their own websites when you choose to use them. Their privacy notices apply to those services. Read our Privacy Policy for processing and cross-border information.`,
@@ -25,7 +28,7 @@ Payment, account-sign-in and other external services may set cookies on their ow
   "ai-shopping": {
     title: "AI Shopping Assistance Policy",
     description: "How Innozanzi AI product recommendations work and what customers should verify before purchasing.",
-    content: `Last updated: 7 September 2026
+    content: `Last updated: 8 September 2026
 
 1. Purpose
 Innozanzi AI provides informational shopping assistance based on product information available in the Innozanzi Shop catalogue. It is designed to help customers find relevant products and possible PC configurations; it is not professional engineering or technical advice.
@@ -55,7 +58,7 @@ Requests are limited to reduce automated abuse and cost. Attempts to override sa
   terms: {
     title: "Terms & Conditions",
     description: "The terms governing use of the Innozanzi online shop, purchases, payments, delivery and customer support.",
-    content: `Last updated: 7 September 2026
+    content: `Last updated: 8 September 2026
 
 1. About these terms
 These terms apply when you use shop.innozanzi.co.za, create an account, buy a product, build a PC, or ask Innozanzi (Pty) Ltd (“Innozanzi”, “we”, “us” or “our”) for help. By placing an order, you agree to these terms. A separate written quotation or agreement applies only where you specifically request and accept one.
@@ -106,7 +109,7 @@ AI suggestions and product enquiries do not place orders, reserve stock or guara
   privacy: {
     title: "Privacy Policy",
     description: "How Innozanzi collects, uses, protects and manages personal information.",
-    content: `Last updated: 7 September 2026
+    content: `Last updated: 8 September 2026
 
 1. Our commitment
 Innozanzi (Pty) Ltd respects your privacy and processes personal information responsibly in accordance with the Protection of Personal Information Act, 2013 (“POPIA”) and other applicable South African law.
@@ -150,7 +153,11 @@ We may update this policy when our practices or legal obligations change. The cu
 14. AI shopping and product requests
 OpenAI processes shopping prompts and limited catalogue facts. We request that API responses are not stored as application response objects; this is not a promise that the provider keeps no security or abuse-monitoring records. Contact details entered in the product-request form are used for human follow-up and are not submitted to the shopping model. The conversation shown in that form is shared only when you agree and submit. Our email provider processes delivery, and the request and transcript are stored in the email outbox and staff mailbox for enquiry handling. Do not include third-party personal information or sensitive data. A product request does not subscribe you to marketing.
 
-15. Security and incident handling
+15. Google address search and advertising
+When you type in delivery address search, the street search text and a temporary search-session identifier are sent through our server to Google Places API (New). We do not send your recipient name, phone or account ID to Places. Google returns address suggestions; after you select and submit one, we keep the delivery details for your order and, if you choose, your address book, together with a Google place identifier. We do not retain suggestion lists. Removing a saved address does not change order records retained for fulfilment and legal purposes. Google address suggestions reduce typing mistakes; they do not verify residence, identity or courier deliverability. Google Maps Platform terms (https://maps.google.com/help/terms_maps/) and Google privacy information (https://policies.google.com/privacy) apply to this service.
+Google Ads measurement requires its own optional choice on /policies/cookies. We keep personalised advertising disabled and do not send names, email addresses or delivery addresses through this tag. Google may process service and measurement information internationally as explained in its privacy information.
+
+16. Security and incident handling
 Security records and request counters support abuse prevention independently of optional analytics consent. If personal information is compromised, we assess and respond and provide notifications required by POPIA. We review whether information is still required and handle lawful deletion requests across application records and service providers, subject to necessary legal retention.`,
   },
 };

@@ -10,7 +10,7 @@ const globalForPrisma = globalThis as unknown as {
 // Keep this aligned with the latest migration. It is intentionally referenced by
 // application source so Next/Railway cannot reuse a server bundle containing an
 // older generated Prisma runtime after the schema changes.
-const PRISMA_SCHEMA_VERSION = "2026-09-07-security-rate-limits";
+const PRISMA_SCHEMA_VERSION = "2026-09-08-address-places";
 
 const connectionString =
   process.env.RAILWAY_ENVIRONMENT
