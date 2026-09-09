@@ -131,3 +131,9 @@ export async function requirePermission(permission: PermissionKey) {
   }
   return context;
 }
+
+export async function requireMobileAdmin() {
+  const context = await requireUser();
+  if (!context.isSuperAdministrator && !context.user.roles.includes("mobile-admin")) redirect("/unauthorized");
+  return context;
+}

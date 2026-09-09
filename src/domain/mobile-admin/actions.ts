@@ -1,0 +1,3 @@
+"use server";
+import { redirect } from "next/navigation";import { revalidatePath } from "next/cache";import { requirePermission } from "@/domain/auth/session";import { generateDailySocialContent } from "@/domain/marketing/social-content";
+export async function generateMobileSocialContent(){const ctx=await requirePermission("marketing.content.edit");try{const result=await generateDailySocialContent({actorId:ctx.user.id});revalidatePath("/mobile-admin/marketing");redirect(`/mobile-admin/marketing?result=${result.status}`)}catch(error){if((error as {digest?:string})?.digest?.startsWith("NEXT_REDIRECT"))throw error;console.error("Mobile social generation failed",error);redirect("/mobile-admin/marketing?result=failed")}}

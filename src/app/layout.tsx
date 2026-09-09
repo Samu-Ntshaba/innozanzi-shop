@@ -14,6 +14,7 @@ import {
 } from "@/domain/marketing/seo";
 import { isTestModeEnvironment } from "@/lib/test-mode";
 import { brand } from "@/config/brand";
+import { SessionHeartbeat } from "@/components/session-heartbeat";
 
 export const viewport:Viewport={width:"device-width",initialScale:1,viewportFit:"cover",themeColor:"#071b33",colorScheme:"light"};
 
@@ -114,6 +115,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         {(googleAnalyticsId || (process.env.NEXT_PUBLIC_GOOGLE_ADS_ID ?? "AW-18425004357")) ? <Suspense fallback={null}><GoogleAnalytics measurementId={googleAnalyticsId} adsId={process.env.NEXT_PUBLIC_GOOGLE_ADS_ID ?? "AW-18425004357"} /></Suspense> : null}
         <OrganizationSchema />
         <TestModeBanner />
+        <SessionHeartbeat />
         {children}
         <SystemFeedback />
       </body>

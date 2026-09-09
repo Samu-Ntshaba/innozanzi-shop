@@ -29,10 +29,10 @@ export async function inviteUser(formData: FormData) {
   if (await prisma.user.findUnique({ where: { email: data.email } })) throw new Error("An account already exists for this email.");
 
   const role = await prisma.role.findUniqueOrThrow({ where: { id: data.roleId } });
-  const administratorRole = data.accountType === "INTERNAL_EMPLOYEE"
+  const administratorRole = data.accountType === "INTERNAL_EMPLOYEE" && role.slug !== "mobile-admin"
     ? await prisma.role.findUnique({ where: { slug: "administrator" } })
     : null;
-  if (data.accountType === "INTERNAL_EMPLOYEE" && !administratorRole) {
+  if (data.accountType === "INTERNAL_EMPLOYEE" && role.slug !== "mobile-admin" && !administratorRole) {
     throw new Error("The Administrator role is not configured. Run the database seed before inviting employees.");
   }
   if (role.slug === "super-administrator" && !actor.isSuperAdministrator) throw new Error("Only a Super Administrator may assign that role.");
@@ -120,7 +120,7 @@ export async function activateInvitedUser(formData: FormData) {
   }
   const portal=await prisma.clientPortal.findFirst({where:{primaryUserId:invitation.user.id,status:"ACTIVE"},select:{id:true}});
   if(portal)await prisma.clientPortal.update({where:{id:portal.id},data:{invitationStatus:"ACCEPTED",activatedAt, lastLoginAt:activatedAt}});
-  redirect(portal?"/portal":context.user.roles.includes("customer") ? "/account" : "/admin");
+  redirect(portal?"/portal":context.user.roles.includes("customer") ? "/account" : context.user.roles.includes("mobile-admin") ? "/mobile-admin" : "/admin");
 }
 
 export async function resendUserInvitation(formData: FormData) {

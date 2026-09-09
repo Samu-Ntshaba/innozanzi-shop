@@ -4,6 +4,7 @@ import { AdminWorkspace } from "@/components/admin/admin-workspace";
 import { logoutAction } from "@/app/(auth)/actions";
 import { requireUser } from "@/domain/auth/session";
 import { hasPermission, PERMISSIONS } from "@/domain/auth/permissions";
+import Link from "next/link";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const context = await requireUser();
@@ -14,7 +15,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   return <div className="min-h-screen bg-[#eef1f4]">
     <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-slate-300 bg-white px-4 shadow-sm lg:px-6">
       <div className="flex min-w-0 items-center gap-3 sm:gap-4"><BrandLogo className="w-28 sm:w-32" priority/><span className="hidden border-l border-slate-300 pl-4 text-sm font-semibold text-slate-700 min-[420px]:block">Business Suite</span></div>
-      <div className="flex items-center gap-3 text-xs text-slate-600 sm:gap-4"><span className="hidden sm:block"><strong className="text-slate-900">Production</strong> · ZAR</span><span className="hidden max-w-52 truncate md:block">{user.email}</span><form action={logoutAction}><button className="font-semibold text-sky-700">Sign out</button></form></div>
+      <div className="flex items-center gap-3 text-xs text-slate-600 sm:gap-4">{(context.isSuperAdministrator||user.roles.includes("mobile-admin"))?<Link href="/mobile-admin" className="rounded-lg bg-sky-50 px-3 py-2 font-bold text-sky-700">Mobile Admin</Link>:null}<span className="hidden sm:block"><strong className="text-slate-900">Production</strong> · ZAR</span><span className="hidden max-w-52 truncate md:block">{user.email}</span><form action={logoutAction}><button className="font-semibold text-sky-700">Sign out</button></form></div>
     </header>
     <AdminWorkspace
       mobileNavigation={<details className="group/mobile border-b border-slate-800 bg-[#172b3a] text-slate-200 lg:hidden">

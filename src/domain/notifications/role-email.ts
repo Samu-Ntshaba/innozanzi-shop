@@ -2,10 +2,12 @@ import { prisma } from "@/lib/prisma";
 import { enqueueEmail } from "@/integrations/email/outbox";
 import type { EmailMessage } from "@/integrations/email/provider";
 import { supportEmail } from "@/lib/support";
+import { sendMobileAdminPush } from "@/domain/mobile-admin/push";
 
 export const STAFF_EMAIL_EVENTS = [
   ["USER_CREATED", "New user created", "A new account is created or invited."],
   ["USER_ACTIVATED", "User activated", "An invited staff or customer account becomes active."],
+  ["ORDER_PLACED", "Order placed", "A customer creates an order awaiting payment."],
   ["QUOTATION_REQUESTED", "Quotation requested", "A customer submits a new quotation or payment review request."],
   ["HELP_DESK_CREATED", "Help-desk ticket created", "A new support request is submitted."],
   ["HELP_DESK_CUSTOMER_REPLY", "Customer replied to ticket", "A customer adds a reply to an existing support ticket."],
@@ -36,9 +38,12 @@ export async function sendStaffEmail(eventKey: StaffEmailEvent, message: EmailMe
   if (!recipients.length) {
     recipients.push({ id: "", email: supportEmail });
   }
-  return Promise.all(recipients.map((recipient) => enqueueEmail({
+  const emails = Promise.all(recipients.map((recipient) => enqueueEmail({
     ...message,
     to: recipient.email,
     idempotencyKey: `${message.idempotencyKey}:${recipient.email.toLowerCase()}`,
   }, recipient.id || undefined)));
+  const push = sendMobileAdminPush({ title: message.subject, body: message.text.slice(0, 180), url: eventKey === "ORDER_PLACED" || eventKey === "ORDER_PAID" ? "/mobile-admin/orders" : "/mobile-admin/inbox", tag: eventKey });
+  const [emailResult] = await Promise.all([emails, push]);
+  return emailResult;
 }

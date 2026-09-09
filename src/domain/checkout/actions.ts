@@ -16,6 +16,9 @@ import { beginHostedOrderPayment } from "@/domain/payments/orchestration";
 import { deliveryFromForm } from "@/domain/addresses/service";
 import { prisma } from "@/lib/prisma";
 import { eftConfigured, getRetailPaymentSettings } from "@/domain/payments/settings";
+import { enqueueEmail } from "@/integrations/email/outbox";
+import { emailTemplates } from "@/integrations/email/templates";
+import { sendStaffEmail } from "@/domain/notifications/role-email";
 
 const schema = z.object({ notes: z.string().trim().max(1000).optional(), paymentMethod: z.enum(["OZOW", "EFT"]) });
 
@@ -51,6 +54,11 @@ export async function placeRetailOrder(_state: { error: string }, formData: Form
     if(cart.aiRecommendationId){await tx.aIUsage.updateMany({where:{recommendationId:cart.aiRecommendationId},data:{orderId:created.id}});await tx.recommendationEvent.create({data:{userId:ctx.user.id,sessionId:`user:${ctx.user.id}`,eventType:"AI_CHECKOUT_STARTED",entityType:"ORDER",entityId:created.id,recommendationId:cart.aiRecommendationId,context:"checkout"}})}
     await tx.cart.update({where:{id:cart.id},data:{status:"CONVERTED"}});return created;
   },{isolationLevel:"Serializable"});
+
+  try { await Promise.all([
+    enqueueEmail(emailTemplates.orderPlaced(ctx.user.email, ctx.user.name ?? "Customer", order.orderNumber, order.grandTotal.toString()), ctx.user.id),
+    sendStaffEmail("ORDER_PLACED", emailTemplates.orderPlacedInternal(order.id, order.orderNumber, order.email, order.grandTotal.toString(), data.paymentMethod)),
+  ]); } catch (error) { console.error("Order created, but placement notifications were queued for retry", error); }
 
   if(data.paymentMethod==="EFT")redirect(`/account/orders/${order.orderNumber}?payment=eft`);
   const base=(process.env.NEXT_PUBLIC_SITE_URL??"https://shop.innozanzi.co.za").replace(/\/$/,"");

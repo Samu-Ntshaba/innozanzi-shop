@@ -791,6 +791,7 @@ model User {
   quotations                      Quotation[]                      @relation("CustomerQuotations")
   reviews                         Review[]
   notifications                   Notification[]
+  pushSubscriptions               PushSubscription[]
   inventoryMovements              InventoryMovement[]              @relation("InventoryMovementActor")
   reviewedPaymentProofs           PaymentProof[]                   @relation("PaymentProofReviewer")
   uploadedPaymentProofs           PaymentProof[]                   @relation("PaymentProofUploader")
@@ -905,10 +906,12 @@ model Session {
   userAgent    String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+  lastSeenAt   DateTime @default(now())
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([expires])
+  @@index([lastSeenAt])
 }
 
 model VerificationToken {
@@ -4127,6 +4130,20 @@ model Notification {
 
   @@index([userId, status, createdAt])
   @@index([status, createdAt])
+}
+
+model PushSubscription {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  endpoint  String   @unique @db.Text
+  p256dh    String   @db.Text
+  auth      String   @db.Text
+  userAgent String?  @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, updatedAt])
 }
 
 model TransportCategory {

@@ -6,6 +6,8 @@ import { prisma } from "@/lib/prisma";
 import { isProtectedRoleRemoval, PERMISSIONS } from "@/domain/auth/permissions";
 import { requirePermission } from "@/domain/auth/session";
 import { STAFF_EMAIL_EVENTS } from "@/domain/notifications/role-email";
+import { enqueueEmail } from "@/integrations/email/outbox";
+import { emailTemplates } from "@/integrations/email/templates";
 
 const uuid = z.string().uuid();
 const slugify = (value: string) => value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
@@ -65,9 +67,16 @@ export async function assignRole(formData: FormData) {
   if (role.slug === "super-administrator" && !context.isSuperAdministrator) {
     throw new Error("Only a Super Administrator can assign the Super Administrator role.");
   }
+  const existing = await prisma.userRole.findUnique({ where: { userId_roleId: { userId, roleId } } });
   await prisma.userRole.upsert({ where: { userId_roleId: { userId, roleId } }, update: { assignedBy: context.user.id }, create: { userId, roleId, assignedBy: context.user.id } });
   await recordAudit(context.user.id, "user.role.assign", "User", userId, undefined, { roleId, roleName: role.name });
+  if (role.slug === "mobile-admin" && !existing) {
+    const user = await prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { email: true, name: true } });
+    try { await enqueueEmail(emailTemplates.mobileAdminAssigned(user.email, user.name ?? "Team member"), userId); }
+    catch (error) { console.error("Mobile Admin assignment email queued for retry", error); }
+  }
   revalidatePath("/admin/access-control");
+  revalidatePath("/mobile-admin");
 }
 
 export async function removeRoleAssignment(formData: FormData) {
