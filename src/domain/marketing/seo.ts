@@ -15,7 +15,7 @@ const defaults:GlobalSeoSettings={
   description:"Shop computers, laptops, PC components, gaming gear, servers and specialist technology in South Africa. Build a compatible PC online and buy it at your pace.",
   businessName:brand.name,siteUrl:brand.siteUrl,
   defaultImage:brand.assets.socialImage,logo:brand.assets.schemaLogo,
-  twitter:"",facebook:"",linkedin:"",instagram:"",phone:brand.contact.phone,email:brand.contact.email,
+  twitter:"",facebook:brand.social.facebook,linkedin:"",instagram:brand.social.instagram,phone:brand.contact.phone,email:brand.contact.email,
   address:"Ground Floor, Waterstone Building, Stonemill Office Park, 300 Acacia Road, Darrenwood, Randburg, Johannesburg, 2195",
   serviceAreas:"South Africa",googleVerification:"",bingVerification:"",
 };

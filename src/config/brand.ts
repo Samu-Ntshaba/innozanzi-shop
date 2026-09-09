@@ -9,6 +9,10 @@ export const brand = {
   positioning: "We understand technology, build technology and sell technology—using that combination to create a clearer, more helpful purchasing experience.",
   founder: { name: "Simukelo Ntshaba", title: "Founder, CEO and Director" },
   contact: { email: "support@innozanzi.co.za", phone: "+27 71 238 4185" },
+  social: {
+    instagram: "https://www.instagram.com/innozanzi/",
+    facebook: "https://www.facebook.com/profile.php?id=61594197323447",
+  },
   experiences: { gaming: "Innozanzi Gaming", pcBuilder: "Innozanzi PC Workshop" },
   assets: { headerLogo: "/brand/innozanzi-shop-logo-header-v2.png", lightLogo: "/brand/innozanzi-shop-logo-white.png", schemaLogo: "/brand/innozanzi-shop-logo.png", socialImage: "/social/innozanzi-share.png" },
 } as const;

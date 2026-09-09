@@ -16,6 +16,10 @@ export function StoreFooter() {
         <div>
           <BrandLogo variant="footer" className="w-44" />
           <p className="mt-4 text-sm leading-6">{brand.description} {brand.promise}</p>
+          <div className="mt-5 flex items-center gap-3" aria-label="Innozanzi social media">
+            <a className="grid size-11 place-items-center rounded-full border border-slate-600 text-slate-300 transition hover:border-sky-300 hover:bg-sky-300 hover:text-slate-950" href={brand.social.instagram} target="_blank" rel="noreferrer" aria-label="Follow Innozanzi on Instagram"><svg className="size-5" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect width="18" height="18" x="3" y="3" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/></svg></a>
+            <a className="grid size-11 place-items-center rounded-full border border-slate-600 text-slate-300 transition hover:border-sky-300 hover:bg-sky-300 hover:text-slate-950" href={brand.social.facebook} target="_blank" rel="noreferrer" aria-label="Follow Innozanzi on Facebook"><svg className="size-5" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M14 8.5V7c0-.9.6-1 1.1-1H18V2.1A38 38 0 0 0 14.6 2C11.2 2 9 4.1 9 7.9v.6H6V13h3v9h5v-9h3.5l.5-4.5H14Z"/></svg></a>
+          </div>
         </div>
         <div><p className="font-semibold text-white">Build your PC</p><ul className="mt-3 space-y-2 text-sm"><li><Link href="/build-a-pc">Start PC Builder</Link></li><li><Link href="/guides/how-to-build-your-own-pc">PC building guide</Link></li><li><Link href="/guides/parts-needed-to-build-a-pc">Parts you need</Link></li><li><Link href="/guides/build-a-pc-over-time">Build over time</Link></li></ul></div>
         <div><p className="font-semibold text-white">Gaming</p><ul className="mt-3 space-y-2 text-sm"><li><Link href="/gaming">Shop Gaming</Link></li><li><Link href="/guides/gaming-pc-builder-guide">Gaming PC guide</Link></li><li><Link href="/guides/gaming-pc-vs-gaming-laptop">PC vs laptop</Link></li><li><Link href="/guides/how-much-ram-for-gaming">Gaming memory</Link></li></ul></div>
