@@ -22,7 +22,7 @@ export async function placeRetailOrder(_state: { error: string }, formData: Form
   const ctx = await requireUser();
   let data;
   try { data = { ...schema.parse(Object.fromEntries(formData)), ...await deliveryFromForm(ctx.user.id, formData) }; }
-  catch (error) { return { error: error instanceof Error && /^(Complete|Please select|Choose one|Please add)/.test(error.message) ? error.message : "Please check your delivery and payment details." }; }
+  catch (error) { return { error: error instanceof Error && /^(Complete|Please select|Please enter|Choose one|Please add|We currently deliver)/.test(error.message) ? error.message : "Please check your delivery and payment details." }; }
   if(!gatewayConfigured(data.paymentMethod))return {error:"This payment method is not available yet. Please contact support."};
   const cart = await getCurrentCart();
   if(!cart||(!cart.items.length&&!cart.supplierItems.length))throw new Error("Your cart is empty.");

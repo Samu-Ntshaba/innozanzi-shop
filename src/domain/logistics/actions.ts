@@ -10,6 +10,7 @@ import { assertTransportTransition } from "@/domain/logistics/lifecycle";
 import { prisma } from "@/lib/prisma";
 import { createSupabaseAdmin } from "@/lib/supabase";
 import { getDocumentBranding } from "@/domain/documents/branding";
+import { DELIVERY_AREAS_KEY, deliveryAreasValue } from "@/domain/addresses/delivery-areas";
 
 const optionalDate=z.preprocess(v=>v===""||v==null?undefined:v,z.coerce.date().optional());
 const optionalUuid=z.preprocess(v=>v===""||v==null?undefined:v,z.string().uuid().optional());
@@ -115,4 +116,21 @@ export async function recordTransportPayment(formData:FormData){
 export async function saveTransportSetting(formData:FormData){
   await requirePermission("transport.settings.manage");const kind=z.enum(["category","cost"]).parse(formData.get("kind"));const data=z.object({code:z.string().trim().min(2).max(80).transform(x=>x.toUpperCase().replace(/[^A-Z0-9]+/g,"_")),name:z.string().trim().min(2).max(160)}).parse(Object.fromEntries(formData));
   if(kind==="category")await prisma.transportCategory.upsert({where:{code:data.code},update:{name:data.name,isActive:true},create:{...data}});else await prisma.transportCostType.upsert({where:{code:data.code},update:{name:data.name,isActive:true},create:{...data}});revalidatePath("/admin/logistics/settings");
+}
+
+export async function saveDeliveryAreas(formData: FormData) {
+  const ctx = await requirePermission("transport.settings.manage");
+  const data = deliveryAreasValue(formData.getAll("province"));
+  await prisma.$transaction(async tx => {
+    const before = await tx.siteSetting.findUnique({ where: { key: DELIVERY_AREAS_KEY } });
+    const setting = await tx.siteSetting.upsert({
+      where: { key: DELIVERY_AREAS_KEY },
+      create: { key: DELIVERY_AREAS_KEY, value: data, description: "Provinces enabled for retail delivery checkout." },
+      update: { value: data },
+    });
+    await tx.auditLog.create({ data: { actorId: ctx.user.id, action: "delivery.areas.update", entityType: "SiteSetting", entityId: setting.id, before: before?.value ?? undefined, after: data } });
+  });
+  revalidatePath("/admin/logistics/settings");
+  revalidatePath("/checkout");
+  revalidatePath("/account/addresses");
 }

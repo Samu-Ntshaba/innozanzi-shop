@@ -19,7 +19,7 @@ export async function saveAddress(_state: { error: string; success: boolean }, f
       if (count >= 20) throw new Error("You can save up to 20 addresses. Remove an old address first.");
       await tx.address.create({ data: { ...data, userId: ctx.user.id, type: "DELIVERY", isDefault: count === 0 } });
     });
-  } catch (error) { return { error: error instanceof Error && /^(Complete|Please select|You can save)/.test(error.message) ? error.message : "We could not save your address. Please retry.", success: false }; }
+  } catch (error) { return { error: error instanceof Error && /^(Complete|Please select|Please enter|We currently deliver|You can save)/.test(error.message) ? error.message : "We could not save your address. Please retry.", success: false }; }
   revalidatePath("/account/addresses"); revalidatePath("/checkout");
   return { error: "", success: true };
 }

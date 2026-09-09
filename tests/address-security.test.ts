@@ -1,14 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mapsConfigured, normalizePlace, resolveAddress, searchAddresses, signAddress, verifyAddress } from "@/domain/addresses/google-places";
 import { deliveryFromForm } from "@/domain/addresses/service";
-const { findFirst } = vi.hoisted(() => ({ findFirst: vi.fn() }));
-vi.mock("@/lib/prisma", () => ({ prisma: { address: { findFirst } } }));
+const { findFirst, findUnique } = vi.hoisted(() => ({ findFirst: vi.fn(), findUnique: vi.fn() }));
+vi.mock("@/lib/prisma", () => ({ prisma: { address: { findFirst }, siteSetting: { findUnique } } }));
 const address = { recipient: "Test Customer", phone: "0712345678", line1: "12 Example Road", line2: "Unit 4", suburb: "Example", city: "Cape Town", province: "Western Cape" as const, postalCode: "0123" };
 const user = "11111111-1111-4111-8111-111111111111";
 function form(values: Record<string, string> = address) { const result = new FormData(); Object.entries(values).forEach(([k,v]) => result.set(k,v)); return result; }
 const component = (type: string, longText: string, shortText?: string) => ({ types: [type], longText, shortText });
 const place = { id: "ChIJ_example", addressComponents: [component("country", "South Africa", "ZA"), component("street_number", "12"), component("route", "Example Road"), component("locality", "Cape Town"), component("administrative_area_level_1", "Western Cape"), component("postal_code", "0123")] };
-beforeEach(() => { vi.stubEnv("GOOGLE_MAPS_API_KEY", "test-server-secret"); vi.clearAllMocks(); });
+beforeEach(() => { vi.stubEnv("GOOGLE_MAPS_API_KEY", "test-server-secret"); vi.clearAllMocks(); findUnique.mockResolvedValue(null); });
 afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals(); vi.useRealTimers(); });
 describe("address selection proof", () => {
   it("binds selection to account, location fields and expiry while allowing recipient/unit changes", () => {
@@ -49,6 +49,12 @@ describe("checkout delivery boundary", () => {
   it("permits complete manual details only when Maps is not configured, without accepting forged verification", async () => {
     vi.stubEnv("GOOGLE_MAPS_API_KEY", "");
     await expect(deliveryFromForm(user, form({ ...address, googlePlaceId: "fake" }))).resolves.toMatchObject({ ...address, googlePlaceId: null });
+  });
+  it("requires a South African cellphone number and an admin-enabled province", async () => {
+    vi.stubEnv("GOOGLE_MAPS_API_KEY", "");
+    await expect(deliveryFromForm(user, form({ ...address, phone: "0111234567" }))).rejects.toThrow("cellphone");
+    findUnique.mockResolvedValue({ value: { provinces: ["Gauteng"] } });
+    await expect(deliveryFromForm(user, form())).rejects.toThrow("currently deliver");
   });
 });
 describe("Places provider", () => {

@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic";
 export async function generateMetadata():Promise<Metadata>{return entityMetadata({entityType:"STATIC_PAGE",entityId:"homepage",path:"/",title:"Computer, Laptop, Gaming & Custom PC Specialists | Innozanzi",description:"Shop computers, laptops, PC components, gaming gear, servers and specialist technology online in South Africa. Build a compatible PC and buy it at your pace.",image:"/social/innozanzi-share.png",keywords:["computer shop South Africa","laptops South Africa","buy computers online","custom PC builder South Africa","gaming PC shop","computer components","servers South Africa","Innozanzi"]})}
 
 const trustItems = [
-  { icon: Truck, title: "Nationwide delivery", body: "Trusted courier partners across South Africa" },
+  { icon: Truck, title: "Delivery coverage", body: "Available in selected provinces shown at checkout" },
   { icon: ShieldCheck, title: "Secure payments", body: "Pay safely online or by bank transfer" },
   { icon: Headphones, title: "Ongoing support", body: "One team from sourcing to after-sales care" },
 ];
