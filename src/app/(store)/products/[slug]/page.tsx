@@ -31,7 +31,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
   const onSale = price.lt(product.regularPrice);
   const saving = onSale ? product.regularPrice.minus(price) : null;
   return <main className="bg-white pb-14"><div className="mx-auto max-w-7xl px-4 pt-5 sm:px-6 lg:px-8">
-    <nav aria-label="Breadcrumb" className="flex min-w-0 items-center gap-1.5 overflow-hidden text-sm text-slate-500"><Link className="shrink-0 hover:text-sky-700" href="/shop">Shop</Link><ChevronRight className="size-3.5 shrink-0"/><Link className="shrink-0 hover:text-sky-700" href={`/categories/${product.category.slug}`}>{product.category.name}</Link><ChevronRight className="size-3.5 shrink-0"/><span className="truncate text-slate-700">{product.name}</span></nav>
+    <nav aria-label="Breadcrumb" className="flex min-w-0 items-center gap-1.5 overflow-hidden text-sm text-slate-500"><Link className="shrink-0 hover:text-sky-700" href="/shop">Shop</Link><ChevronRight className="size-3.5 shrink-0"/><Link className="min-w-0 truncate hover:text-sky-700" href={`/categories/${product.category.slug}`}>{product.category.name}</Link><ChevronRight className="size-3.5 shrink-0"/><span className="hidden truncate text-slate-700 sm:block">{product.name}</span></nav>
     <div className="mt-6 grid items-start gap-8 lg:grid-cols-[minmax(0,1.08fr)_minmax(380px,.92fr)] lg:gap-12">
       <ProductGallery images={product.images.map(image => image.path)} name={product.name}/>
       <section className="lg:sticky lg:top-28">
