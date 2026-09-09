@@ -24,11 +24,11 @@ export function protectedPrice(cost:Decimal.Value,settings:CommerceSettings=DEFA
 }
 export function priceSnapshot(result:ReturnType<typeof protectedPrice>){return JSON.parse(JSON.stringify(result)) as Record<string, string|number|object>;}
 
-export function contributionAtPrice(cost:Decimal.Value,grossPrice:Decimal.Value,settings:CommerceSettings,gateway:"OZOW"|"PAYFAST"){
+export function contributionAtPrice(cost:Decimal.Value,grossPrice:Decimal.Value,settings:CommerceSettings,gateway:"OZOW"|"PAYFAST"|"EFT"){
  const inputFactor=settings.vatRegistered?new Decimal(1):new Decimal(settings.vatPercent).div(100).plus(1),feeFactor=settings.vatRegistered?new Decimal(1):new Decimal(settings.feeVatPercent).div(100).plus(1);
  const gross=new Decimal(grossPrice),net=settings.vatRegistered?gross.div(new Decimal(settings.vatPercent).div(100).plus(1)):gross;
  const landed=new Decimal(cost).plus(settings.supplierDelivery).plus(settings.surcharge).plus(settings.handling).mul(inputFactor);
- const percent=new Decimal(gateway==="OZOW"?settings.ozowPercent:settings.payfastPercent).div(100),fixed=new Decimal(gateway==="OZOW"?settings.ozowFixed:settings.payfastFixed),minimum=new Decimal(gateway==="OZOW"?settings.ozowMinimum:settings.payfastMinimum);
+ const percent=new Decimal(gateway==="EFT"?0:gateway==="OZOW"?settings.ozowPercent:settings.payfastPercent).div(100),fixed=new Decimal(gateway==="EFT"?0:gateway==="OZOW"?settings.ozowFixed:settings.payfastFixed),minimum=new Decimal(gateway==="EFT"?0:gateway==="OZOW"?settings.ozowMinimum:settings.payfastMinimum);
  const fees=Decimal.max(gross.mul(percent).plus(fixed),minimum).plus(settings.payoutAllocation).mul(feeFactor),reserve=net.mul(settings.reservePercent).div(100),contribution=net.minus(landed).minus(fees).minus(reserve);
  return {gateway,gross:gross.toString(),net:net.toString(),landed:landed.toString(),fees:fees.toString(),reserve:reserve.toString(),contribution:contribution.toString(),margin:net.gt(0)?contribution.div(net).mul(100).toString():"0"};
 }

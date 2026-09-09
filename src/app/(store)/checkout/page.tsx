@@ -14,6 +14,7 @@ import { formatZar } from "@/lib/money";
 import { prisma } from "@/lib/prisma";
 import { getDeliveryProvinces } from "@/domain/addresses/delivery-areas";
 import { CouponEntry } from "@/components/store/coupon-entry";
+import { eftConfigured, getRetailPaymentSettings } from "@/domain/payments/settings";
 
 export const dynamic = "force-dynamic";
 const input = "mt-2 h-12 w-full rounded-lg border border-slate-300 bg-white px-3.5 text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-sky-700 focus:ring-2 focus:ring-sky-700/15";
@@ -21,10 +22,11 @@ const label = "text-sm font-semibold text-slate-800";
 
 export default async function CheckoutPage({searchParams}:{searchParams:Promise<{coupon?:string}>}) {
   const user = await requireUser();
-  const [profile, addresses, supportedProvinces] = await Promise.all([
+  const [profile, addresses, supportedProvinces, paymentSettings] = await Promise.all([
     prisma.user.findUnique({where:{id:user.user.id},select:{phone:true}}),
     listAddresses(user.user.id),
     getDeliveryProvinces(),
+    getRetailPaymentSettings(),
   ]);
   const cart = await getCurrentCart();
   if (!cart || (!cart.items.length && !cart.supplierItems.length)) redirect("/cart");
@@ -51,7 +53,7 @@ export default async function CheckoutPage({searchParams}:{searchParams:Promise<
         <div className="border-b border-slate-200 p-5 sm:p-6"><div className="flex items-center justify-between"><h2 className="text-xl font-bold text-slate-950">Order summary</h2><span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">{itemCount} {itemCount === 1 ? "item" : "items"}</span></div><div className="mt-5 max-h-64 space-y-4 overflow-auto pr-1">{lines.map(line => <div className="flex justify-between gap-4 text-sm" key={`${line.sourceType}-${line.sourceId}`}><div className="min-w-0"><p className="line-clamp-2 font-semibold leading-5 text-slate-800">{line.productName}</p><p className="mt-1 text-xs text-slate-500">Quantity {line.quantity}</p></div><span className="shrink-0 font-semibold text-slate-900">{formatZar(line.grossUnit.mul(line.quantity))}</span></div>)}</div></div>
         <div className="border-b border-slate-200 bg-slate-50 p-5 sm:p-6"><dl className="space-y-3 text-sm"><div className="flex justify-between text-slate-600"><dt>Subtotal</dt><dd>{formatZar(subtotal)}</dd></div>{vat.gt(0) ? <div className="flex justify-between text-slate-600"><dt>VAT</dt><dd>{formatZar(vat)}</dd></div> : null}<div className="flex justify-between text-slate-600"><dt>Delivery</dt><dd className={delivery.gt(0)?"font-semibold text-slate-900":"font-semibold text-emerald-700"}>{delivery.gt(0)?formatZar(delivery):"FREE"}</dd></div>{delivery.gt(0)?<p className="rounded-lg bg-sky-50 px-3 py-2 text-xs leading-5 text-sky-900">Delivery is included in the confirmed order total.</p>:<p className="text-xs font-semibold text-emerald-700">You qualify for free delivery.</p>}<div className="flex items-end justify-between border-t border-slate-200 pt-4"><dt className="text-base font-bold text-slate-950">Order total</dt><dd className="text-2xl font-black tracking-tight text-slate-950">{formatZar(total)}</dd></div></dl></div>
         <CouponEntry code={couponCode} saving={quote.coupon ? quote.coupon.code + ": saving " + formatZar(quote.coupon.discount) : undefined}/>
-        <PaymentMethodSelector total={formatZar(total)} available={{OZOW:gatewayConfigured("OZOW"),PAYFAST:gatewayConfigured("PAYFAST")}}/>
+        <PaymentMethodSelector total={formatZar(total)} available={{OZOW:gatewayConfigured("OZOW"),EFT:eftConfigured(paymentSettings)}}/>
       </aside>
     </CheckoutForm>
   </main>;

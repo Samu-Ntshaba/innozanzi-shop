@@ -4,14 +4,18 @@ import {
   AdminPage,
   Panel,
   StatusBadge,
+  buttonClass,
   inputClass,
   tableClass,
 } from "@/components/admin/admin-ui";
 import { requirePermission } from "@/domain/auth/session";
 import { createPaystackRefund, verifyPaymentSubmission } from "@/domain/payments/actions";
+import { getRetailPaymentSettings } from "@/domain/payments/settings";
+import { saveRetailPaymentSettings } from "@/domain/payments/settings-actions";
+import { reviewPaymentProof } from "@/domain/admin/actions";
 export default async function Page() {
   await requirePermission("payments.approve");
-  const [rows,onlinePayments] = await Promise.all([prisma.paymentSubmission.findMany({
+  const [rows,onlinePayments,retailPaymentSettings,retailProofs] = await Promise.all([prisma.paymentSubmission.findMany({
     include: {
       quotation: { include: { quotationRequest: true } },
       document: true,
@@ -22,12 +26,30 @@ export default async function Page() {
     },
     orderBy: { submittedAt: "desc" },
     take: 100,
-  }),prisma.payment.findMany({where:{provider:"PAYSTACK",status:{in:["PAID","PARTIALLY_REFUNDED"]}},include:{order:true},orderBy:{paidAt:"desc"},take:100})]);
+  }),prisma.payment.findMany({where:{provider:"PAYSTACK",status:{in:["PAID","PARTIALLY_REFUNDED"]}},include:{order:true},orderBy:{paidAt:"desc"},take:100}),getRetailPaymentSettings(),prisma.paymentProof.findMany({include:{payment:{include:{order:{select:{orderNumber:true,email:true}}}},uploadedBy:{select:{name:true,email:true}}},orderBy:{createdAt:"desc"},take:100})]);
   return (
     <AdminPage
       title="Payment verification"
       description="Proof review controls order activation. Uploading evidence never verifies payment automatically."
     >
+      <Panel title="Customer payment methods" description="Ozow is the only live instant-payment gateway. Enable EFT only after verifying the company banking details below. PayFast is unavailable for new customer payments.">
+        <form action={saveRetailPaymentSettings} className="grid gap-4 sm:grid-cols-2">
+          <label className="flex items-center gap-3 rounded-lg border p-3 text-sm font-bold sm:col-span-2"><input type="checkbox" name="eftEnabled" defaultChecked={retailPaymentSettings.eftEnabled}/>Enable EFT at checkout</label>
+          <label className="text-sm font-semibold">Bank name<input className={inputClass} name="bankName" defaultValue={retailPaymentSettings.bankName}/></label>
+          <label className="text-sm font-semibold">Account holder<input className={inputClass} name="accountHolder" defaultValue={retailPaymentSettings.accountHolder}/></label>
+          <label className="text-sm font-semibold">Account number<input className={inputClass} name="accountNumber" defaultValue={retailPaymentSettings.accountNumber}/></label>
+          <label className="text-sm font-semibold">Branch code<input className={inputClass} name="branchCode" defaultValue={retailPaymentSettings.branchCode}/></label>
+          <label className="text-sm font-semibold">Account type<input className={inputClass} name="accountType" defaultValue={retailPaymentSettings.accountType} placeholder="Cheque, current or savings"/></label>
+          <label className="text-sm font-semibold sm:col-span-2">Customer instructions<textarea className={inputClass + " min-h-24"} name="instructions" defaultValue={retailPaymentSettings.instructions} placeholder="Use your order number as the payment reference."/></label>
+          <button className={buttonClass + " sm:col-span-2"}>Save customer payment settings</button>
+        </form>
+      </Panel>
+      <Panel title="Retail EFT proof review" description="Confirm funds in the company bank account before approving. An uploaded document is evidence only.">
+        <div className="overflow-x-auto"><table className={tableClass}><thead><tr><th>Order / customer</th><th>Proof</th><th>Amount</th><th>Status</th><th>Decision</th></tr></thead><tbody>
+          {retailProofs.map(proof => <tr key={proof.id}><td><strong>{proof.payment.order.orderNumber}</strong><br/><span className="text-xs text-slate-500">{proof.payment.order.email}</span></td><td><a className="font-semibold text-sky-700 underline" href={"/api/admin/payment-proofs/" + proof.id} target="_blank">{proof.originalName}</a><br/><span className="text-xs text-slate-500">{proof.createdAt.toLocaleString("en-ZA")}</span></td><td>R {proof.payment.amount.toString()}</td><td><StatusBadge value={proof.status}/>{proof.reviewNote ? <p className="mt-1 max-w-xs text-xs">{proof.reviewNote}</p> : null}</td><td>{proof.status === "PENDING" ? <form action={reviewPaymentProof} className="grid min-w-64 gap-2"><input type="hidden" name="id" value={proof.id}/><input className={inputClass} name="note" placeholder="Finance review note"/><div className="flex gap-2"><button name="status" value="APPROVED" className="bg-emerald-700 px-3 py-2 text-xs font-bold text-white">Approve verified funds</button><button name="status" value="REJECTED" className="border border-red-300 px-3 py-2 text-xs font-bold text-red-800">Reject</button></div></form> : <span className="text-xs text-slate-500">Reviewed</span>}</td></tr>)}
+          {!retailProofs.length ? <tr><td colSpan={5} className="py-8 text-center text-slate-500">No retail EFT proofs uploaded.</td></tr> : null}
+        </tbody></table></div>
+      </Panel>
       <Panel>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div><h2 className="font-bold">Customer refund payment queue</h2><p className="mt-1 text-sm text-slate-600">Approved refunds remain separate from original payments and require finance confirmation before completion.</p></div>

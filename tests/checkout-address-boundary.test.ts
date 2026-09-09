@@ -9,7 +9,7 @@ vi.mock("@/domain/payments/orchestration", () => ({ beginHostedOrderPayment: moc
 vi.mock("@/lib/prisma", () => ({ prisma: { $transaction: mocks.transaction } }));
 import { placeRetailOrder } from "@/domain/checkout/actions";
 it("does not create an order or initiate payment without a delivery address", async () => {
-  const form = new FormData(); form.set("paymentMethod", "PAYFAST");
+  const form = new FormData(); form.set("paymentMethod", "OZOW");
   expect(await placeRetailOrder({ error: "" }, form)).toEqual({ error: "Complete your delivery address." });
   expect(mocks.cart).not.toHaveBeenCalled(); expect(mocks.transaction).not.toHaveBeenCalled(); expect(mocks.payment).not.toHaveBeenCalled();
 });

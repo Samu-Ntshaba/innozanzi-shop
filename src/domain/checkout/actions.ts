@@ -15,15 +15,17 @@ import { orderNumber } from "@/domain/quotations/lifecycle";
 import { beginHostedOrderPayment } from "@/domain/payments/orchestration";
 import { deliveryFromForm } from "@/domain/addresses/service";
 import { prisma } from "@/lib/prisma";
+import { eftConfigured, getRetailPaymentSettings } from "@/domain/payments/settings";
 
-const schema = z.object({ notes: z.string().trim().max(1000).optional(), paymentMethod: z.enum(["OZOW", "PAYFAST"]) });
+const schema = z.object({ notes: z.string().trim().max(1000).optional(), paymentMethod: z.enum(["OZOW", "EFT"]) });
 
 export async function placeRetailOrder(_state: { error: string }, formData: FormData) {
   const ctx = await requireUser();
   let data;
   try { data = { ...schema.parse(Object.fromEntries(formData)), ...await deliveryFromForm(ctx.user.id, formData) }; }
   catch (error) { return { error: error instanceof Error && /^(Complete|Please select|Please enter|Choose one|Please add|We currently deliver)/.test(error.message) ? error.message : "Please check your delivery and payment details." }; }
-  if(!gatewayConfigured(data.paymentMethod))return {error:"This payment method is not available yet. Please contact support."};
+  const retailPaymentSettings = await getRetailPaymentSettings();
+  if(data.paymentMethod === "OZOW" ? !gatewayConfigured("OZOW") : !eftConfigured(retailPaymentSettings))return {error:"This payment method is not available yet. Please contact support."};
   const cart = await getCurrentCart();
   if(!cart||(!cart.items.length&&!cart.supplierItems.length))throw new Error("Your cart is empty.");
   const code=String(formData.get("couponCode")??"").trim().slice(0,40);
@@ -31,7 +33,7 @@ export async function placeRetailOrder(_state: { error: string }, formData: Form
   if(formData.get("priceFingerprint")!==quote.fingerprint)return {error:"Prices, stock or an offer changed. Reload checkout to review the updated total before paying."};
   const pricingSettings=await getCommerceSettings();
   const {lines,subtotal,vat:vatTotal,delivery:deliveryTotal,total:grandTotal}=quote,markup=new Decimal(0),paymentId=randomUUID(),idempotencyKey=`retail:${cart.id}:${randomUUID()}`;
-  await prisma.$transaction(async tx=>{
+  const order=await prisma.$transaction(async tx=>{
     await tx.$queryRaw`SELECT id FROM "Cart" WHERE id = ${cart.id}::uuid FOR UPDATE`;
     const lockedCart=await tx.cart.findUniqueOrThrow({where:{id:cart.id}});if(lockedCart.status!=="ACTIVE")throw new Error("This cart has already been checked out.");
     if(quote.coupon){
@@ -50,6 +52,7 @@ export async function placeRetailOrder(_state: { error: string }, formData: Form
     await tx.cart.update({where:{id:cart.id},data:{status:"CONVERTED"}});return created;
   },{isolationLevel:"Serializable"});
 
+  if(data.paymentMethod==="EFT")redirect(`/account/orders/${order.orderNumber}?payment=eft`);
   const base=(process.env.NEXT_PUBLIC_SITE_URL??"https://shop.innozanzi.co.za").replace(/\/$/,"");
   const session=await beginHostedOrderPayment({paymentId,callbackUrl:`${base}/api/payments/return/${paymentId}`});
   if(!session.redirectUrl)throw new Error("Secure checkout is unavailable.");redirect(session.redirectUrl);

@@ -7,6 +7,7 @@ export async function processPaymentEvent(provider: "PAYSTACK" | "YOCO" | "OZOW"
   const result = await prisma.$transaction(async (tx) => {
     const payment = await tx.payment.findUnique({ where: { provider_externalReference: { provider, externalReference: event.externalReference } }, include: { order: { include: { items: true, convertedQuotation: true } } } });
     if (!payment) throw new Error("Unknown payment reference");
+    await tx.$queryRaw`SELECT id FROM "Order" WHERE id = ${payment.orderId}::uuid FOR UPDATE`;
     await tx.$queryRaw`SELECT id FROM "Payment" WHERE id = ${payment.id}::uuid FOR UPDATE`;
     const latest=await tx.payment.findUniqueOrThrow({where:{id:payment.id}});
     assertPaymentEventMatches(event,payment);
@@ -20,6 +21,16 @@ export async function processPaymentEvent(provider: "PAYSTACK" | "YOCO" | "OZOW"
     if (latest.status === event.status) return { duplicate: true, paymentId: payment.id, order: payment.order, amount: payment.amount.toString() };
     if (payment.status === "PAID") return { duplicate: true, paymentId: payment.id, order: payment.order, amount: payment.amount.toString() };
     assertPaymentEventMatches(event,payment);
+    if(event.status==="PAID"){
+      const otherCapture=await tx.payment.findFirst({where:{orderId:payment.orderId,status:"PAID",id:{not:payment.id}}});
+      if(otherCapture){
+        await tx.payment.update({where:{id:payment.id},data:{status:"PAID",paidAt:new Date(),providerMetadata:event.raw as object,failureReason:"Duplicate payment captured after another order payment was verified; finance refund review required."}});
+        const staff=await tx.user.findMany({where:{status:"ACTIVE",deletedAt:null,accountType:"INTERNAL_EMPLOYEE"},select:{id:true}});
+        if(staff.length)await tx.notification.createMany({data:staff.map(({id})=>({userId:id,type:"PAYMENT_EXCEPTION",channel:"IN_APP",subject:`Duplicate payment for ${payment.order.orderNumber}`,body:"A second payment was captured for an already-paid order. Finance must review and refund the duplicate.",status:"SENT" as const,sentAt:new Date(),data:{orderId:payment.orderId,paymentId:payment.id,category:"REQUIRES_ACTION"}}))});
+        await tx.auditLog.create({data:{action:"payment.duplicate-capture",entityType:"Payment",entityId:payment.id,metadata:{eventId:event.eventId,provider,existingPaymentId:otherCapture.id}}});
+        return{duplicate:true,paymentId:payment.id,order:payment.order,amount:payment.amount.toString()};
+      }
+    }
     let stockIssue=false;
     if(event.status==="PAID"){
       for(const item of payment.order.items){
@@ -39,7 +50,18 @@ export async function processPaymentEvent(provider: "PAYSTACK" | "YOCO" | "OZOW"
     }
     await tx.payment.update({ where: { id: payment.id }, data: { status: event.status, paidAt: event.status === "PAID" ? new Date() : null, providerMetadata: event.raw as object } });
     const nextOrderStatus = event.status === "PAID" ? "PAYMENT_VERIFIED" : payment.order.status;
-    await tx.order.update({ where: { id: payment.orderId }, data: { paymentStatus: event.status, status: nextOrderStatus } });
+    const newerActiveAttempt = event.status === "PAID" ? null : await tx.payment.findFirst({
+      where: {
+        orderId: payment.orderId,
+        id: { not: payment.id },
+        createdAt: { gt: payment.createdAt },
+        status: { in: ["PENDING", "AWAITING_REVIEW", "PAID"] },
+      },
+      select: { id: true },
+    });
+    if (!newerActiveAttempt) {
+      await tx.order.update({ where: { id: payment.orderId }, data: { paymentStatus: event.status, status: nextOrderStatus } });
+    }
     if (event.status === "PAID") {
       await tx.orderStatusHistory.create({ data: { orderId: payment.orderId, fromStatus: payment.order.status, toStatus: "PAYMENT_VERIFIED", note: stockIssue?`${provider} payment received; stock exception requires procurement review`:`${provider} payment confirmed; settlement and procurement require separate review` } });
       await tx.deliveryTrackingEvent.create({ data: { orderId: payment.orderId, status: "PAYMENT_VERIFIED", publicNote: "Your payment has been confirmed. We are preparing your order for fulfilment.", internalNote: `${provider} webhook ${event.eventId}` } });
