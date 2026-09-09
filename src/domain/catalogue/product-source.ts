@@ -45,8 +45,8 @@ export async function resolveQuotationCart(cart: CurrentCart, markup: Decimal): 
         // The customer-visible catalogue price is authoritative through cart, checkout and payment.
         // Never silently replace it with a second cost-plus calculation at checkout.
         const grossUnit = activeUnitPrice(item.product, item.variant);
-        const minimum = await minimumRetailPrice(cost);
-        if (grossUnit.lt(minimum))
+        const minimum = item.product.isTestData ? grossUnit : await minimumRetailPrice(cost);
+        if (!item.product.isTestData && grossUnit.lt(minimum))
             throw new Error(`${item.product.name} needs a pricing review before checkout. Its displayed price is below the approved minimum.`);
         const netUnit=settings.vatRegistered?grossUnit.div(new Decimal(1).plus(settings.vatPercent/100)):grossUnit;
         const price = { netUnit, vatUnit: grossUnit.minus(netUnit), grossUnit };
@@ -56,7 +56,7 @@ export async function resolveQuotationCart(cart: CurrentCart, markup: Decimal): 
             variantId: item.variantId, supplierId: null, supplierProductId: null, supplierSku: null,
             productName: item.product.name, sku, quantity: item.quantity, costPrice: cost,
             ...price, vatRate: new Decimal(settings.vatRegistered?settings.vatPercent/100:0), available,
-            pricingRule: "DISPLAYED_CATALOGUE_PRICE_WITH_MINIMUM_PROFIT_GUARD",
+            pricingRule: item.product.isTestData ? "ADMINISTRATOR_PAYMENT_TEST" : "DISPLAYED_CATALOGUE_PRICE_WITH_MINIMUM_PROFIT_GUARD",
             sourceSnapshot: { sourceType: "LOCAL", productId: item.productId, variantId: item.variantId, name: item.product.name, sku, image: item.product.images[0]?.path ?? null, available, costPrice: cost.toString(), customerUnitPrice: grossUnit.toString(), minimumRetailPrice: minimum.toString(),protectedFloor:minimum.toString(),pricingSettings:settings, markupPercent: markup.toString(), vatStatus: item.product.vatStatus, isTestData: item.product.isTestData, capturedAt: new Date().toISOString() },
         };
     }));

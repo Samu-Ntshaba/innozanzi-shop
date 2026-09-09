@@ -26,7 +26,7 @@ export default async function HomePage() {
   return (
     <main className="bg-white">
       <HomepageFeatureGrid products={catalogue.heroProducts}/>
-      {adminTestProducts.length?<div className="border-y border-violet-200 bg-violet-50"><ProductSection eyebrow="Private administrator checkout" title="R100 live payment test" products={adminTestProducts} href="/shop" /></div>:null}
+      {adminTestProducts.length?<div className="border-y border-violet-200 bg-violet-50"><ProductSection eyebrow="Private administrator checkout" title="R1 live payment test" products={adminTestProducts} href="/shop" /></div>:null}
       <div className="bg-white"><RecommendationSection recommendations={recommendations}/></div>
 
       {catalogue.promotions.length?<div className="bg-slate-50/70"><ProductSection eyebrow="Current supplier offers" title="Products on promotion" products={catalogue.promotions} href="/shop?collection=promotions&availability=in-stock" /></div>:null}
