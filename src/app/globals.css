@@ -130,6 +130,32 @@ button, a, input, select, textarea { touch-action: manipulation; }
 .pc-welcome-orbit-delay { animation-direction: reverse; animation-duration: 8s; }
 .pc-welcome-spark { animation: pc-welcome-spark 1.4s ease-in-out infinite; }
 
+.account-shell main,
+.account-shell main > *,
+.account-shell form,
+.account-shell label,
+.account-shell input,
+.account-shell select,
+.account-shell textarea {
+  min-width: 0;
+}
+
+.account-shell input,
+.account-shell select,
+.account-shell textarea {
+  max-width: 100%;
+}
+
+.account-shell h1,
+.account-shell h2,
+.account-shell h3,
+.account-shell p,
+.account-shell dd,
+.account-shell a,
+.account-shell button {
+  overflow-wrap: anywhere;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
   .brand-marquee { overflow-x: auto; }

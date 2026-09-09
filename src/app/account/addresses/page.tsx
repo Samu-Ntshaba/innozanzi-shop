@@ -13,7 +13,7 @@ export default async function AddressesPage() {
     prisma.user.findUnique({ where: { id: ctx.user.id }, select: { phone: true } }),
     getDeliveryProvinces(),
   ]);
-  return <div className="space-y-6">
+  return <main className="mx-auto max-w-5xl space-y-6 px-4 py-6 sm:px-6 sm:py-10">
     <div><h1 className="text-2xl font-bold">Delivery addresses</h1><p className="mt-2 text-sm text-slate-600">Save addresses for your next order. To change an address, add its updated details and remove the old one. Existing orders keep their original delivery details.</p></div>
     <div className="grid gap-4 sm:grid-cols-2">{addresses.map(address => <article key={address.id} className="rounded-xl border bg-white p-4 text-sm leading-6">
       <strong>{address.recipient}{address.isDefault ? " · Default" : ""}</strong>
@@ -25,5 +25,5 @@ export default async function AddressesPage() {
       <form action={changeAddress} className="mt-3 flex gap-4"><input type="hidden" name="id" value={address.id}/>{!address.isDefault ? <button name="action" value="default" className="text-sky-700 underline">Set as default</button> : null}<button name="action" value="remove" className="text-red-700 underline">Remove</button></form>
     </article>)}</div>
     <section className="rounded-xl border bg-white p-5"><h2 className="text-lg font-bold">Add an address</h2><AddressForm mapsEnabled={mapsConfigured()} name={ctx.user.name ?? ""} phone={profile?.phone ?? ""} supportedProvinces={supportedProvinces}/></section>
-  </div>;
+  </main>;
 }
