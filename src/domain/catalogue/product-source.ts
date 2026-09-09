@@ -57,7 +57,7 @@ export async function resolveQuotationCart(cart: CurrentCart, markup: Decimal): 
             productName: item.product.name, sku, quantity: item.quantity, costPrice: cost,
             ...price, vatRate: new Decimal(settings.vatRegistered?settings.vatPercent/100:0), available,
             pricingRule: "DISPLAYED_CATALOGUE_PRICE_WITH_MINIMUM_PROFIT_GUARD",
-            sourceSnapshot: { sourceType: "LOCAL", productId: item.productId, variantId: item.variantId, name: item.product.name, sku, image: item.product.images[0]?.path ?? null, available, costPrice: cost.toString(), customerUnitPrice: grossUnit.toString(), minimumRetailPrice: minimum.toString(),protectedFloor:minimum.toString(),pricingSettings:settings, markupPercent: markup.toString(), vatStatus: item.product.vatStatus, capturedAt: new Date().toISOString() },
+            sourceSnapshot: { sourceType: "LOCAL", productId: item.productId, variantId: item.variantId, name: item.product.name, sku, image: item.product.images[0]?.path ?? null, available, costPrice: cost.toString(), customerUnitPrice: grossUnit.toString(), minimumRetailPrice: minimum.toString(),protectedFloor:minimum.toString(),pricingSettings:settings, markupPercent: markup.toString(), vatStatus: item.product.vatStatus, isTestData: item.product.isTestData, capturedAt: new Date().toISOString() },
         };
     }));
     if (!cart.supplierItems.length)

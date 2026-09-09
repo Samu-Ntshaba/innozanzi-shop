@@ -21,7 +21,7 @@ export async function retryOrderPayment(formData: FormData) {
     const order = await tx.order.findUniqueOrThrow({ where: { id: input.orderId } });
     if (order.userId !== ctx.user.id || order.status !== "AWAITING_PAYMENT" || !["PENDING", "FAILED", "CANCELLED"].includes(order.paymentStatus)) throw new Error("This order is not available for another payment attempt.");
     await tx.payment.updateMany({ where: { orderId: order.id, status: "PENDING" }, data: { status: "CANCELLED", failureReason: "Replaced by a new customer payment attempt." } });
-    const created = await tx.payment.create({ data: { orderId: order.id, provider: input.paymentMethod, status: "PENDING", amount: order.grandTotal, currency: order.currency, idempotencyKey: `retry:${order.id}:${randomUUID()}` } });
+    const created = await tx.payment.create({ data: { orderId: order.id, provider: input.paymentMethod, status: "PENDING", amount: order.grandTotal, currency: order.currency, idempotencyKey: `retry:${order.id}:${randomUUID()}`, isTestData: order.isTestData } });
     await tx.order.update({ where: { id: order.id }, data: { paymentMethod: input.paymentMethod, paymentStatus: "PENDING" } });
     await tx.orderStatusHistory.create({ data: { orderId: order.id, fromStatus: "AWAITING_PAYMENT", toStatus: "AWAITING_PAYMENT", actorId: ctx.user.id, note: `Customer started a new ${input.paymentMethod} payment attempt.` } });
     return { ...created, orderNumber: order.orderNumber };

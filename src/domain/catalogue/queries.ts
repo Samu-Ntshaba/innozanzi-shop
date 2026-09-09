@@ -26,10 +26,20 @@ const productCardSelect = {
     saleStartsAt: true,
     saleEndsAt: true,
     stockStatus: true,
+    isTestData: true,
     brand: { select: { name: true, slug: true } },
     category: { select: { name: true, slug: true } },
     images: { where: { isPrimary: true }, take: 1, select: { path: true, altText: true } },
 } as const;
+
+export async function getAdminTestProducts() {
+    return prisma.product.findMany({
+        where: { status: "PUBLISHED", deletedAt: null, isTestData: true },
+        orderBy: { publishedAt: "desc" },
+        take: 4,
+        select: productCardSelect,
+    });
+}
 const supplierCardSelect = { id: true, name: true, slug: true, supplierSku: true, availability: true, brand: true, category: true, categoryPath: true, images: true, costPrice: true, recommendedRetail: true, promotionalPrice: true, promotionStartsAt: true, promotionEndsAt: true } as const;
 type SupplierCardRow = {
     id: string;
@@ -258,9 +268,9 @@ export async function getGamingCatalogue(input: {
         return { products: [], total: 0, page: 1, pages: 1, brands: [], groups: [] };
     }
 }
-export async function getProductBySlug(slug: string) {
+export async function getProductBySlug(slug: string, includeTestData = false) {
     return prisma.product.findFirst({
-        where: { slug, status: "PUBLISHED", deletedAt: null, isTestData: false },
+        where: { slug, status: "PUBLISHED", deletedAt: null, isTestData: includeTestData ? undefined : false },
         include: {
             brand: true,
             category: true,
@@ -279,6 +289,7 @@ export type ProductCardData = {
     slug: string;
     sku: string;
     stockStatus: string;
+    isTestData?: boolean;
     regularPrice?: {
         toString(): string;
     } | string | null;

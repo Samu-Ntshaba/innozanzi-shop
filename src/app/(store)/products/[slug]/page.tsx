@@ -24,18 +24,19 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 const Benefit = ({ icon: Icon, title, children }: { icon: typeof Truck; title: string; children: React.ReactNode }) => <div className="flex gap-2.5"><Icon className="mt-0.5 size-5 shrink-0 text-sky-700"/><span><strong className="block">{title}</strong><small className="text-slate-500">{children}</small></span></div>;
 
 export default async function ProductPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<{ review?: string }> }) {
-  const [product, context, query] = await Promise.all([getProductBySlug((await params).slug), getAuthContext(), searchParams]); if (!product) notFound();
+  const [context, query, route] = await Promise.all([getAuthContext(), searchParams, params]);
+  const product = await getProductBySlug(route.slug, Boolean(context?.isSuperAdministrator)); if (!product) notFound();
   const base = product.inventory[0];
   const price = activeUnitPrice(product);
   const available = product.variants.length ? product.variants.reduce((sum, variant) => sum + Math.max(0, (variant.inventory?.onHand ?? 0) - (variant.inventory?.reserved ?? 0)), 0) : Math.max(0, (base?.onHand ?? 0) - (base?.reserved ?? 0));
   const onSale = price.lt(product.regularPrice);
   const saving = onSale ? product.regularPrice.minus(price) : null;
   return <main className="bg-white pb-14"><div className="mx-auto max-w-7xl px-4 pt-5 sm:px-6 lg:px-8">
-    <nav aria-label="Breadcrumb" className="flex min-w-0 items-center gap-1.5 overflow-hidden text-sm text-slate-500"><Link className="shrink-0 hover:text-sky-700" href="/shop">Shop</Link><ChevronRight className="size-3.5 shrink-0"/><Link className="min-w-0 truncate hover:text-sky-700" href={`/categories/${product.category.slug}`}>{product.category.name}</Link><ChevronRight className="size-3.5 shrink-0"/><span className="hidden truncate text-slate-700 sm:block">{product.name}</span></nav>
+    <nav aria-label="Breadcrumb" className="flex min-w-0 items-center gap-1.5 overflow-hidden text-sm text-slate-500"><Link className="shrink-0 hover:text-sky-700" href="/shop">Shop</Link><ChevronRight className="size-3.5 shrink-0"/><Link className="min-w-0 truncate hover:text-sky-700" href={product.isTestData ? "/shop" : `/categories/${product.category.slug}`}>{product.category.name}</Link><ChevronRight className="size-3.5 shrink-0"/><span className="hidden truncate text-slate-700 sm:block">{product.name}</span></nav>
     <div className="mt-6 grid items-start gap-8 lg:grid-cols-[minmax(0,1.08fr)_minmax(380px,.92fr)] lg:gap-12">
       <ProductGallery images={product.images.map(image => image.path)} name={product.name}/>
       <section className="lg:sticky lg:top-28">
-        <p className="text-xs font-bold uppercase tracking-[.16em] text-sky-700">{product.brand?.name ?? product.category.name}</p>
+        <p className="text-xs font-bold uppercase tracking-[.16em] text-sky-700">{product.isTestData ? "Administrator payment test" : product.brand?.name ?? product.category.name}</p>
         <h1 className="mt-2 text-3xl font-bold leading-tight tracking-tight text-slate-950 sm:text-4xl">{product.name}</h1>
         <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-500"><span>SKU: {product.sku}</span>{product.conditionLabel ? <span>{product.conditionLabel}</span> : null}</div>
         <div className="mt-6 border-y border-slate-200 py-5"><div className="flex flex-wrap items-end gap-3"><p className="text-4xl font-black tracking-tight text-slate-950">{formatZar(price)}</p>{onSale ? <p className="pb-1 text-lg text-slate-400 line-through">{formatZar(product.regularPrice)}</p> : null}</div>{saving ? <p className="mt-1 text-sm font-semibold text-emerald-700">You save {formatZar(saving)}</p> : null}</div>

@@ -12,7 +12,7 @@ export function ProductCard({ product,recommendationId }: { product: ProductCard
   const regular=product.regularPrice?Number(product.regularPrice.toString()):null,sale=saleActive?Number(product.salePrice!.toString()):null;
   const savingPercent=regular&&sale&&sale<regular?Math.round((1-sale/regular)*100):null;
   const flags=product.marketingFlags??[];
-  const badge=saleActive?{label:savingPercent?`Save ${savingPercent}%`:"Promotion",tone:"bg-emerald-600 text-white"}:flags.includes("UNBOXED")?{label:"Unboxed",tone:"bg-sky-700 text-white"}:flags.includes("LAST_CHANCE")?{label:"Last chance",tone:"bg-amber-500 text-slate-950"}:flags.includes("SPECIAL")?{label:"Special",tone:"bg-slate-800 text-white"}:null;
+  const badge=product.isTestData?{label:"Admin test only",tone:"bg-violet-700 text-white"}:saleActive?{label:savingPercent?`Save ${savingPercent}%`:"Promotion",tone:"bg-emerald-600 text-white"}:flags.includes("UNBOXED")?{label:"Unboxed",tone:"bg-sky-700 text-white"}:flags.includes("LAST_CHANCE")?{label:"Last chance",tone:"bg-amber-500 text-slate-950"}:flags.includes("SPECIAL")?{label:"Special",tone:"bg-slate-800 text-white"}:null;
   return (
     <article className="group flex h-full flex-col overflow-hidden rounded-lg border border-slate-200 bg-white transition hover:border-slate-400 hover:shadow-md">
       <Link href={href} className="relative block h-32 overflow-hidden bg-white sm:h-40">

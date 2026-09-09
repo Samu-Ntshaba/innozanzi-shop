@@ -19,6 +19,7 @@ export async function addToCartAction(formData: FormData) {
     where: { id: parsed.data.productId, status: "PUBLISHED", deletedAt: null },
     include: { category:true,brand:true,variants: { where: { id: parsed.data.variantId, isActive: true }, include: { inventory: true } }, inventory: { where: { variantId: null }, take: 1 } },
   });
+  if (product?.isTestData && !context.isSuperAdministrator) redirect("/cart?error=unavailable");
   if (!product || (product.variants.length > 0 && !parsed.data.variantId)) redirect("/cart?error=unavailable");
   const inventory = parsed.data.variantId ? product.variants[0]?.inventory : product.inventory[0];
   const available = inventory ? inventory.onHand - inventory.reserved : 0;
@@ -30,7 +31,7 @@ export async function addToCartAction(formData: FormData) {
   if (newQuantity > available) redirect("/cart?error=stock");
   if (existing) await prisma.cartItem.update({ where: { id: existing.id }, data: { quantity: newQuantity } });
   else await prisma.cartItem.create({ data: { cartId: cart.id, productId: product.id, variantId: parsed.data.variantId, quantity: parsed.data.quantity } });
-  await prisma.recommendationEvent.create({data:{userId:context.user.id,sessionId:`user:${context.user.id}`,eventType:"CART_ADD",entityType:"PRODUCT",entityId:product.id,category:product.category.name,brand:product.brand?.name,price:product.salePrice??product.regularPrice,context:"cart"}});
+  if (!product.isTestData) await prisma.recommendationEvent.create({data:{userId:context.user.id,sessionId:`user:${context.user.id}`,eventType:"CART_ADD",entityType:"PRODUCT",entityId:product.id,category:product.category.name,brand:product.brand?.name,price:product.salePrice??product.regularPrice,context:"cart"}});
   revalidatePath("/cart");
   redirect("/cart?status=added");
 }

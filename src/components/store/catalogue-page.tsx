@@ -1,11 +1,19 @@
 import Link from "next/link";
 import { ProductCard } from "./product-card";
-import { getCatalogue } from "@/domain/catalogue/queries";
+import { getAdminTestProducts, getCatalogue } from "@/domain/catalogue/queries";
+import { getAuthContext } from "@/domain/auth/session";
 
 type CatalogueParams = { search?: string; category?: string; brand?: string; availability?: string; promotion?: string; collection?: string; sort?: string; page?: string };
 
 export async function CataloguePage({ params, heading = "Shop technology" }: { params: CatalogueParams; heading?: string }) {
-  const result = await getCatalogue({ ...params, page: Number(params.page) || 1 });
+  const context = await getAuthContext();
+  const [result, adminTestProducts] = await Promise.all([
+    getCatalogue({ ...params, page: Number(params.page) || 1 }),
+    context?.isSuperAdministrator ? getAdminTestProducts() : Promise.resolve([]),
+  ]);
+  const products = Number(params.page || 1) === 1 && !params.promotion && !params.collection
+    ? [...adminTestProducts, ...result.products.filter(product => !adminTestProducts.some(test => test.id === product.id))]
+    : result.products;
   const filters = <>
     <input className="h-12 min-w-0 rounded-lg border border-zinc-300 bg-white px-3 text-base sm:text-sm" name="search" defaultValue={params.search} placeholder="Search products" />
     <select className="h-12 min-w-0 rounded-lg border border-zinc-300 bg-white px-3 text-base sm:text-sm" name="category" defaultValue={params.category}><option value="">All categories</option>{result.categories.map(category => <option key={category.slug} value={category.slug}>{category.name}</option>)}</select>
@@ -19,7 +27,8 @@ export async function CataloguePage({ params, heading = "Shop technology" }: { p
     <div className="mb-5 sm:mb-8"><p className="text-xs font-bold uppercase tracking-widest text-sky-800">Innozanzi catalogue</p><h1 className="mt-1 text-3xl font-semibold tracking-tight sm:text-4xl">{heading}</h1><p className="mt-1 text-sm text-slate-600">{result.total} products{params.search&&result.matchMode==="expanded"?` matching “${params.search}” and closely related terms`:""}</p></div>
     <details className="group mb-5 rounded-lg border border-slate-200 bg-slate-50 sm:hidden"><summary className="flex min-h-12 cursor-pointer list-none items-center justify-between px-4 font-semibold [&::-webkit-details-marker]:hidden">Search &amp; filters <span className="text-xl text-sky-700 transition group-open:rotate-45">+</span></summary><form className="grid gap-3 border-t border-slate-200 p-4">{filters}</form></details>
     <form className="mb-7 hidden gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4 sm:grid sm:grid-cols-2 lg:grid-cols-4">{filters}</form>
-    {result.products.length ? <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-3 lg:grid-cols-4 xl:grid-cols-5">{result.products.map(product => <ProductCard key={product.id} product={product} />)}</div> : <div className="rounded-lg border border-dashed border-slate-300 px-4 py-16 text-center"><h2 className="text-xl font-semibold">No products found</h2><p className="mt-2 text-slate-600">Try changing your search or filters.</p></div>}
+    {adminTestProducts.length && Number(params.page || 1) === 1 ? <p className="mb-3 rounded-lg border border-violet-200 bg-violet-50 px-4 py-3 text-sm font-semibold text-violet-900">Administrator view: the R100 payment test product is shown first and is hidden from customers.</p> : null}
+    {products.length ? <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-3 lg:grid-cols-4 xl:grid-cols-5">{products.map(product => <ProductCard key={product.id} product={product} />)}</div> : <div className="rounded-lg border border-dashed border-slate-300 px-4 py-16 text-center"><h2 className="text-xl font-semibold">No products found</h2><p className="mt-2 text-slate-600">Try changing your search or filters.</p></div>}
     <nav aria-label="Pagination" className="mt-8 flex flex-wrap justify-center gap-2 sm:mt-10">{Array.from({ length: Math.min(7, result.pages) }, (_, index) => Math.max(1, Math.min(result.pages - 6, result.page - 3)) + index).map(page => { const query = new URLSearchParams(Object.entries({ ...params, page: String(page) }).filter(([, value]) => value) as [string, string][]); return <Link key={page} className={`grid size-11 place-items-center rounded-lg border ${page === result.page ? "border-sky-600 bg-sky-600 text-white" : "border-zinc-300"}`} href={`?${query}`}>{page}</Link>; })}</nav>
   </main>;
 }
