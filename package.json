@@ -17,6 +17,7 @@
     "automation:emails": "tsx scripts/process-email-automation.ts",
     "automation:suppliers": "tsx scripts/process-supplier-sync.ts",
     "automation:combos": "tsx scripts/process-combo-automation.ts",
+    "automation:homepage": "tsx scripts/process-homepage-merchandising.ts",
     "lint": "eslint",
     "test": "vitest run",
     "test:watch": "vitest",

@@ -5,6 +5,7 @@ import { catalogueSearchScore, catalogueSearchTerms, fairCataloguePage, interlea
 import { homepageShelf } from "./homepage-shelves";
 import type { Prisma } from "@/generated/prisma/client";
 import { supplierCapabilityWhere } from "./taxonomy";
+import { homepageShowcaseWindow, premiumShowcase } from "./homepage-rotation";
 export type ProductMarketingFlag = "PROMOTION" | "UNBOXED" | "LAST_CHANCE" | "SPECIAL";
 export function supplierMarketingFlags(categoryPath: string | null | undefined, promotionActive: boolean, special: boolean): ProductMarketingFlag[] {
     const path = categoryPath?.toLowerCase() ?? "", flags: ProductMarketingFlag[] = [];
@@ -80,21 +81,44 @@ type SupplierCardRow = {
     sourceUpdatedAt: Date | null;
 };
 const supplierCard = async (p: SupplierCardRow): Promise<ProductCardData> => { const special = isDailySpecial(p.id), price = p.costPrice ? await supplierRetailPrice({ costPrice: p.costPrice.toString(), recommendedRetail: p.recommendedRetail?.toString(), promotionalPrice: p.promotionalPrice?.toString(), promotionStartsAt: p.promotionStartsAt, promotionEndsAt: p.promotionEndsAt, special }) : null, marketingFlags = supplierMarketingFlags(p.categoryPath, Boolean(price?.promotionActive), special); return { id: p.id, name: p.name, slug: p.slug, sku: p.supplierSku, stockStatus: p.availability === "IN_STOCK" ? "IN_STOCK" : "OUT_OF_STOCK", brand: p.brand ? { name: p.brand, slug: p.brand.toLowerCase() } : null, category: { name: p.category ?? "Catalogue", slug: p.category ?? "catalogue" }, images: p.images.slice(0, 1).map(path => ({ path, altText: p.name })), regularPrice: price?.regularPrice.toString() ?? null, salePrice: price?.salePrice?.toString() ?? null, saleStartsAt: null, saleEndsAt: null, source: "supplier", marketingFlags }; };
-const showcaseScore = (product: SupplierCardRow) => Number(product.recommendedRetail?.toString() ?? product.costPrice?.toString() ?? 0) / 1000 + Math.min(12, product.images.length) * 4 + Math.min(10, product.stock) * .5 + (product.promotionalPrice ? 8 : 0);
-export function premiumShowcase(products: SupplierCardRow[]) {
-    const ranked = [...products].sort((a, b) => showcaseScore(b) - showcaseScore(a));
-    const selectors = [
-        (product: SupplierCardRow) => /notebook|laptop/i.test(`${product.name} ${product.categoryPath}`),
-        (product: SupplierCardRow) => /gaming desktops|creator workstations|super computer/i.test(`${product.name} ${product.categoryPath}`),
-        (product: SupplierCardRow) => /monitor|display/i.test(`${product.name} ${product.categoryPath}`),
-    ];
-    const selected: SupplierCardRow[] = [];
-    for (const selector of selectors) {
-        const match = ranked.find(product => !selected.some(item => item.id === product.id) && selector(product));
-        if (match)
-            selected.push(match);
+const HOMEPAGE_SHOWCASE_KEY = "homepage.showcase.v1";
+const homepageShowcaseCandidates = async (): Promise<SupplierCardRow[]> => prisma.supplierCatalogueProduct.findMany({ where: {
+        ...await sellableSupplierWhere(),
+        active: true, availability: "IN_STOCK", images: { isEmpty: false }, stock: { gt: 0 }, costPrice: { gt: 12000 }, AND: [{ NOT: { categoryPath: { contains: "|Unboxed", mode: "insensitive" } } }, { NOT: { categoryPath: { contains: "|Last Chance", mode: "insensitive" } } }], OR: [{ category: "Computers" }, { categoryPath: { contains: "Gaming", mode: "insensitive" } }, { categoryPath: { contains: "Monitors", mode: "insensitive" } }, { name: { contains: "workstation", mode: "insensitive" } }]
+    }, orderBy: { costPrice: "desc" }, take: 160, select: supplierCardSelect });
+type StoredShowcase = { rotationKey: string; productIds: string[]; selectedAt: string };
+const storedShowcase = (value: unknown): StoredShowcase | null => { if (!value || typeof value !== "object" || Array.isArray(value)) return null; const row = value as Partial<StoredShowcase>; return typeof row.rotationKey === "string" && Array.isArray(row.productIds) && row.productIds.every(id => typeof id === "string") && typeof row.selectedAt === "string" ? row as StoredShowcase : null; };
+async function saveHomepageShowcase(products: SupplierCardRow[], now: Date) {
+    const value: StoredShowcase = { rotationKey: homepageShowcaseWindow(now).key, productIds: products.map(product => product.id), selectedAt: now.toISOString() };
+    try {
+        await prisma.siteSetting.upsert({ where: { key: HOMEPAGE_SHOWCASE_KEY }, create: { key: HOMEPAGE_SHOWCASE_KEY, value, description: "Automatically selected weekly homepage showcase products." }, update: { value } });
+        return true;
     }
-    return [...selected, ...ranked.filter(product => !selected.some(item => item.id === product.id))].slice(0, 3);
+    catch (error) {
+        console.error("Unable to persist homepage showcase selection", error);
+        return false;
+    }
+}
+async function resolveHomepageShowcase(candidates: SupplierCardRow[], settingValue: unknown, now: Date) {
+    const setting = storedShowcase(settingValue), window = homepageShowcaseWindow(now), byId = new Map(candidates.map(product => [product.id, product]));
+    if (setting?.rotationKey === window.key && setting.productIds.length === 3) {
+        const current = setting.productIds.map(id => byId.get(id)).filter((product): product is SupplierCardRow => Boolean(product));
+        if (current.length === 3)
+            return current;
+    }
+    const selected = premiumShowcase(candidates, now);
+    if (selected.length === 3)
+        await saveHomepageShowcase(selected, now);
+    return selected;
+}
+export async function refreshHomepageShowcase(now = new Date()) {
+    const [candidates, row] = await Promise.all([homepageShowcaseCandidates(), prisma.siteSetting.findUnique({ where: { key: HOMEPAGE_SHOWCASE_KEY }, select: { value: true } })]);
+    const setting = storedShowcase(row?.value), window = homepageShowcaseWindow(now), byId = new Map(candidates.map(product => [product.id, product]));
+    const current = setting?.rotationKey === window.key && setting.productIds.length === 3 ? setting.productIds.map(id => byId.get(id)).filter((product): product is SupplierCardRow => Boolean(product)) : [];
+    if (current.length === 3)
+        return { rotationKey: window.key, selected: current.map(product => ({ id: product.id, name: product.name, stock: product.stock })), persisted: true, changed: false };
+    const selected = premiumShowcase(candidates, now), persisted = selected.length === 3 ? await saveHomepageShowcase(selected, now) : false;
+    return { rotationKey: window.key, selected: selected.map(product => ({ id: product.id, name: product.name, stock: product.stock })), persisted, changed: persisted };
 }
 export async function getHomepageShelfProducts(key: string) {
     const shelf = homepageShelf(key);
@@ -117,7 +141,7 @@ export async function getHomepageCatalogue() {
     try {
         const merchandiseWhere = { active: true, availability: "IN_STOCK" as const, images: { isEmpty: false } };
         const now = new Date();
-        const [supplierCategories, featured, specials, popular, brands, supplierNewest, total, inStock, laptopsAndComputers, monitors, accessories, networking, powerAndBackup, promotions, unboxed, lastChance, showcaseCandidates] = await Promise.all([
+        const [supplierCategories, featured, specials, popular, brands, supplierNewest, total, inStock, laptopsAndComputers, monitors, accessories, networking, powerAndBackup, promotions, unboxed, lastChance, showcaseCandidates, showcaseSetting] = await Promise.all([
             prisma.supplierCatalogueProduct.groupBy({ by: ["category"], where: {
                     ...{ active: true, category: { not: null } },
                     ...await sellableSupplierWhere()
@@ -169,10 +193,8 @@ export async function getHomepageCatalogue() {
                     ...{ ...merchandiseWhere, stock: { gt: 0 }, costPrice: { gt: 0 }, categoryPath: { contains: "|Last Chance", mode: "insensitive" } },
                     ...await sellableSupplierWhere()
                 }, orderBy: { stock: "asc" }, take: 4, select: supplierCardSelect }),
-            prisma.supplierCatalogueProduct.findMany({ where: {
-                    ...await sellableSupplierWhere(),
-                    ...merchandiseWhere, stock: { gt: 0 }, costPrice: { gt: 12000 }, AND: [{ NOT: { categoryPath: { contains: "|Unboxed", mode: "insensitive" } } }, { NOT: { categoryPath: { contains: "|Last Chance", mode: "insensitive" } } }], OR: [{ category: "Computers" }, { categoryPath: { contains: "Gaming", mode: "insensitive" } }, { categoryPath: { contains: "Monitors", mode: "insensitive" } }, { name: { contains: "workstation", mode: "insensitive" } }]
-                }, orderBy: { costPrice: "desc" }, take: 160, select: supplierCardSelect }),
+            homepageShowcaseCandidates(),
+            prisma.siteSetting.findUnique({ where: { key: HOMEPAGE_SHOWCASE_KEY }, select: { value: true } }),
         ]);
         const categories = supplierCategories.map((x, index) => ({ id: `supplier-${index}`, name: x.category!, slug: x.category!, description: `${x._count.toLocaleString("en-ZA")} catalogue products`, imagePath: null }));
         const supplierCards = await Promise.all(supplierNewest.map(supplierCard));
@@ -183,7 +205,7 @@ export async function getHomepageCatalogue() {
         const curated = { laptopsAndComputers: computerCards.slice(0, 4), monitors: monitorCards.slice(0, 4), accessories: accessoryCards.slice(0, 4), networking: networkCards.slice(0, 4), powerAndBackup: powerCards.slice(0, 4) };
         const priorityOffers = [promotionCards[0], unboxedCards[0], lastChanceCards[0]].filter(product => product !== undefined);
         const supplierOffers = [...priorityOffers, ...promotionCards, ...unboxedCards, ...lastChanceCards, ...supplierCards.map(product => ({ ...product, offerType: "SPECIAL" as const }))].filter((product, index, array) => array.findIndex(row => row.id === product.id) === index);
-        const showcaseCards = await Promise.all(premiumShowcase(showcaseCandidates).map(supplierCard));
+        const showcaseCards = await Promise.all((await resolveHomepageShowcase(showcaseCandidates, showcaseSetting?.value, now)).map(supplierCard));
         const heroProducts = showcaseCards.length === 3 ? showcaseCards : supplierOffers.slice(0, 3);
         return { categories, featured: featured.length ? featured : supplierCards.slice(0, 4), newest: supplierCards, specials, popular, brands, total, inStock, ...curated, heroProducts, promotions: promotionCards, unboxed: unboxedCards, lastChance: lastChanceCards };
     }
