@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useFormStatus } from "react-dom";
+import Link from "next/link";
 import { Building2, Check, Landmark, LoaderCircle, LockKeyhole } from "lucide-react";
 
 type Method = "OZOW" | "EFT";
@@ -31,6 +32,6 @@ export function PaymentMethodSelector({ total, available = { OZOW: false, EFT: f
     </fieldset>
     {noMethods ? <p className="mt-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">Online payment is temporarily unavailable. Please contact support.</p> : method === "EFT" ? <p className="mt-4 rounded-lg bg-sky-50 p-3 text-xs leading-5 text-sky-900"><strong>Make your EFT payment immediately after placing the order.</strong> We will only process and fulfil your order once the payment has reflected in our bank account and has been verified.</p> : <p className="mt-4 rounded-lg bg-amber-50 p-3 text-xs leading-5 text-amber-900">You’ll continue to Ozow to authorise payment securely with your bank.</p>}
     <SubmitButton method={method} total={total} available={!noMethods && available[method]}/>
-    <p className="mt-3 text-center text-xs leading-5 text-slate-500">By placing your order, you confirm the delivery details above.</p>
+    <p className="mt-3 text-center text-xs leading-5 text-slate-500">By placing your order, you confirm the delivery details and agree to our <Link className="underline" href="/policies/terms">Terms &amp; Conditions</Link> and <Link className="underline" href="/policies/delivery">Delivery Policy</Link>.</p>
   </div>;
 }

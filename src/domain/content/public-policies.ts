@@ -8,10 +8,10 @@ export const publicPolicies: Record<string, PublicPolicy> = {
   cookies: {
     title: "Cookie Policy",
     description: "Essential storage, optional analytics and how to change your choice.",
-    content: `Last updated: 8 September 2026
+    content: `Last updated: 10 September 2026
 
 Essential storage
-Our account session cookie lasts up to 30 days and supports authentication. Cart and workflow cookies keep requested shopping functions working. The innozanzi-ai cookie identifies anonymous AI usage for up to 180 days; separate server limits also protect against abuse. These cookies do not grant access to private accounts. The innozanzi-consent cookie remembers essential-only or analytics preferences for 180 days. The separate innozanzi-ad-consent cookie remembers advertising-measurement permission for 180 days. A local-storage copy may support preference updates; the expiring cookie is authoritative. Session storage remembers dismissed prompts for the browser session.
+Our account session cookie lasts up to 30 days and supports authentication. Cart and workflow cookies keep requested shopping functions working. The AI shopping assistant is available only to signed-in users and uses the normal account session rather than an anonymous AI cookie. These cookies do not grant access to private accounts. The innozanzi-consent cookie remembers essential-only or analytics preferences for 180 days. The separate innozanzi-ad-consent cookie remembers advertising-measurement permission for 180 days. A local-storage copy may support preference updates; the expiring cookie is authoritative. Session storage remembers dismissed prompts for the browser session.
 
 Optional storage
 If you choose Allow analytics, Google Analytics uses cookies such as _ga and _ga_* (typically up to two years, depending on provider settings). The innozanzi-rec cookie lasts up to 180 days and connects optional browsing events for product recommendations. Events may be associated with your account when signed in. Transaction and security records needed to operate the service are separate from optional browsing analytics.
@@ -28,7 +28,7 @@ Payment, account-sign-in and other external services may set cookies on their ow
   "ai-shopping": {
     title: "AI Shopping Assistance Policy",
     description: "How Innozanzi AI product recommendations work and what customers should verify before purchasing.",
-    content: `Last updated: 8 September 2026
+    content: `Last updated: 10 September 2026
 
 1. Purpose
 Innozanzi AI provides informational shopping assistance based on product information available in the Innozanzi Shop catalogue. It is designed to help customers find relevant products and possible PC configurations; it is not professional engineering or technical advice.
@@ -53,12 +53,12 @@ Shopping prompts and selected catalogue facts are sent to OpenAI to produce sugg
 When you submit a product request, we send the form and displayed conversation to our support team through our email provider. Signed-in customers use their account contact details; guest details are unverified. Review the conversation before agreeing to share it. A product enquiry is not marketing consent, an order or a stock reservation. Conversation text remains in this page’s memory until you leave or refresh, unless you explicitly submit it with an enquiry.
 
 8. Fair and secure use
-Requests are limited to reduce automated abuse and cost. Attempts to override safeguards, extract confidential information, impersonate staff or request unlawful assistance may be rejected. Automated output is not an authoritative instruction to pay, disclose secrets or change banking details. Contact support@innozanzi.co.za to verify anything unexpected.`,
+You must sign in to use the AI shopping assistant. There is no ordinary daily request quota for signed-in customers, but we may block automated abuse, attacks, unlawful use or activity that threatens the service. Attempts to override safeguards, extract confidential information, impersonate staff or request unlawful assistance may be rejected. Automated output is not an authoritative instruction to pay, disclose secrets or change banking details. Contact support@innozanzi.co.za to verify anything unexpected.`,
   },
   terms: {
     title: "Terms & Conditions",
     description: "The terms governing use of the Innozanzi online shop, purchases, payments, delivery and customer support.",
-    content: `Last updated: 8 September 2026
+    content: `Last updated: 10 September 2026
 
 1. About these terms
 These terms apply when you use shop.innozanzi.co.za, create an account, buy a product, build a PC, or ask Innozanzi (Pty) Ltd (“Innozanzi”, “we”, “us” or “our”) for help. By placing an order, you agree to these terms. A separate written quotation or agreement applies only where you specifically request and accept one.
@@ -76,7 +76,7 @@ The checkout shows the product price, VAT and delivery charges that apply to the
 Stock remains subject to confirmation until the order is accepted. If an item becomes unavailable, we may propose a comparable alternative, revised lead time or refund. We will not substitute a product without your approval.
 
 6. Delivery and collection
-We use independent courier and delivery partners; Innozanzi does not represent that couriers are our employees. We remain your point of contact for the order. Delivery estimates are not guaranteed unless expressly agreed in writing. Unless another period is agreed, orders will be handled within the period required by applicable law. You must provide a complete delivery address and ensure an authorised person can receive the order. Please record visible damage or shortages on delivery and notify us as soon as reasonably possible.
+Our Delivery Policy forms part of these terms. We use independent courier and delivery partners and remain your point of contact for the order. The checkout or accepted quotation shows the delivery charge and available service area. We will deliver at the agreed place and within the agreed period or, if no period is agreed, within the period required by applicable law. You must provide a complete delivery address and ensure an authorised person can receive the order. Please record visible damage or shortages on delivery and notify us as soon as reasonably possible. Your statutory rights apply if we fail to deliver as agreed.
 
 7. Cancellations, returns and warranties
 Cancellations and returns are handled under our Returns and Product Assistance Policy and applicable South African law. Manufacturer or supplier warranty terms may apply to particular products. Nothing in these terms limits a right or remedy that cannot lawfully be excluded.
@@ -97,7 +97,7 @@ We process personal information as described in our Privacy Policy and in accord
 We may update these terms prospectively by publishing a revised version and date. South African law governs these terms, and disputes are subject to the jurisdiction of the competent South African courts unless the parties agree to another lawful resolution process.
 
 13. Contact
-Contact Innozanzi (Pty) Ltd at support@innozanzi.co.za or +27 71 238 4185, or use /contact. You can download your order documents from your account. Contact support if you need a copy or wish to raise a dispute. These terms do not prevent complaints to the National Consumer Commission or an applicable ombud.
+Innozanzi (Pty) Ltd's business address is Ground Floor, Waterstone Building, Stonemill Office Park, 300 Acacia Road, Darrenwood, Randburg, Johannesburg, 2195. Contact us at support@innozanzi.co.za or +27 71 238 4185, or use /contact. You can download your order documents from your account. Contact support if you need a copy or wish to raise a dispute. These terms do not prevent complaints to the National Consumer Commission or an applicable ombud.
 
 14. Online cancellations and consumer remedies
 Where section 44 of the Electronic Communications and Transactions Act applies, consumers may cancel a goods transaction without giving a reason within seven days after receipt; only the direct cost of returning the goods may be charged, and payments must be refunded within 30 days of cancellation. Statutory exceptions may apply, including genuinely personalised goods and certain opened software; choosing standard PC components does not automatically remove cancellation rights. Contact support to arrange a return.
@@ -105,6 +105,47 @@ Where sections 55 and 56 of the Consumer Protection Act apply and goods fail the
 
 15. AI and product enquiries
 AI suggestions and product enquiries do not place orders, reserve stock or guarantee sourcing. We confirm availability, price and delivery separately. Do not use our systems to seek unlawful products, evade security, impersonate another person, or submit malicious or infringing content. We may restrict abusive use while preserving lawful consumer rights.`,
+  },
+  delivery: {
+    title: "Delivery Policy",
+    description: "Where and how Innozanzi delivers orders, including charges, timing, tracking, address changes and delivery problems.",
+    content: `Last updated: 10 September 2026
+
+1. Scope
+This policy applies to products delivered after checkout or under an accepted quotation. It forms part of our Terms & Conditions. If an accepted written quotation contains specific delivery terms, those terms apply to that order to the extent that they are lawful.
+
+2. Delivery areas and charges
+The checkout only accepts provinces that are currently enabled for delivery. Available areas may change as courier coverage changes. The delivery charge, including any free-delivery threshold or promotion, is calculated and shown before you place the order. We will not add an undisclosed delivery charge after checkout without your agreement.
+
+3. When delivery preparation starts
+An order is not packed, released to a distributor or sent to a courier until payment is confirmed. For EFT, please pay immediately using the order number as the reference. Uploading proof does not itself confirm payment; processing begins only after the funds have reflected in our bank account and finance has verified them. Product availability remains subject to confirmation until the order is accepted for fulfilment.
+
+4. Delivery estimates and agreed dates
+Any product-page or checkout estimate is a planning estimate unless we expressly confirm a delivery date or period. Once an order is accepted, we will provide available tracking or status updates through your account or contact details. We will deliver at the agreed place and on the agreed date or within the agreed period. If no date or period was agreed, delivery will take place within the period required by South African law.
+
+5. Correct delivery information
+You must provide a complete physical delivery address, postal code, working South African contact number and any access instructions needed by the courier. Google address suggestions reduce typing errors but do not guarantee courier access or deliverability. Review all populated fields before ordering. Contact support promptly if an address is wrong. We can change an address only before fulfilment or courier handover and may need to re-quote delivery if the destination changes.
+
+6. Receiving an order
+You or an authorised person should be available to receive the parcel and may be asked for the order number, identification or a signature. Before accepting, check the number of parcels and note visible damage, tampering or shortages on the courier record where reasonably possible. Keep the packaging and contact us promptly with photographs if anything is damaged, missing or incorrect. A failure to note visible damage does not remove any right that cannot lawfully be excluded.
+
+7. Missed or unsuccessful delivery
+If delivery cannot be completed because the address or contact information is incorrect, access is unavailable, or nobody authorised is present, the courier may try again or return the parcel. We will contact you about the next step. A reasonable additional delivery charge may apply where the failed attempt was caused by information or access within your control, but we will disclose it before arranging redelivery. This does not apply where the failure was ours or the courier's.
+
+8. Delays, unavailable stock and split deliveries
+Supplier availability, weather, road conditions, security incidents and courier disruptions may cause delays. We will communicate a material delay and provide a revised estimate. We will not substitute a product or split an order in a way that creates an additional charge without your agreement. If we cannot deliver as agreed, you may exercise the cancellation or other remedies available under applicable law, including a refund where required.
+
+9. Risk, ownership and proof of delivery
+We remain responsible for the goods until they are delivered to you or a person you authorised to receive them, subject to applicable law. Courier scans, recipient details, signatures and delivery photographs may be retained as fulfilment records. Ownership does not pass until full payment has cleared.
+
+10. Collections
+Collection is available only when expressly offered and confirmed. Wait for confirmation that the order is ready, bring the requested order and identity information, and collect during the agreed period. A collection order is not ready merely because payment was submitted.
+
+11. Cancellations, returns and damaged goods
+Delivery cancellation rights, cooling-off rights, defective-product remedies and refunds are governed by our Terms & Conditions, Returns and Product Assistance Policy, and applicable South African law. Nothing in this policy limits a consumer right or remedy that cannot lawfully be excluded.
+
+12. Contact
+For delivery help, contact support@innozanzi.co.za, call +27 71 238 4185, or use /contact. Include your order number, but never send passwords or full banking credentials.`,
   },
   privacy: {
     title: "Privacy Policy",

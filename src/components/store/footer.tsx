@@ -5,7 +5,7 @@ import { brand } from "@/config/brand";
 
 const footerGroups = [
   { title: "Build & gaming", links: [["Start PC Builder", "/build-a-pc"], ["PC buying guides", "/guides"], ["Shop gaming", "/gaming"]] },
-  { title: "Shop & support", links: [["All products", "/shop"], ["Shopping & payment", "/how-to"], ["Returns & refunds", "/returns-policy"], ["Contact support", "/contact"]] },
+  { title: "Shop & support", links: [["All products", "/shop"], ["Shopping & payment", "/how-to"], ["Delivery policy", "/policies/delivery"], ["Returns & refunds", "/returns-policy"], ["Contact support", "/contact"]] },
   { title: "Company", links: [["About Innozanzi", "/about"], ["Track orders", "/account/orders"], ["Terms & conditions", "/policies/terms"], ["Privacy policy", "/policies/privacy"], ["Become a partner", "/partners/apply"]] },
 ] as const;
 
