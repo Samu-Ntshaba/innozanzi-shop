@@ -2,15 +2,16 @@ import Link from "next/link";
 import { AccountNav } from "@/components/account/account-nav";
 import { logoutAction } from "@/app/(auth)/actions";
 import { requireUser } from "@/domain/auth/session";
+import { StoreFooter } from "@/components/store/footer";
 import { StoreHeader } from "@/components/store/header";
 
 export default async function AccountLayout({ children }: { children: React.ReactNode }) {
   const context = await requireUser();
   const showAdmin = context.isSuperAdministrator || context.grants.some(({ effect }) => effect === "ALLOW");
   return (
-    <div className="account-shell min-h-screen overflow-x-clip bg-slate-50 text-slate-950">
+    <div className="account-shell flex min-h-screen flex-col overflow-x-clip bg-slate-50 text-slate-950">
       <StoreHeader />
-      <div className="mx-auto grid max-w-[1440px] lg:grid-cols-[240px_minmax(0,1fr)]">
+      <div className="mx-auto grid w-full max-w-[1440px] flex-1 lg:grid-cols-[240px_minmax(0,1fr)]">
         <aside className="border-b border-slate-200 bg-white lg:sticky lg:top-28 lg:h-[calc(100vh-7rem)] lg:border-b-0 lg:border-r">
           <div className="flex min-w-0 items-center justify-between gap-3 px-4 py-3 lg:hidden"><div className="min-w-0"><p className="text-[10px] font-bold uppercase tracking-[.16em] text-sky-700">My account</p><p className="truncate text-sm font-semibold">{context.user.name ?? context.user.email}</p></div><form action={logoutAction}><button className="min-h-10 shrink-0 rounded-lg border border-slate-200 px-3 text-sm font-semibold text-slate-600">Sign out</button></form></div>
           <div className="hidden px-5 pb-2 pt-6 lg:block"><p className="text-[10px] font-bold uppercase tracking-[.16em] text-sky-700">My account</p><p className="mt-1 truncate text-sm font-semibold">{context.user.name ?? context.user.email}</p></div>
@@ -20,6 +21,7 @@ export default async function AccountLayout({ children }: { children: React.Reac
         </aside>
         <div className="min-w-0">{children}</div>
       </div>
+      <StoreFooter />
     </div>
   );
 }
