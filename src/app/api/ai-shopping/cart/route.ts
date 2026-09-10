@@ -16,6 +16,8 @@ export async function POST(request: Request) {
     if (!parsed.success)
         return NextResponse.json({ error: "Invalid recommendation selection." }, { status: 400 });
     const identity = await aiIdentity();
+    if (!identity.userId)
+        return NextResponse.json({ error: "Please sign in to use the AI shopping assistant." }, { status: 401 });
     const usage = await prisma.aIUsage.findFirst({ where: { recommendationId: parsed.data.recommendationId, ...(identity.userId ? { userId: identity.userId } : { anonymousSessionId: identity.anonymousSessionId }), requestStatus: "SUCCESS" } });
     if (!usage)
         return NextResponse.json({ error: "This recommendation is no longer available." }, { status: 404 });

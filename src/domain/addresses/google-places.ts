@@ -27,11 +27,20 @@ export function normalizePlace(value: unknown) {
   const data = z.object({ id: z.string(), addressComponents: z.array(componentSchema) }).parse(value);
   const get = (type: string) => data.addressComponents.find(c => c.types.includes(type));
   if (get("country")?.shortText !== "ZA") throw new Error("Please choose a South African delivery address.");
-  const street = get("route")?.longText, number = get("street_number")?.longText;
-  if (!street || !number) throw new Error("Choose a complete street address including its street number.");
-  const provinceText = get("administrative_area_level_1")?.longText;
-  const province = provinces.find(p => p.toLowerCase().replace(/[- ]/g, "") === provinceText?.toLowerCase().replace(/[- ]/g, ""));
-  const parsed = locationSchema.safeParse({ line1: `${number} ${street}`, suburb: get("sublocality_level_1")?.longText ?? get("sublocality")?.longText ?? "", city: get("locality")?.longText ?? get("postal_town")?.longText, province, postalCode: get("postal_code")?.longText });
+  const street = get("route")?.longText;
+  const number = get("street_number")?.longText;
+  const property = get("premise")?.longText;
+  const line1 = [number ?? property, street].filter(Boolean).join(" ") || property;
+  const provinceComponent = get("administrative_area_level_1");
+  const provinceAliases: Record<string, (typeof provinces)[number]> = {
+    EC: "Eastern Cape", FS: "Free State", GP: "Gauteng", KZN: "KwaZulu-Natal",
+    LP: "Limpopo", MP: "Mpumalanga", NW: "North West", NC: "Northern Cape", WC: "Western Cape",
+  };
+  const normalizedProvince = provinceComponent?.longText.toLowerCase().replace(/[^a-z]/g, "");
+  const province = provinceAliases[provinceComponent?.shortText?.toUpperCase() ?? ""] ?? provinces.find(p => p.toLowerCase().replace(/[^a-z]/g, "") === normalizedProvince);
+  const suburb = get("sublocality_level_1")?.longText ?? get("sublocality")?.longText ?? get("neighborhood")?.longText ?? "";
+  const city = get("locality")?.longText ?? get("postal_town")?.longText ?? get("administrative_area_level_2")?.longText ?? suburb;
+  const parsed = locationSchema.safeParse({ line1, suburb, city, province, postalCode: get("postal_code")?.longText });
   if (!parsed.success) throw new Error("Google could not provide a complete delivery address. Try a more specific street address or contact support.");
   return { placeId: data.id, address: parsed.data };
 }

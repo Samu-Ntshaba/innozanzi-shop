@@ -14,7 +14,7 @@ function SubmitButton({ method, total, available }: { method: Method; total: str
 function MethodOption({ method, selected, setMethod }: { method: Method; selected: boolean; setMethod: (method: Method) => void }) {
   const Icon = method === "OZOW" ? Landmark : Building2;
   const title = method === "OZOW" ? "Pay with Ozow" : "Pay by EFT";
-  const detail = method === "OZOW" ? "Secure instant bank payment" : "Transfer funds and upload proof of payment";
+  const detail = method === "OZOW" ? "Secure instant bank payment" : "Pay immediately, then upload proof of payment";
   const cardClass = "relative flex cursor-pointer gap-3 rounded-xl border-2 p-4 transition " + (selected ? "border-sky-700 bg-sky-50 shadow-sm" : "border-slate-200 bg-white hover:border-slate-300");
   const iconClass = "grid size-10 shrink-0 place-items-center rounded-lg " + (selected ? "bg-sky-700 text-white" : "bg-slate-100 text-slate-600");
   return <label className={cardClass}><input className="sr-only" type="radio" name="paymentMethod" value={method} checked={selected} onChange={() => setMethod(method)}/><span className={iconClass}><Icon className="size-5"/></span><span className="min-w-0 flex-1"><strong className="block text-slate-950">{title}</strong><small className="mt-0.5 block leading-5 text-slate-500">{detail}</small></span>{selected ? <span className="grid size-6 place-items-center rounded-full bg-sky-700 text-white"><Check className="size-4"/></span> : null}</label>;
@@ -29,7 +29,7 @@ export function PaymentMethodSelector({ total, available = { OZOW: false, EFT: f
       {available.OZOW ? <MethodOption method="OZOW" selected={method === "OZOW"} setMethod={setMethod}/> : null}
       {available.EFT ? <MethodOption method="EFT" selected={method === "EFT"} setMethod={setMethod}/> : null}
     </fieldset>
-    {noMethods ? <p className="mt-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">Online payment is temporarily unavailable. Please contact support.</p> : method === "EFT" ? <p className="mt-4 rounded-lg bg-sky-50 p-3 text-xs leading-5 text-sky-900">We’ll show the verified company banking details and your unique order reference. Fulfilment starts after proof is reviewed.</p> : <p className="mt-4 rounded-lg bg-amber-50 p-3 text-xs leading-5 text-amber-900">You’ll continue to Ozow to authorise payment securely with your bank.</p>}
+    {noMethods ? <p className="mt-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">Online payment is temporarily unavailable. Please contact support.</p> : method === "EFT" ? <p className="mt-4 rounded-lg bg-sky-50 p-3 text-xs leading-5 text-sky-900"><strong>Make your EFT payment immediately after placing the order.</strong> We will only process and fulfil your order once the payment has reflected in our bank account and has been verified.</p> : <p className="mt-4 rounded-lg bg-amber-50 p-3 text-xs leading-5 text-amber-900">You’ll continue to Ozow to authorise payment securely with your bank.</p>}
     <SubmitButton method={method} total={total} available={!noMethods && available[method]}/>
     <p className="mt-3 text-center text-xs leading-5 text-slate-500">By placing your order, you confirm the delivery details above.</p>
   </div>;

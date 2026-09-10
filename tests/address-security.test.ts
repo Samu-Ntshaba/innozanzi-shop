@@ -58,9 +58,11 @@ describe("checkout delivery boundary", () => {
   });
 });
 describe("Places provider", () => {
-  it("preserves leading zeros and rejects broad, foreign and incomplete results", () => {
+  it("preserves leading zeros, accepts valid Google variants and rejects foreign or incomplete results", () => {
     expect(normalizePlace(place).address.postalCode).toBe("0123");
-    for (const type of ["street_number", "route", "postal_code", "country"]) expect(() => normalizePlace({ ...place, addressComponents: place.addressComponents.filter(c => !c.types.includes(type)) })).toThrow();
+    expect(normalizePlace({ ...place, addressComponents: place.addressComponents.filter(c => !c.types.includes("street_number")) }).address.line1).toBe("Example Road");
+    expect(normalizePlace({ ...place, addressComponents: place.addressComponents.map(c => c.types.includes("administrative_area_level_1") ? component("administrative_area_level_1", "Province of Gauteng", "GP") : c) }).address.province).toBe("Gauteng");
+    for (const type of ["route", "postal_code", "country"]) expect(() => normalizePlace({ ...place, addressComponents: place.addressComponents.filter(c => !c.types.includes(type)) })).toThrow();
     expect(() => normalizePlace({ ...place, addressComponents: [...place.addressComponents.filter(c => !c.types.includes("country")), component("country", "United States", "US")] })).toThrow("South African");
   });
   it("uses one session, server key headers, ZA restriction, minimal fields and no cache", async () => {
