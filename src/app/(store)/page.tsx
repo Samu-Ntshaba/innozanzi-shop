@@ -2,7 +2,7 @@ import { Headphones, ShieldCheck, Truck } from "lucide-react";
 import { HomepageFeatureGrid } from "@/components/store/homepage-feature-grid";
 import { ProductSection } from "@/components/store/product-section";
 import { getAdminTestProducts, getHomepageCatalogue } from "@/domain/catalogue/queries";
-import { getAuthContext } from "@/domain/auth/session";
+import { canAccessTestProducts, getAuthContext } from "@/domain/auth/session";
 import { entityMetadata } from "@/domain/marketing/seo";
 import type { Metadata } from "next";
 import { BrandPartners } from "@/components/store/brand-partners";
@@ -22,11 +22,11 @@ const trustItems = [
 
 export default async function HomePage() {
   const context = await getAuthContext();
-  const [catalogue,recommendations,adminTestProducts] = await Promise.all([getHomepageCatalogue(),getRecommendations({limit:4,context:"homepage"}),context?.isSuperAdministrator?getAdminTestProducts():Promise.resolve([])]);
+  const [catalogue,recommendations,adminTestProducts] = await Promise.all([getHomepageCatalogue(),getRecommendations({limit:4,context:"homepage"}),canAccessTestProducts(context)?getAdminTestProducts():Promise.resolve([])]);
   return (
     <main className="bg-white">
       <HomepageFeatureGrid products={catalogue.heroProducts}/>
-      {adminTestProducts.length?<div className="border-y border-violet-200 bg-violet-50"><ProductSection eyebrow="Private administrator checkout" title="R1 live payment test" products={adminTestProducts} href="/shop" /></div>:null}
+      {adminTestProducts.length?<div className="border-y border-violet-200 bg-violet-50"><ProductSection eyebrow="Private testing access" title="R1 live payment test" products={adminTestProducts} href="/shop" /></div>:null}
       <div className="bg-white"><RecommendationSection recommendations={recommendations}/></div>
 
       {catalogue.promotions.length?<div className="bg-slate-50/70"><ProductSection eyebrow="Current supplier offers" title="Products on promotion" products={catalogue.promotions} href="/shop?collection=promotions&availability=in-stock" /></div>:null}

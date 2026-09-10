@@ -111,6 +111,19 @@ export async function getAuthContext() {
   return context && isSessionUserEligible({ status: context.user.status, deletedAt: null }) && !context.user.mustChangePassword ? context : null;
 }
 
+export function canAccessTestProducts(
+  context:
+    | { isSuperAdministrator: boolean; user: { roles: string[] } }
+    | null
+    | undefined,
+) {
+  return Boolean(
+    context &&
+      (context.isSuperAdministrator ||
+        context.user.roles.includes("product-tester")),
+  );
+}
+
 export async function requireActivationUser() {
   const context = await getSessionContext();
   if (!context || context.user.status !== "INVITED" || !context.user.mustChangePassword) redirect("/sign-in");

@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { requireUser } from "@/domain/auth/session";
+import { canAccessTestProducts, requireUser } from "@/domain/auth/session";
 import { prisma } from "@/lib/prisma";
 import { getCurrentCart, getOrCreateCart } from "./service";
 
@@ -19,7 +19,7 @@ export async function addToCartAction(formData: FormData) {
     where: { id: parsed.data.productId, status: "PUBLISHED", deletedAt: null },
     include: { category:true,brand:true,variants: { where: { id: parsed.data.variantId, isActive: true }, include: { inventory: true } }, inventory: { where: { variantId: null }, take: 1 } },
   });
-  if (product?.isTestData && !context.isSuperAdministrator) redirect("/cart?error=unavailable");
+  if (product?.isTestData && !canAccessTestProducts(context)) redirect("/cart?error=unavailable");
   if (!product || (product.variants.length > 0 && !parsed.data.variantId)) redirect("/cart?error=unavailable");
   const inventory = parsed.data.variantId ? product.variants[0]?.inventory : product.inventory[0];
   const available = inventory ? inventory.onHand - inventory.reserved : 0;

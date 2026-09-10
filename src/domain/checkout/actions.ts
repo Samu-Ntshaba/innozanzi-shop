@@ -9,7 +9,7 @@ import { randomUUID } from "node:crypto";
 import Decimal from "decimal.js";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { requireUser } from "@/domain/auth/session";
+import { canAccessTestProducts, requireUser } from "@/domain/auth/session";
 import { getCurrentCart } from "@/domain/cart/service";
 import { orderNumber } from "@/domain/quotations/lifecycle";
 import { beginHostedOrderPayment } from "@/domain/payments/orchestration";
@@ -38,7 +38,7 @@ export async function placeRetailOrder(_state: { error: string }, formData: Form
   const {lines,subtotal,vat:vatTotal,delivery:deliveryTotal,total:grandTotal}=quote,markup=new Decimal(0),paymentId=randomUUID(),idempotencyKey=`retail:${cart.id}:${randomUUID()}`;
   const testLines=lines.filter(line=>line.sourceSnapshot.isTestData===true);
   const isTestOrder=testLines.length>0;
-  if(isTestOrder&&(!ctx.isSuperAdministrator||testLines.length!==lines.length))return {error:"Administrator test products must be checked out alone by a system administrator."};
+  if(isTestOrder&&(!canAccessTestProducts(ctx)||testLines.length!==lines.length))return {error:"Testing products must be checked out alone by an assigned product tester."};
   const order=await prisma.$transaction(async tx=>{
     await tx.$queryRaw`SELECT id FROM "Cart" WHERE id = ${cart.id}::uuid FOR UPDATE`;
     const lockedCart=await tx.cart.findUniqueOrThrow({where:{id:cart.id}});if(lockedCart.status!=="ACTIVE")throw new Error("This cart has already been checked out.");
