@@ -26,11 +26,7 @@ export default async function HomePage() {
   return (
     <main className="bg-white">
       <HomepageFeatureGrid products={catalogue.heroProducts}/>
-      {adminTestProducts.length?<div className="border-y border-violet-200 bg-violet-50"><ProductSection eyebrow="Private testing access" title="R1 live payment test" products={adminTestProducts} href="/shop" /></div>:null}
-      <div className="bg-white"><RecommendationSection recommendations={recommendations}/></div>
-
-      {catalogue.promotions.length?<div className="bg-slate-50/70"><ProductSection eyebrow="Current supplier offers" title="Products on promotion" products={catalogue.promotions} href="/shop?collection=promotions&availability=in-stock" /></div>:null}
-      <section className="border-y border-slate-200 bg-white" aria-label="Shopping support">
+      <section className="border-b border-slate-200 bg-white" aria-label="Shopping confidence">
         <div className="mx-auto flex max-w-5xl justify-center divide-x divide-slate-200 px-2 sm:px-6">
           {trustItems.map(({ icon: Icon, title, body }) => (
             <div key={title} className="flex flex-1 items-center justify-center gap-1.5 px-2 py-3 text-center sm:gap-3 sm:px-5 sm:py-5 sm:text-left">
@@ -40,7 +36,11 @@ export default async function HomePage() {
           ))}
         </div>
       </section>
-      <div className="hidden sm:block"><BrandPartners /></div>
+      {adminTestProducts.length?<div className="border-y border-violet-200 bg-violet-50"><ProductSection eyebrow="Private testing access" title="R1 live payment test" products={adminTestProducts} href="/shop" /></div>:null}
+      <div className="bg-white"><RecommendationSection recommendations={recommendations}/></div>
+
+      {catalogue.promotions.length?<div className="bg-slate-50/70"><ProductSection eyebrow="Current supplier offers" title="Products on promotion" products={catalogue.promotions} href="/shop?collection=promotions&availability=in-stock" /></div>:null}
+      <BrandPartners />
       {catalogue.unboxed.length?<ProductSection eyebrow="Limited open-box availability" title="Unboxed products" products={catalogue.unboxed} href="/shop?collection=unboxed&availability=in-stock" />:null}
       {catalogue.lastChance.length?<div className="bg-slate-50/70"><ProductSection eyebrow="Limited supplier stock" title="Last chance" products={catalogue.lastChance} href="/shop?collection=last-chance&availability=in-stock" /></div>:null}
 

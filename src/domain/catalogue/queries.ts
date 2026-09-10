@@ -80,6 +80,22 @@ type SupplierCardRow = {
     sourceUpdatedAt: Date | null;
 };
 const supplierCard = async (p: SupplierCardRow): Promise<ProductCardData> => { const special = isDailySpecial(p.id), price = p.costPrice ? await supplierRetailPrice({ costPrice: p.costPrice.toString(), recommendedRetail: p.recommendedRetail?.toString(), promotionalPrice: p.promotionalPrice?.toString(), promotionStartsAt: p.promotionStartsAt, promotionEndsAt: p.promotionEndsAt, special }) : null, marketingFlags = supplierMarketingFlags(p.categoryPath, Boolean(price?.promotionActive), special); return { id: p.id, name: p.name, slug: p.slug, sku: p.supplierSku, stockStatus: p.availability === "IN_STOCK" ? "IN_STOCK" : "OUT_OF_STOCK", brand: p.brand ? { name: p.brand, slug: p.brand.toLowerCase() } : null, category: { name: p.category ?? "Catalogue", slug: p.category ?? "catalogue" }, images: p.images.slice(0, 1).map(path => ({ path, altText: p.name })), regularPrice: price?.regularPrice.toString() ?? null, salePrice: price?.salePrice?.toString() ?? null, saleStartsAt: null, saleEndsAt: null, source: "supplier", marketingFlags }; };
+const showcaseScore = (product: SupplierCardRow) => Number(product.recommendedRetail?.toString() ?? product.costPrice?.toString() ?? 0) / 1000 + Math.min(12, product.images.length) * 4 + Math.min(10, product.stock) * .5 + (product.promotionalPrice ? 8 : 0);
+export function premiumShowcase(products: SupplierCardRow[]) {
+    const ranked = [...products].sort((a, b) => showcaseScore(b) - showcaseScore(a));
+    const selectors = [
+        (product: SupplierCardRow) => /notebook|laptop/i.test(`${product.name} ${product.categoryPath}`),
+        (product: SupplierCardRow) => /gaming desktops|creator workstations|super computer/i.test(`${product.name} ${product.categoryPath}`),
+        (product: SupplierCardRow) => /monitor|display/i.test(`${product.name} ${product.categoryPath}`),
+    ];
+    const selected: SupplierCardRow[] = [];
+    for (const selector of selectors) {
+        const match = ranked.find(product => !selected.some(item => item.id === product.id) && selector(product));
+        if (match)
+            selected.push(match);
+    }
+    return [...selected, ...ranked.filter(product => !selected.some(item => item.id === product.id))].slice(0, 3);
+}
 export async function getHomepageShelfProducts(key: string) {
     const shelf = homepageShelf(key);
     if (!shelf)
@@ -101,7 +117,7 @@ export async function getHomepageCatalogue() {
     try {
         const merchandiseWhere = { active: true, availability: "IN_STOCK" as const, images: { isEmpty: false } };
         const now = new Date();
-        const [supplierCategories, featured, specials, popular, brands, supplierNewest, total, inStock, laptopsAndComputers, monitors, accessories, networking, powerAndBackup, promotions, unboxed, lastChance] = await Promise.all([
+        const [supplierCategories, featured, specials, popular, brands, supplierNewest, total, inStock, laptopsAndComputers, monitors, accessories, networking, powerAndBackup, promotions, unboxed, lastChance, showcaseCandidates] = await Promise.all([
             prisma.supplierCatalogueProduct.groupBy({ by: ["category"], where: {
                     ...{ active: true, category: { not: null } },
                     ...await sellableSupplierWhere()
@@ -153,6 +169,10 @@ export async function getHomepageCatalogue() {
                     ...{ ...merchandiseWhere, stock: { gt: 0 }, costPrice: { gt: 0 }, categoryPath: { contains: "|Last Chance", mode: "insensitive" } },
                     ...await sellableSupplierWhere()
                 }, orderBy: { stock: "asc" }, take: 4, select: supplierCardSelect }),
+            prisma.supplierCatalogueProduct.findMany({ where: {
+                    ...await sellableSupplierWhere(),
+                    ...merchandiseWhere, stock: { gt: 0 }, costPrice: { gt: 12000 }, AND: [{ NOT: { categoryPath: { contains: "|Unboxed", mode: "insensitive" } } }, { NOT: { categoryPath: { contains: "|Last Chance", mode: "insensitive" } } }], OR: [{ category: "Computers" }, { categoryPath: { contains: "Gaming", mode: "insensitive" } }, { categoryPath: { contains: "Monitors", mode: "insensitive" } }, { name: { contains: "workstation", mode: "insensitive" } }]
+                }, orderBy: { costPrice: "desc" }, take: 160, select: supplierCardSelect }),
         ]);
         const categories = supplierCategories.map((x, index) => ({ id: `supplier-${index}`, name: x.category!, slug: x.category!, description: `${x._count.toLocaleString("en-ZA")} catalogue products`, imagePath: null }));
         const supplierCards = await Promise.all(supplierNewest.map(supplierCard));
@@ -163,7 +183,8 @@ export async function getHomepageCatalogue() {
         const curated = { laptopsAndComputers: computerCards.slice(0, 4), monitors: monitorCards.slice(0, 4), accessories: accessoryCards.slice(0, 4), networking: networkCards.slice(0, 4), powerAndBackup: powerCards.slice(0, 4) };
         const priorityOffers = [promotionCards[0], unboxedCards[0], lastChanceCards[0]].filter(product => product !== undefined);
         const supplierOffers = [...priorityOffers, ...promotionCards, ...unboxedCards, ...lastChanceCards, ...supplierCards.map(product => ({ ...product, offerType: "SPECIAL" as const }))].filter((product, index, array) => array.findIndex(row => row.id === product.id) === index);
-        const heroProducts = supplierOffers.slice(0, 3);
+        const showcaseCards = await Promise.all(premiumShowcase(showcaseCandidates).map(supplierCard));
+        const heroProducts = showcaseCards.length === 3 ? showcaseCards : supplierOffers.slice(0, 3);
         return { categories, featured: featured.length ? featured : supplierCards.slice(0, 4), newest: supplierCards, specials, popular, brands, total, inStock, ...curated, heroProducts, promotions: promotionCards, unboxed: unboxedCards, lastChance: lastChanceCards };
     }
     catch (error) {
