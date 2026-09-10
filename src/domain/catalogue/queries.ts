@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { isDailySpecial, supplierRetailPrice } from "./retail-pricing";
 import { catalogueSearchTerms } from "./search";
 import { homepageShelf } from "./homepage-shelves";
+import type { Prisma } from "@/generated/prisma/client";
 export type ProductMarketingFlag = "PROMOTION" | "UNBOXED" | "LAST_CHANCE" | "SPECIAL";
 export function supplierMarketingFlags(categoryPath: string | null | undefined, promotionActive: boolean, special: boolean): ProductMarketingFlag[] {
     const path = categoryPath?.toLowerCase() ?? "", flags: ProductMarketingFlag[] = [];
@@ -31,6 +32,14 @@ const productCardSelect = {
     category: { select: { name: true, slug: true } },
     images: { where: { isPrimary: true }, take: 1, select: { path: true, altText: true } },
 } as const;
+
+const sellableManualWhere:Prisma.ProductWhereInput = {
+    status: "PUBLISHED" as const,
+    deletedAt: null,
+    isTestData: false,
+    stockStatus: { in: ["IN_STOCK", "LOW_STOCK"] },
+    images: { some: { isPrimary: true } },
+};
 
 export async function getAdminTestProducts() {
     return prisma.product.findMany({
@@ -90,9 +99,9 @@ export async function getHomepageCatalogue() {
                     ...{ active: true, category: { not: null } },
                     ...await sellableSupplierWhere()
                 }, _count: true, orderBy: { _count: { category: "desc" } }, take: 8 }),
-            prisma.product.findMany({ where: { status: "PUBLISHED", deletedAt: null, isTestData: false, isFeatured: true }, take: 8, orderBy: { updatedAt: "desc" }, select: productCardSelect }),
-            prisma.product.findMany({ where: { status: "PUBLISHED", deletedAt: null, isTestData: false, isSpecial: true }, take: 8, orderBy: { updatedAt: "desc" }, select: productCardSelect }),
-            prisma.product.findMany({ where: { status: "PUBLISHED", deletedAt: null, isTestData: false, isPopular: true }, take: 8, orderBy: { updatedAt: "desc" }, select: productCardSelect }),
+            prisma.product.findMany({ where: { ...sellableManualWhere, isFeatured: true }, take: 8, orderBy: { updatedAt: "desc" }, select: productCardSelect }),
+            prisma.product.findMany({ where: { ...sellableManualWhere, isSpecial: true }, take: 8, orderBy: { updatedAt: "desc" }, select: productCardSelect }),
+            prisma.product.findMany({ where: { ...sellableManualWhere, isPopular: true }, take: 8, orderBy: { updatedAt: "desc" }, select: productCardSelect }),
             prisma.brand.findMany({ where: { isActive: true }, orderBy: { name: "asc" }, take: 12, select: { id: true, name: true, slug: true, logoPath: true } }),
             prisma.supplierCatalogueProduct.findMany({ where: {
                     ...{ ...merchandiseWhere, costPrice: { gt: 0 } },
@@ -179,9 +188,7 @@ export async function getCatalogue(input: {
     const catalogueNow = new Date();
     const promotionsOnly = input.promotion === "active" || input.collection === "promotions";
     const where = {
-        status: "PUBLISHED" as const,
-        deletedAt: null,
-        isTestData: false,
+        ...sellableManualWhere,
         ...(search ? { OR: searchTerms.flatMap(term => [{ name: { contains: term, mode: "insensitive" as const } }, { sku: { contains: term, mode: "insensitive" as const } }, { shortDescription: { contains: term, mode: "insensitive" as const } }, { description: { contains: term, mode: "insensitive" as const } }, { brand: { name: { contains: term, mode: "insensitive" as const } } }, { category: { name: { contains: term, mode: "insensitive" as const } } }]) } : {}),
         ...(category && !businessComputers ? { category: { slug: category } } : {}),
         ...(input.brand ? { brand: { slug: input.brand } } : {}),
@@ -206,6 +213,20 @@ export async function getCatalogue(input: {
             prisma.category.findMany({ where: { isActive: true }, orderBy: { name: "asc" }, select: { name: true, slug: true } }), prisma.brand.findMany({ where: { isActive: true }, orderBy: { name: "asc" }, select: { name: true, slug: true } })
         ]);
         const skip = (page - 1) * pageSize;
+        const priceSort = input.sort === "price-asc" || input.sort === "price-desc";
+        if (priceSort) {
+            const [supplierRows, manualRows] = await Promise.all([
+                prisma.supplierCatalogueProduct.findMany({ where: { ...supplierWhere, ...await sellableSupplierWhere() }, select: supplierCardSelect }),
+                supplierOnly ? Promise.resolve([]) : prisma.product.findMany({ where, select: productCardSelect }),
+            ]);
+            const allProducts = [...await Promise.all(supplierRows.map(supplierCard)), ...manualRows];
+            const effectivePrice = (product: ProductCardData) => Number(product.salePrice?.toString() ?? product.regularPrice?.toString() ?? Number.POSITIVE_INFINITY);
+            allProducts.sort((a, b) => priceSort && input.sort === "price-desc" ? effectivePrice(b) - effectivePrice(a) : effectivePrice(a) - effectivePrice(b));
+            const total = allProducts.length;
+            const categories = [...supplierCategories.map(x => ({ name: x.category!, slug: x.category! })), ...manualCategories];
+            const brands = [...supplierBrands.map(x => ({ name: x.brand!, slug: x.brand! })), ...manualBrands];
+            return { products: allProducts.slice(skip, skip + pageSize), total, page, pages: Math.max(1, Math.ceil(total / pageSize)), categories, brands, matchMode: search && searchTerms.length > 1 ? "expanded" as const : "exact" as const };
+        }
         const supplierTake = Math.max(0, Math.min(pageSize, supplierTotal - skip));
         const manualSkip = Math.max(0, skip - supplierTotal);
         const [supplierProducts, manualProducts] = await Promise.all([
@@ -270,7 +291,7 @@ export async function getGamingCatalogue(input: {
 }
 export async function getProductBySlug(slug: string, includeTestData = false) {
     return prisma.product.findFirst({
-        where: { slug, status: "PUBLISHED", deletedAt: null, isTestData: includeTestData ? undefined : false },
+        where: includeTestData ? { slug, status: "PUBLISHED", deletedAt: null } : { slug, ...sellableManualWhere },
         include: {
             brand: true,
             category: true,

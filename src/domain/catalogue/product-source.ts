@@ -5,6 +5,7 @@ import { activeUnitPrice } from "@/domain/cart/calculations";
 import { isDailySpecial, minimumRetailPrice, supplierRetailPrice } from "@/domain/catalogue/retail-pricing";
 import type { getCurrentCart } from "@/domain/cart/service";
 import type { Prisma } from "@/generated/prisma/client";
+import { sellableSupplierWhere } from "@/integrations/suppliers/availability";
 type CurrentCart = NonNullable<Awaited<ReturnType<typeof getCurrentCart>>>;
 export type QuotationSourceLine = {
     sourceType: "LOCAL" | "SUPPLIER";
@@ -63,7 +64,7 @@ export async function resolveQuotationCart(cart: CurrentCart, markup: Decimal): 
     if (!cart.supplierItems.length)
         return local;
     const products = await prisma.supplierCatalogueProduct.findMany({
-        where: { active: true, OR: cart.supplierItems.map((item) => ({ supplierId: item.supplierId, supplierProductId: item.supplierProductId })) },
+        where: { OR: cart.supplierItems.map((item) => ({ supplierId: item.supplierId, supplierProductId: item.supplierProductId })), ...await sellableSupplierWhere() },
         include: { feed:true,supplier: { select: { companyName: true, purchasingEnabled:true,approvalStatus:true } } },
     });
     if (products.length !== cart.supplierItems.length)

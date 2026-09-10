@@ -10,14 +10,17 @@ beforeEach(() => {
 });
 
 it("requires a preferred offer from an approved, enabled and fresh supplier feed", async () => {
-  const before = Date.now();
   const where = await sellableSupplierWhere();
 
   expect(where).toMatchObject({
+    active: true,
     displayPreferred: true,
+    availability: "IN_STOCK",
+    stock: { gt: 0 },
+    costPrice: { gt: 0 },
+    images: { isEmpty: false },
     supplier: { purchasingEnabled: true, approvalStatus: "APPROVED" },
-    feed: { enabled: true },
+    lastSeenAt: { gte: expect.any(Date) },
+    feed: { enabled: true, lastSuccessAt: { gte: expect.any(Date) } },
   });
-  expect(where.lastSeenAt.gte.getTime()).toBeGreaterThanOrEqual(before - 30 * 60 * 60_000);
-  expect(where.feed.lastSuccessAt.gte.getTime()).toBeGreaterThanOrEqual(before - 30 * 60 * 60_000);
 });

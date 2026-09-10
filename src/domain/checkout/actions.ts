@@ -58,9 +58,9 @@ export async function placeRetailOrder(_state: { error: string }, formData: Form
     await tx.cart.update({where:{id:cart.id},data:{status:"CONVERTED"}});return created;
   },{isolationLevel:"Serializable"});
 
-  try { await Promise.all([
+  try { const supplierIds=[...new Set(lines.map(line=>line.supplierId).filter((id):id is string=>Boolean(id)))],suppliers=await prisma.supplier.findMany({where:{id:{in:supplierIds}},select:{id:true,companyName:true}}),supplierNames=new Map(suppliers.map(supplier=>[supplier.id,supplier.companyName]));await Promise.all([
     enqueueEmail(emailTemplates.orderPlaced(ctx.user.email, ctx.user.name ?? "Customer", order.orderNumber, order.grandTotal.toString()), ctx.user.id),
-    sendStaffEmail("ORDER_PLACED", emailTemplates.orderPlacedInternal(order.id, order.orderNumber, order.email, order.grandTotal.toString(), data.paymentMethod)),
+    sendStaffEmail("ORDER_PLACED", emailTemplates.orderPlacedInternal({id:order.id,number:order.orderNumber,email:order.email,total:order.grandTotal.toString(),paymentMethod:data.paymentMethod,items:lines.map(line=>({name:line.productName,sku:line.supplierSku??line.sku??"ITEM",supplier:line.supplierId?supplierNames.get(line.supplierId)??"Unknown distributor":"Innozanzi stock",quantity:line.quantity}))})),
   ]); } catch (error) { console.error("Order created, but placement notifications were queued for retry", error); }
 
   if(data.paymentMethod==="EFT")redirect(`/account/orders/${order.orderNumber}?payment=eft`);
