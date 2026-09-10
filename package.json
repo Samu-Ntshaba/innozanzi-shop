@@ -8,7 +8,9 @@
     "npm": ">=10 <12"
   },
   "scripts": {
+    "predev": "prisma generate",
     "dev": "tsx scripts/dev-railway.ts",
+    "predev:direct": "prisma generate",
     "dev:direct": "next dev",
     "build": "prisma generate && next build",
     "start": "prisma migrate deploy && next start",
