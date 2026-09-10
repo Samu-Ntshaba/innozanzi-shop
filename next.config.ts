@@ -12,7 +12,7 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
-  images: { remotePatterns: [{ protocol: "https", hostname: "*.supabase.co" }, { protocol: "https", hostname: "images.unsplash.com" }, { protocol: "https", hostname: "www.syntech.co.za" }, { protocol: "https", hostname: "syntech.co.za" }] },
+  images: { remotePatterns: [{ protocol: "https", hostname: "*.supabase.co" }, { protocol: "https", hostname: "images.unsplash.com" }, { protocol: "https", hostname: "www.syntech.co.za" }, { protocol: "https", hostname: "syntech.co.za" }, { protocol: "https", hostname: "www.pinnacle.co.za", port: "", pathname: "/media/catalog/product/**", search: "" }] },
   async headers() { return [{ source: "/(.*)", headers: securityHeaders }]; },
 };
 export default nextConfig;

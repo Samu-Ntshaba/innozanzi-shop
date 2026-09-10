@@ -24,4 +24,10 @@ describe("Pinnacle XML feed", () => {
   it("keeps the feed URL in environment configuration instead of source", () => {
     expect(readFileSync("src/integrations/pinnacle/feed.ts", "utf8")).not.toContain("productfeed/xml/id/");
   });
+
+  it("allows Pinnacle catalogue images through the Next.js image optimizer", () => {
+    const config = readFileSync("next.config.ts", "utf8");
+    expect(config).toContain('hostname: "www.pinnacle.co.za"');
+    expect(config).toContain('pathname: "/media/catalog/product/**"');
+  });
 });
