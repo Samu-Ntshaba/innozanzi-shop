@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { globalSeoSettings } from "@/domain/marketing/seo";
 import { isTestModeEnvironment } from "@/lib/test-mode";
 import { guides } from "@/domain/guides/content";
+import { sellableSupplierWhere } from "@/integrations/suppliers/availability";
 
 export const dynamic="force-dynamic";
 
@@ -11,7 +12,7 @@ export default async function sitemap():Promise<MetadataRoute.Sitemap>{
   const[{siteUrl:base},products,supplierProducts,categories,pages,posts,excluded]=await Promise.all([
     globalSeoSettings(),
     prisma.product.findMany({where:{status:"PUBLISHED",deletedAt:null,isTestData:false},select:{id:true,slug:true,updatedAt:true,images:{orderBy:{sortOrder:"asc"},take:1,select:{path:true}}}}),
-    prisma.supplierCatalogueProduct.findMany({where:{active:true,images:{isEmpty:false}},select:{id:true,slug:true,updatedAt:true,images:true}}),
+    prisma.supplierCatalogueProduct.findMany({where:{active:true,images:{isEmpty:false},...await sellableSupplierWhere()},select:{id:true,slug:true,updatedAt:true,images:true}}),
     prisma.category.findMany({where:{isActive:true},select:{id:true,slug:true,updatedAt:true}}),
     prisma.page.findMany({where:{status:"PUBLISHED"},select:{id:true,slug:true,updatedAt:true}}),
     prisma.blogPost.findMany({where:{status:"PUBLISHED",publishedAt:{lte:new Date()}},select:{id:true,slug:true,updatedAt:true}}),

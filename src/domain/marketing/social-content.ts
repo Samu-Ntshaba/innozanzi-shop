@@ -10,6 +10,7 @@ import { mailDeliveryMode } from "@/integrations/email/provider";
 import { getOpenAIClient } from "@/lib/openai";
 import { prisma } from "@/lib/prisma";
 import { createSupabaseAdmin } from "@/lib/supabase";
+import { sellableSupplierWhere } from "@/integrations/suppliers/availability";
 
 export const DAILY_SOCIAL_TYPES = ["PRODUCT", "PC_BUILDER", "GAMING"] as const;
 export type DailySocialType = (typeof DAILY_SOCIAL_TYPES)[number];
@@ -60,9 +61,9 @@ export async function socialSettings() {
 async function chooseSources(day: string): Promise<Source[]> {
   const recent = await prisma.socialContent.findMany({ where: { sourceId: { not: null }, createdAt: { gte: new Date(Date.now() - 90 * 86_400_000) } }, select: { sourceId: true } });
   const excluded = recent.flatMap(row => row.sourceId && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(row.sourceId) ? [row.sourceId] : []);
-  const common = { active: true, availability: "IN_STOCK", stock: { gt: 0 }, images: { isEmpty: false }, id: excluded.length ? { notIn: excluded } : undefined };
+  const common = { active: true, availability: "IN_STOCK", stock: { gt: 0 }, images: { isEmpty: false }, id: excluded.length ? { notIn: excluded } : undefined, ...await sellableSupplierWhere() };
   let product = await prisma.supplierCatalogueProduct.findFirst({ where: common, orderBy: [{ sourceUpdatedAt: "desc" }, { stock: "desc" }] });
-  if (!product) product = await prisma.supplierCatalogueProduct.findFirst({ where: { active: true, availability: "IN_STOCK", stock: { gt: 0 }, images: { isEmpty: false } }, orderBy: { sourceUpdatedAt: "desc" } });
+  if (!product) product = await prisma.supplierCatalogueProduct.findFirst({ where: { active: true, availability: "IN_STOCK", stock: { gt: 0 }, images: { isEmpty: false }, ...await sellableSupplierWhere() }, orderBy: { sourceUpdatedAt: "desc" } });
   if (!product) throw new Error("At least one active supplier product with images is required.");
   const productSource = (item: typeof product): Source => ({ type: "PRODUCT", sourceType: "SUPPLIER_PRODUCT", sourceId: item.id, name: item.name, detail: clean(item.shortDescription ?? item.description).slice(0, 500), image: item.images[0], images: item.images, url: `${baseUrl()}/supplier-products/${item.slug}` });
   return [

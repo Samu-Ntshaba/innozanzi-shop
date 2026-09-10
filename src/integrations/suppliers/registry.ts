@@ -1,23 +1,15 @@
 import { randomUUID } from "node:crypto";
 import { prisma } from "@/lib/prisma";
 import { syncSyntechFeed, type SyncMode } from "@/integrations/syntech/feed";
-export const PINNACLE_ID="86000000-0000-4000-8000-000000000002";
-export async function ensurePinnacle(){
- const supplier=await prisma.supplier.upsert({where:{id:PINNACLE_ID},update:{},create:{id:PINNACLE_ID,companyName:"Pinnacle ICT",approvalStatus:"APPROVED",purchasingEnabled:false,accountNumber:"INN038",paymentTerms:"COD",website:"https://www.pinnacle.co.za"}});
- return prisma.supplierFeed.upsert({where:{supplierId_provider:{supplierId:supplier.id,provider:"PINNACLE"}},update:{},create:{supplierId:supplier.id,provider:"PINNACLE",adapter:"PINNACLE_XML",fullFeedUrl:"ENV:PINNACLE_XML_FEED_URL",scheduleMinutes:1440,enabled:false}});
-}
-export class PinnacleXmlAdapter {
- readonly provider="PINNACLE";
- async fetch():Promise<never>{throw new Error("Pinnacle XML mapping awaits a real feed sample. Import and purchasing remain disabled.");}
-}
+import { ensurePinnacleFeed, syncPinnacleFeed } from "@/integrations/pinnacle/feed";
+export { PINNACLE_ID, PinnacleXmlAdapter, ensurePinnacleFeed as ensurePinnacle } from "@/integrations/pinnacle/feed";
 async function syncAllSuppliersUnlocked(mode:SyncMode){
- await ensurePinnacle();
+ await ensurePinnacleFeed();
  const results=[];
  for(const provider of ["SYNTECH","PINNACLE"]){
   const feed=await prisma.supplierFeed.findFirst({where:{provider}});
-  if(provider==="PINNACLE"){results.push({provider,status:"AWAITING_XML_MAPPING"});continue;}
   if(feed&&!feed.enabled){results.push({provider,status:"DISABLED"});continue;}
-  try{results.push({provider,status:"SUCCEEDED",mode,...await syncSyntechFeed(mode)});}catch{results.push({provider,status:"FAILED",mode});}
+  try{results.push({provider,status:"SUCCEEDED",mode,...await (provider==="PINNACLE"?syncPinnacleFeed(mode):syncSyntechFeed(mode))});}catch{results.push({provider,status:"FAILED",mode});}
  }
  return results;
 }

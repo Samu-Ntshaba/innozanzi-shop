@@ -74,9 +74,12 @@ async function productPayload(input: SocialInput, productIds?: string[]): Promis
   const take = input.format === "CAROUSEL" ? 5 : 1;
   const baseWhere = {
     active: true,
+    displayPreferred: true,
     availability: "IN_STOCK",
     stock: { gt: 0 },
     images: { isEmpty: false },
+    supplier: { purchasingEnabled: true, approvalStatus: "APPROVED" },
+    feed: { enabled: true, lastSuccessAt: { not: null } },
     ...(productIds?.length ? { id: { in: productIds, ...(excluded.length ? { notIn: excluded } : {}) } } : excluded.length ? { id: { notIn: excluded } } : {}),
   };
   let products = await prisma.supplierCatalogueProduct.findMany({
