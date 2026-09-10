@@ -12,6 +12,8 @@ describe("homepage premium merchandising", () => {
     expect(showcase).toContain("lead.name");
     expect(showcase).toContain("leadImage.path");
     expect(showcase).toContain("formatZar(leadPrice)");
+    expect(showcase).not.toContain("Technology worth getting excited about.");
+    expect(showcase).not.toContain("Start with the machines and displays");
   });
 
   it("selects a diverse, sellable premium showcase from live catalogue data", () => {

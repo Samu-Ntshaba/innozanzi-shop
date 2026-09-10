@@ -48,10 +48,8 @@ export function HomepageFeatureGrid({ products }: { products: ProductCardData[] 
 
   return <section className="border-b border-slate-200 bg-[#f3f7fb]">
     <div className="mx-auto max-w-7xl px-4 py-7 sm:px-6 sm:py-10 lg:px-8 lg:py-12">
-      <header className="mb-6 max-w-3xl">
+      <header className="mb-5">
         <p className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[.22em] text-sky-700"><Sparkles className="size-4"/>The Innozanzi edit · live stock</p>
-        <h1 className="mt-3 text-3xl font-black leading-[1.02] tracking-[-.035em] text-slate-950 sm:text-5xl lg:text-6xl">Technology worth getting excited about.</h1>
-        <p className="mt-4 max-w-2xl text-sm leading-6 text-slate-600 sm:text-base sm:leading-7">Start with the machines and displays that show what modern technology can really do—then find the right fit for your work, ideas and play.</p>
       </header>
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1.9fr)_minmax(310px,.9fr)] lg:gap-5">
