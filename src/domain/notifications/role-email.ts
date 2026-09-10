@@ -24,8 +24,9 @@ export async function staffEmailRecipients(eventKey: StaffEmailEvent) {
     where: {
       status: "ACTIVE",
       deletedAt: null,
-      accountType: "INTERNAL_EMPLOYEE",
-      roles: { some: { role: { emailPreferences: { some: { eventKey, enabled: true } } } } },
+      roles: { some: { role: eventKey === "USER_CREATED"
+        ? { OR: [{ slug: "super-administrator" }, { emailPreferences: { some: { eventKey, enabled: true } } }] }
+        : { emailPreferences: { some: { eventKey, enabled: true } } } } },
     },
     select: { id: true, email: true },
   });
