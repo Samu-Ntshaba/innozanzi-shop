@@ -1,5 +1,6 @@
 import Decimal from "decimal.js";
 import { prisma } from "@/lib/prisma";
+import { sellableSupplierWhere } from "@/integrations/suppliers/availability";
 import { getOpenAIClient } from "@/lib/openai";
 import { calculateComboPricing } from "./calculations";
 import { scheduledComboState } from "./lifecycle";
@@ -29,7 +30,8 @@ async function createAutomatedCombo(type:AutomationType,now:Date,targetMargin:De
   const template=templates[type];
   const existing=await prisma.comboCampaign.findFirst({where:{type,status:{in:["DRAFT","SCHEDULED","ACTIVE"]},endsAt:{gt:now},aiGenerated:true,isTestData:false}});
   if(existing)return null;
-  const pools=await Promise.all(template.categories.map(category=>prisma.supplierCatalogueProduct.findMany({where:{active:true,availability:"IN_STOCK",stock:{gt:0},costPrice:{gt:0},images:{isEmpty:false},category},orderBy:[{costPrice:"asc"},{sourceUpdatedAt:"desc"}],take:24,select:{id:true,name:true,supplierSku:true,manufacturerSku:true,costPrice:true,recommendedRetail:true,images:true,stock:true}})));
+  const eligibility=await sellableSupplierWhere();
+  const pools=await Promise.all(template.categories.map(category=>prisma.supplierCatalogueProduct.findMany({where:{...eligibility,category},orderBy:[{costPrice:"asc"},{name:"asc"}],take:24,select:{id:true,name:true,supplierSku:true,manufacturerSku:true,costPrice:true,recommendedRetail:true,images:true,stock:true}})));
   const seed=Math.floor(now.getTime()/(template.days*DAY));
   const selected=pools.map((pool,index)=>pool[(seed+index*7)%pool.length]).filter((x):x is NonNullable<typeof x>=>Boolean(x));
   if(selected.length<2)return null;

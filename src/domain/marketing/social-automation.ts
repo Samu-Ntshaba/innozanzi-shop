@@ -69,27 +69,22 @@ async function activeCampaign(channel: string) {
 
 async function productPayload(input: SocialInput, productIds?: string[]): Promise<SocialMaterial | null> {
   const prisma = await getPrisma();
+  const { sellableSupplierWhere } = await import("@/integrations/suppliers/availability");
   const excluded = await recentSourceIds();
   const now = new Date();
   const take = input.format === "CAROUSEL" ? 5 : 1;
   const baseWhere = {
-    active: true,
-    displayPreferred: true,
-    availability: "IN_STOCK",
-    stock: { gt: 0 },
-    images: { isEmpty: false },
-    supplier: { purchasingEnabled: true, approvalStatus: "APPROVED" },
-    feed: { enabled: true, lastSuccessAt: { not: null } },
+    ...await sellableSupplierWhere(),
     ...(productIds?.length ? { id: { in: productIds, ...(excluded.length ? { notIn: excluded } : {}) } } : excluded.length ? { id: { notIn: excluded } } : {}),
   };
   let products = await prisma.supplierCatalogueProduct.findMany({
     where: baseWhere,
-    orderBy: [{ promotionalPrice: "asc" }, { sourceUpdatedAt: "desc" }, { stock: "desc" }],
+    orderBy: [{ promotionalPrice: "asc" }, { stock: "desc" }, { name: "asc" }],
     take,
     select: { id: true, name: true, slug: true, brand: true, category: true, shortDescription: true, images: true, warranty: true, manufacturerSku: true, promotionalPrice: true, promotionStartsAt: true, promotionEndsAt: true },
   });
   if (!products.length && excluded.length) {
-    products = await prisma.supplierCatalogueProduct.findMany({ where: { ...baseWhere, id: productIds?.length ? { in: productIds } : undefined }, orderBy: { sourceUpdatedAt: "desc" }, take, select: { id: true, name: true, slug: true, brand: true, category: true, shortDescription: true, images: true, warranty: true, manufacturerSku: true, promotionalPrice: true, promotionStartsAt: true, promotionEndsAt: true } });
+    products = await prisma.supplierCatalogueProduct.findMany({ where: { ...baseWhere, id: productIds?.length ? { in: productIds } : undefined }, orderBy: [{ stock: "desc" }, { name: "asc" }], take, select: { id: true, name: true, slug: true, brand: true, category: true, shortDescription: true, images: true, warranty: true, manufacturerSku: true, promotionalPrice: true, promotionStartsAt: true, promotionEndsAt: true } });
   }
   if (!products.length) return null;
   const items = products.map(product => {

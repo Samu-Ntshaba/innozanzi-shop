@@ -20,6 +20,7 @@ import { requirePermission } from "@/domain/auth/session";
 import { emailTemplates } from "@/integrations/email/templates";
 import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@/generated/prisma/client";
+import { getAdminCatalogueOptions } from "@/domain/catalogue/admin-catalogue";
 
 export const dynamic = "force-dynamic";
 
@@ -60,12 +61,7 @@ export default async function EmailMarketingPage({ searchParams }: { searchParam
     prisma.emailCampaign.count({ where: campaignWhere }),
     prisma.notification.findMany({ where: deliveryWhere, orderBy: { createdAt: "desc" }, skip: (deliveryPage - 1) * pageSize, take: pageSize }),
     prisma.notification.count({ where: deliveryWhere }),
-    prisma.product.findMany({
-      where: { status: "PUBLISHED", deletedAt: null, isTestData: false },
-      select: { id: true, name: true, sku: true, category: { select: { name: true } }, brand: { select: { name: true } } },
-      orderBy: [{ isFeatured: "desc" }, { updatedAt: "desc" }],
-      take: 40,
-    }),
+    getAdminCatalogueOptions(),
     prisma.newsletterSubscriber.count({ where: { isActive: true } }),
     prisma.emailCampaign.count({ where: { status: "SENT" } }),
     prisma.notification.count({ where: { type: "EMAIL_OUTBOX", status: "FAILED" } }),
@@ -116,7 +112,7 @@ export default async function EmailMarketingPage({ searchParams }: { searchParam
           <fieldset>
             <legend className="text-sm font-semibold">Products <span className="font-normal text-slate-500">(choose 1–4)</span></legend>
             <div className="mt-2 max-h-72 space-y-1 overflow-y-auto rounded-lg border border-slate-200 p-2">
-              {products.map(product => <label className="flex cursor-pointer items-start gap-3 rounded-md p-2 hover:bg-slate-50" key={product.id}><input className="mt-1" name="productIds" type="checkbox" value={product.id}/><span className="min-w-0"><strong className="block truncate text-sm">{product.name}</strong><span className="text-xs text-slate-500">{product.brand?.name ?? product.category.name} · {product.sku}</span></span></label>)}
+              {products.map(product => <label className="flex cursor-pointer items-start gap-3 rounded-md p-2 hover:bg-slate-50" key={product.reference}><input className="mt-1" name="productIds" type="checkbox" value={product.reference}/><span className="min-w-0"><strong className="block truncate text-sm">{product.name}</strong><span className="text-xs text-slate-500">{product.brand ?? "Technology"} · {product.sku} · {product.supplierName ?? "Innozanzi"}</span></span></label>)}
               {!products.length ? <p className="p-3 text-sm text-slate-500">Publish products before generating a campaign.</p> : null}
             </div>
           </fieldset>

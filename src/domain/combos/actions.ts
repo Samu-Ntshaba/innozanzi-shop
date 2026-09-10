@@ -11,6 +11,8 @@ import { calculateComboPricing,validateComboPricing } from "./calculations";
 import { assertComboTransition } from "./lifecycle";
 import { runComboAutomation } from "./automation";
 import { combosEnabled } from "./settings";
+import { sellableSupplierWhere } from "@/integrations/suppliers/availability";
+import { supplierRetailPrice } from "@/domain/catalogue/retail-pricing";
 
 const slugify=(value:string)=>value.toLowerCase().normalize("NFKD").replace(/[^\w\s-]/g,"").trim().replace(/[\s_-]+/g,"-").slice(0,90);
 const date=z.coerce.date();
@@ -19,24 +21,23 @@ const optionalUrl=z.string().trim().url().optional().or(z.literal(""));
 async function settings(){return prisma.comboCampaignSetting.upsert({where:{id:"default"},update:{},create:{id:"default"}})}
 
 async function selectedItems(formData:FormData){
-  const rows=[] as Array<{productId:string;quantity:number}>;
+  const rows=[] as Array<{reference:string;quantity:number}>;
   for(let index=0;index<5;index++){
-    const productId=String(formData.get(`product_${index}`)??"");
-    if(!productId)continue;
-    rows.push({productId:z.string().uuid().parse(productId),quantity:z.coerce.number().int().min(1).max(1000).parse(formData.get(`quantity_${index}`))});
+    const reference=String(formData.get(`product_${index}`)??"");
+    if(!reference)continue;
+    if(!/^(internal|supplier):[0-9a-f-]{36}$/i.test(reference)&&!/^[0-9a-f-]{36}$/i.test(reference))throw new Error("Invalid catalogue product selection.");
+    rows.push({reference:reference.includes(":")?reference:`internal:${reference}`,quantity:z.coerce.number().int().min(1).max(1000).parse(formData.get(`quantity_${index}`))});
   }
   if(rows.length<2)throw new Error("A combo requires at least two products.");
-  if(new Set(rows.map(x=>x.productId)).size!==rows.length)throw new Error("A product can only appear once in a combo.");
-  const products=await prisma.product.findMany({where:{id:{in:rows.map(x=>x.productId)}},include:{suppliers:{where:{isPreferred:true},take:1},inventory:true}});
-  if(products.length!==rows.length||products.some(x=>x.status!=="PUBLISHED"||x.deletedAt))throw new Error("Every combo product must be active and published.");
-  return rows.map(row=>{
-    const product=products.find(x=>x.id===row.productId)!;
-    const cost=new Decimal(product.costPrice?.toString()??product.suppliers[0]?.costPrice.toString()??0);
-    if(cost.lte(0))throw new Error(`${product.name} has no verified cost price.`);
-    const available=product.inventory.reduce((sum,x)=>sum+Math.max(0,x.onHand-x.reserved),0);
-    if(available<row.quantity)throw new Error(`${product.name} only has ${available} available.`);
-    return{product,quantity:row.quantity,cost,normalPrice:new Decimal(product.salePrice?.toString()??product.regularPrice.toString())};
-  });
+  if(new Set(rows.map(x=>x.reference)).size!==rows.length)throw new Error("A product can only appear once in a combo.");
+  const internalIds=rows.filter(x=>x.reference.startsWith("internal:")).map(x=>x.reference.slice(9)),supplierIds=rows.filter(x=>x.reference.startsWith("supplier:")).map(x=>x.reference.slice(9));
+  const [products,supplierProducts]=await Promise.all([prisma.product.findMany({where:{id:{in:internalIds}},include:{suppliers:{where:{isPreferred:true},take:1},inventory:true}}),prisma.supplierCatalogueProduct.findMany({where:{...await sellableSupplierWhere(),id:{in:supplierIds}}})]);
+  if(products.length+supplierProducts.length!==rows.length||products.some(x=>x.status!=="PUBLISHED"||x.deletedAt))throw new Error("Every combo product must be active, available and published.");
+  return Promise.all(rows.map(async row=>{
+    const quantity=row.quantity;
+    if(row.reference.startsWith("supplier:")){const product=supplierProducts.find(x=>x.id===row.reference.slice(9))!;if(product.stock<quantity)throw new Error(`${product.name} only has ${product.stock} available.`);const retail=await supplierRetailPrice({costPrice:product.costPrice!,recommendedRetail:product.recommendedRetail,promotionalPrice:product.promotionalPrice,promotionStartsAt:product.promotionStartsAt,promotionEndsAt:product.promotionEndsAt});return{productId:null,supplierCatalogueProductId:product.id,name:product.name,sku:product.supplierSku,quantity,cost:new Decimal(product.costPrice!.toString()),normalPrice:new Decimal((retail.salePrice??retail.regularPrice).toString())};}
+    const product=products.find(x=>x.id===row.reference.slice(9))!;const cost=new Decimal(product.costPrice?.toString()??product.suppliers[0]?.costPrice.toString()??0);if(cost.lte(0))throw new Error(`${product.name} has no verified cost price.`);const available=product.inventory.reduce((sum,x)=>sum+Math.max(0,x.onHand-x.reserved),0);if(available<quantity)throw new Error(`${product.name} only has ${available} available.`);return{productId:product.id,supplierCatalogueProductId:null,name:product.name,sku:product.sku,quantity,cost,normalPrice:new Decimal(product.salePrice?.toString()??product.regularPrice.toString())};
+  }));
 }
 
 export async function saveComboCampaign(formData:FormData){
@@ -60,12 +61,12 @@ export async function saveComboCampaign(formData:FormData){
     const data={name:input.name,headline:input.headline,description:input.description,benefits:input.benefits||null,type:input.type,startsAt:input.startsAt,endsAt:input.endsAt,targetAudience:input.targetAudience,normalPrice:pricing.normalPrice,comboPrice:pricing.comboPrice,estimatedCost:pricing.productCost,serviceCost:input.serviceCost,deliveryCost:input.deliveryCost,paymentCost:input.paymentCost,grossProfit:pricing.grossProfit,profitMargin:pricing.profitMargin,imageUrl:input.imageUrl||null,mobileImageUrl:input.mobileImageUrl||null,callToAction:input.callToAction,emailSubject:input.emailSubject||null,emailPreview:input.emailPreview||null,emailBody:input.emailBody||null,sliderHeadline:input.sliderHeadline||null,sliderText:input.sliderText||null,socialCaption:input.socialCaption||null,requiresApproval:warnings.length>0,updatedById:ctx.user.id};
     if(input.id){
       const before=await tx.comboCampaign.findUniqueOrThrow({where:{id:input.id}});
-      const updated=await tx.comboCampaign.update({where:{id:input.id},data:{...data,status:"DRAFT",approvedAt:null,approvedById:null,items:{deleteMany:{},create:lines.map(x=>({productId:x.product.id,quantity:x.quantity,productName:x.product.name,sku:x.product.sku,unitNormalPrice:x.normalPrice,unitCost:x.cost}))}}});
+      const updated=await tx.comboCampaign.update({where:{id:input.id},data:{...data,status:"DRAFT",approvedAt:null,approvedById:null,items:{deleteMany:{},create:lines.map(x=>({productId:x.productId,supplierCatalogueProductId:x.supplierCatalogueProductId,quantity:x.quantity,productName:x.name,sku:x.sku,unitNormalPrice:x.normalPrice,unitCost:x.cost}))}}});
       await tx.auditLog.create({data:{actorId:ctx.user.id,action:"combo.update",entityType:"ComboCampaign",entityId:updated.id,before:{comboPrice:before.comboPrice,status:before.status},after:{comboPrice:updated.comboPrice,warnings}}});
       return updated;
     }
     const slug=`${slugify(input.name)}-${Date.now().toString(36)}`;
-    const created=await tx.comboCampaign.create({data:{...data,slug,createdById:ctx.user.id,items:{create:lines.map(x=>({productId:x.product.id,quantity:x.quantity,productName:x.product.name,sku:x.product.sku,unitNormalPrice:x.normalPrice,unitCost:x.cost}))}}});
+    const created=await tx.comboCampaign.create({data:{...data,slug,createdById:ctx.user.id,items:{create:lines.map(x=>({productId:x.productId,supplierCatalogueProductId:x.supplierCatalogueProductId,quantity:x.quantity,productName:x.name,sku:x.sku,unitNormalPrice:x.normalPrice,unitCost:x.cost}))}}});
     await tx.auditLog.create({data:{actorId:ctx.user.id,action:"combo.create",entityType:"ComboCampaign",entityId:created.id,after:{type:created.type,comboPrice:created.comboPrice,warnings}}});
     return created;
   });

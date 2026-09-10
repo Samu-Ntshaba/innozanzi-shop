@@ -5,6 +5,7 @@ import { requirePermission } from "@/domain/auth/session";
 import { getOpenAIClient } from "@/lib/openai";
 import { marketingBusinessRules } from "@/config/business-facts";
 import { prisma } from "@/lib/prisma";
+import { sellableSupplierWhere } from "@/integrations/suppliers/availability";
 
 const inputSchema = z.object({
   mode: z.enum(["SELECTED_PRODUCT", "RANDOM_PRODUCT", "BUSINESS_INSIGHT"]),
@@ -46,12 +47,12 @@ export async function generateLinkedinContent(_previous: LinkedinContentState, f
     const input = inputSchema.parse(Object.fromEntries(formData));
     if (input.mode === "SELECTED_PRODUCT" && !input.productId) return { status: "error", message: "Choose a product before generating the post." };
 
+    const eligibleWhere = await sellableSupplierWhere();
+    const eligibleCount = input.mode === "RANDOM_PRODUCT" ? await prisma.supplierCatalogueProduct.count({ where: eligibleWhere }) : 0;
     const product = input.mode === "BUSINESS_INSIGHT" ? null : await prisma.supplierCatalogueProduct.findFirst({
-      where: input.mode === "SELECTED_PRODUCT"
-        ? { id: input.productId, active: true }
-        : { active: true, availability: "IN_STOCK", stock: { gt: 0 }, images: { isEmpty: false } },
-      orderBy: input.mode === "RANDOM_PRODUCT" ? { sourceUpdatedAt: "desc" } : undefined,
-      skip: input.mode === "RANDOM_PRODUCT" ? Math.floor(Math.random() * Math.max(1, await prisma.supplierCatalogueProduct.count({ where: { active: true, availability: "IN_STOCK", stock: { gt: 0 }, images: { isEmpty: false } } }))) : undefined,
+      where: { ...eligibleWhere, ...(input.mode === "SELECTED_PRODUCT" ? { id: input.productId } : {}) },
+      orderBy: input.mode === "RANDOM_PRODUCT" ? [{ supplierId: "asc" }, { name: "asc" }] : undefined,
+      skip: input.mode === "RANDOM_PRODUCT" && eligibleCount ? Math.floor(Math.random() * eligibleCount) : undefined,
       select: { id: true, name: true, brand: true, category: true, shortDescription: true, warranty: true, manufacturerSku: true, slug: true, images: true },
     });
     if (input.mode !== "BUSINESS_INSIGHT" && !product) return { status: "error", message: "No eligible product could be found. Check catalogue availability and try again." };

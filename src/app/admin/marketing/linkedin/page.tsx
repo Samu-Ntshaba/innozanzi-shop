@@ -2,14 +2,14 @@ import { AdminPage, Panel } from "@/components/admin/admin-ui";
 import { LinkedinContentGenerator } from "@/components/admin/linkedin-content-generator";
 import { requirePermission } from "@/domain/auth/session";
 import { prisma } from "@/lib/prisma";
+import { sellableSupplierWhere } from "@/integrations/suppliers/availability";
 
 export default async function LinkedinContentPage() {
   await requirePermission("marketing.content.view");
   const products = await prisma.supplierCatalogueProduct.findMany({
-    where: { active: true, availability: "IN_STOCK", stock: { gt: 0 } },
+    where: await sellableSupplierWhere(),
     select: { id: true, name: true, brand: true, manufacturerSku: true },
     orderBy: [{ brand: "asc" }, { name: "asc" }],
-    take: 500,
   });
   return <AdminPage title="LinkedIn content generator" description="Create useful, factual B2B drafts from catalogue products or practical business technology themes.">
     <Panel title="Recommended workflow" description="Keep a person responsible for the final decision.">

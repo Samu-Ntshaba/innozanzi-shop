@@ -23,6 +23,7 @@ const clean = (value: string | null) => (value ?? "").replace(/<[^>]*>/g, " ").r
 
 export async function nextLinkedinCandidate() {
   const { prisma } = await import("@/lib/prisma");
+  const { sellableSupplierWhere } = await import("@/integrations/suppliers/availability");
   const cutoff = new Date(Date.now() - 90 * 86_400_000);
   const used = await prisma.auditLog.findMany({
     where: { action: "social.linkedin.published", entityType: "SupplierCatalogueProduct", createdAt: { gte: cutoff }, entityId: { not: null } },
@@ -30,8 +31,8 @@ export async function nextLinkedinCandidate() {
   });
   const excludedIds = used.flatMap(entry => entry.entityId ? [entry.entityId] : []);
   const product = await prisma.supplierCatalogueProduct.findFirst({
-    where: { active: true, availability: "IN_STOCK", stock: { gt: 0 }, images: { isEmpty: false }, ...(excludedIds.length ? { id: { notIn: excludedIds } } : {}) },
-    orderBy: [{ sourceUpdatedAt: "desc" }, { stock: "desc" }],
+    where: { ...await sellableSupplierWhere(), ...(excludedIds.length ? { id: { notIn: excludedIds } } : {}) },
+    orderBy: [{ stock: "desc" }, { name: "asc" }],
     select: { id: true, name: true, slug: true, supplierSku: true, manufacturerSku: true, brand: true, category: true, shortDescription: true, images: true, warranty: true },
   });
   if (!product) return null;

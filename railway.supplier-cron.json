@@ -4,7 +4,7 @@
     "builder": "RAILPACK"
   },
   "deploy": {
-    "startCommand": "npm run automation:suppliers",
+    "startCommand": "npm run automation:suppliers -- --full",
     "cronSchedule": "0 2 * * *",
     "restartPolicyType": "NEVER"
   }

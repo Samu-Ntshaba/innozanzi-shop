@@ -1,6 +1,7 @@
 import { sellableSupplierWhere } from "@/integrations/suppliers/availability";
 import { prisma } from "@/lib/prisma";
 import { isDailySpecial, supplierRetailPrice } from "./retail-pricing";
+import { productHasCapability, supplierCapabilityWhere, type CatalogueCapability } from "./taxonomy";
 export type PcBuildStepKey = "cpu" | "motherboard" | "memory" | "storage" | "graphics" | "power" | "case" | "cooling" | "monitor" | "keyboard" | "mouse" | "audio";
 export type PcBuilderProduct = {
     id: string;
@@ -38,10 +39,10 @@ const definitions: Omit<PcBuildStep, "products">[] = [
     { key: "mouse", title: "Choose your mouse", shortTitle: "Mouse", description: "Choose precise, comfortable control.", required: false, setupOnly: true, filterHints: ["connectivity", "sensor", "buttons"] },
     { key: "audio", title: "Choose your audio", shortTitle: "Audio", description: "Add a headset or speakers to finish your setup.", required: false, setupOnly: true, filterHints: ["connectivity", "type"] },
 ];
-const paths: Record<PcBuildStepKey, string[]> = {
-    cpu: ["Components/CPU/"], motherboard: ["Components/Motherboards/"], memory: ["Components/Memory/Desktop memory"], storage: ["Components/Solid state drives/Consumer", "Components/Hard disk drives"], graphics: ["Components/Graphics cards/"], power: ["Components/Power supplies/"], case: ["Components/Chassis/"], cooling: ["Components/Cooling/"], monitor: ["Computer peripherals/Monitors/"], keyboard: ["Computer peripherals/Keyboards/"], mouse: ["Computer peripherals/Mice/"], audio: ["Computer peripherals/Headsets/", "Computer peripherals/Speakers"],
+const capabilities: Record<PcBuildStepKey, CatalogueCapability> = {
+    cpu: "CPU", motherboard: "MOTHERBOARD", memory: "MEMORY", storage: "STORAGE", graphics: "GRAPHICS_CARD", power: "POWER_SUPPLY", case: "PC_CASE", cooling: "COOLING", monitor: "MONITOR", keyboard: "KEYBOARD", mouse: "MOUSE", audio: "HEADSET",
 };
-export function productMatchesPcBuildStep(stepKey: PcBuildStepKey, categoryPath: string | null | undefined) { return paths[stepKey].some(path => categoryPath?.startsWith(path)); }
+export function productMatchesPcBuildStep(stepKey: PcBuildStepKey, categoryPath: string | null | undefined, name?: string | null, category?: string | null) { return productHasCapability({ categoryPath, name, category }, capabilities[stepKey]); }
 const stringSpecs = (value: unknown) => {
     if (!value || typeof value !== "object" || Array.isArray(value))
         return {};
@@ -49,8 +50,8 @@ const stringSpecs = (value: unknown) => {
 };
 export async function getPcBuilderSteps(): Promise<PcBuildStep[]> {
     const rows = await prisma.supplierCatalogueProduct.findMany({ where: {
-            ...{ active: true, availability: "IN_STOCK", stock: { gt: 0 }, costPrice: { gt: 0 }, images: { isEmpty: false }, OR: Object.values(paths).flat().map(path => ({ categoryPath: { startsWith: path } })) },
+            ...{ active: true, availability: "IN_STOCK", stock: { gt: 0 }, costPrice: { gt: 0 }, images: { isEmpty: false }, OR: Object.values(capabilities).map(supplierCapabilityWhere) },
             ...await sellableSupplierWhere()
-        }, select: { id: true, name: true, slug: true, supplierSku: true, brand: true, images: true, stock: true, costPrice: true, recommendedRetail: true, promotionalPrice: true, promotionStartsAt: true, promotionEndsAt: true, categoryPath: true, specifications: true }, orderBy: { costPrice: "asc" }, take: 700 });
-    return await Promise.all(definitions.map(async (step) => ({ ...step, products: await Promise.all(rows.filter(product => paths[step.key].some(path => product.categoryPath?.startsWith(path))).slice(0, 60).map(async (product) => { const retail = await supplierRetailPrice({ costPrice: product.costPrice!, recommendedRetail: product.recommendedRetail, promotionalPrice: product.promotionalPrice, promotionStartsAt: product.promotionStartsAt, promotionEndsAt: product.promotionEndsAt, special: isDailySpecial(product.id) }); return { id: product.id, name: product.name, slug: product.slug, sku: product.supplierSku, brand: product.brand, image: product.images[0] ?? null, price: (retail.salePrice ?? retail.regularPrice).toFixed(2), stock: product.stock, categoryPath: product.categoryPath ?? "", specifications: stringSpecs(product.specifications) }; })) })));
+        }, select: { id: true, name: true, slug: true, supplierSku: true, brand: true, category: true, images: true, stock: true, costPrice: true, recommendedRetail: true, promotionalPrice: true, promotionStartsAt: true, promotionEndsAt: true, categoryPath: true, specifications: true }, orderBy: [{ costPrice: "asc" }, { name: "asc" }], take: 1200 });
+    return await Promise.all(definitions.map(async (step) => ({ ...step, products: await Promise.all(rows.filter(product => productMatchesPcBuildStep(step.key, product.categoryPath, product.name, product.category)).slice(0, 60).map(async (product) => { const retail = await supplierRetailPrice({ costPrice: product.costPrice!, recommendedRetail: product.recommendedRetail, promotionalPrice: product.promotionalPrice, promotionStartsAt: product.promotionStartsAt, promotionEndsAt: product.promotionEndsAt, special: isDailySpecial(product.id) }); return { id: product.id, name: product.name, slug: product.slug, sku: product.supplierSku, brand: product.brand, image: product.images[0] ?? null, price: (retail.salePrice ?? retail.regularPrice).toFixed(2), stock: product.stock, categoryPath: product.categoryPath ?? "", specifications: stringSpecs(product.specifications) }; })) })));
 }

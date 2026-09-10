@@ -12,6 +12,8 @@ import { prisma } from "@/lib/prisma";
 import { createSupabaseAdmin } from "@/lib/supabase";
 import { generateBlogSocialContent } from "@/domain/marketing/social-content";
 import { marketingBusinessRules } from "@/config/business-facts";
+import { resolveCatalogueReferences } from "@/domain/catalogue/admin-catalogue";
+import { blogSourceEntries } from "@/domain/blog/related-products";
 
 const sourceSchema = z.object({ title: z.string().trim().min(1).max(240), url: z.string().url() });
 const draftSchema = z.object({
@@ -197,7 +199,10 @@ export async function saveBlogPost(formData: FormData) {
   if (data.status === "PUBLISHED") await requirePermission("marketing.content.publish");
   if (data.coverImageUrl && !data.coverImageAlt) throw new Error("Alternative text is required when a cover image is used.");
   const previous = await prisma.blogPost.findUniqueOrThrow({ where: { id: data.id } });
-  const post = await prisma.blogPost.update({ where: { id: data.id }, data: { ...data, coverImageUrl: data.coverImageUrl || null, coverImageAlt: data.coverImageAlt || null, metaTitle: data.metaTitle || null, metaDescription: data.metaDescription || null, slug: await uniqueSlug(data.title, data.id), publishedAt: data.status === "PUBLISHED" ? previous.publishedAt ?? new Date() : null, updatedById: ctx.user.id } });
+  const related = await resolveCatalogueReferences(formData.getAll("relatedProductRefs").map(String));
+  const research = blogSourceEntries(previous.sources).research;
+  const sources = [...research, ...related.map(product => ({ kind: "PRODUCT", title: product.name, url: product.publicPath, catalogueReference: product.reference, image: product.image }))];
+  const post = await prisma.blogPost.update({ where: { id: data.id }, data: { ...data, sources, coverImageUrl: data.coverImageUrl || null, coverImageAlt: data.coverImageAlt || null, metaTitle: data.metaTitle || null, metaDescription: data.metaDescription || null, slug: await uniqueSlug(data.title, data.id), publishedAt: data.status === "PUBLISHED" ? previous.publishedAt ?? new Date() : null, updatedById: ctx.user.id } });
   await prisma.auditLog.create({ data: { actorId: ctx.user.id, action: "blog.save", entityType: "BlogPost", entityId: post.id, before: { title: previous.title, status: previous.status }, after: { title: post.title, status: post.status } } });
   revalidatePath("/blog"); revalidatePath(`/blog/${post.slug}`); revalidatePath("/sitemap.xml"); revalidatePath(`/admin/marketing/blog/${post.id}`);
   redirect(`/admin/marketing/blog/${post.id}?saved=1`);

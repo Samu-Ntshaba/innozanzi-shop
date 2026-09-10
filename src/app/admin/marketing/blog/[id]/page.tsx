@@ -6,6 +6,8 @@ import { BlogGenerationStatus } from "@/components/admin/blog-generation-status"
 import { requirePermission } from "@/domain/auth/session";
 import { refreshBlogGeneration, regenerateBlogCover, saveBlogPost } from "@/domain/blog/actions";
 import { BLOG_AUDIENCES, BLOG_TOPICS } from "@/domain/blog/constants";
+import { blogSourceEntries } from "@/domain/blog/related-products";
+import { getAdminCatalogueOptions } from "@/domain/catalogue/admin-catalogue";
 
 export default async function EditBlogPost({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ generated?: string; generating?: string; saved?: string; image?: string }> }) {
   await requirePermission("marketing.content.view");
@@ -14,7 +16,9 @@ export default async function EditBlogPost({ params, searchParams }: { params: P
   const notice = await searchParams;
   const generation = post.sources && !Array.isArray(post.sources) ? (post.sources as { generation?: { status?: string; error?: string } }).generation : null;
   const isGenerating = generation?.status === "queued" || generation?.status === "in_progress";
-  const sources = Array.isArray(post.sources) ? post.sources as Array<{ title?: string; url?: string }> : [];
+  const { research: sources, products: relatedProducts } = blogSourceEntries(post.sources);
+  const catalogue = await getAdminCatalogueOptions();
+  const selectedReferences = new Set(relatedProducts.flatMap(product => product.catalogueReference ? [product.catalogueReference] : []));
   return <AdminPage title="Review article" description="Edit the draft, verify its sources and preview the public page before publishing." actions={<><Link className={secondaryButtonClass} href="/admin/marketing/blog">All articles</Link>{post.status === "PUBLISHED" ? <Link className={secondaryButtonClass} href={`/blog/${post.slug}`} target="_blank">View live</Link> : null}</>}>
     {isGenerating ? <BlogGenerationStatus/> : null}
     {generation?.status === "failed" ? <p className="border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">Article research failed. Return to the blog list and try again with a more specific direction. {generation.error ? <span className="block pt-1 text-xs">{generation.error}</span> : null}</p> : null}
@@ -33,6 +37,7 @@ export default async function EditBlogPost({ params, searchParams }: { params: P
             <label className="text-sm font-medium">Audience<select className={`${inputClass} mt-1 w-full`} name="audience" defaultValue={post.audience}>{BLOG_AUDIENCES.map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select></label>
           </div>
           <label className="text-sm font-medium">Article (Markdown)<textarea className={`${inputClass} mt-1 min-h-[34rem] w-full font-mono leading-6`} name="content" defaultValue={post.content} required/></label>
+          <label className="text-sm font-medium">Related catalogue products<select className={`${inputClass} mt-1 h-56 w-full`} name="relatedProductRefs" multiple defaultValue={[...selectedReferences]}>{catalogue.map(product => <option value={product.reference} key={product.reference}>{product.name} · {product.sku} · {product.supplierName ?? "Innozanzi"}</option>)}</select><span className="mt-1 block text-xs font-normal text-slate-500">Search inside the list, then hold Ctrl or Command to choose several. Only currently sellable products are available.</span></label>
           <label className="text-sm font-medium">Cover image URL<input className={`${inputClass} mt-1 w-full`} name="coverImageUrl" defaultValue={post.coverImageUrl ?? ""}/></label>
           <label className="text-sm font-medium">Cover image alternative text<input className={`${inputClass} mt-1 w-full`} name="coverImageAlt" defaultValue={post.coverImageAlt ?? ""}/></label>
           <div className="grid gap-3 md:grid-cols-2"><label className="text-sm font-medium">SEO title<input className={`${inputClass} mt-1 w-full`} name="metaTitle" defaultValue={post.metaTitle ?? ""}/></label><label className="text-sm font-medium">SEO description<textarea className={`${inputClass} mt-1 min-h-20 w-full`} name="metaDescription" defaultValue={post.metaDescription ?? ""}/></label></div>

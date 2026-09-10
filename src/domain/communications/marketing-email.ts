@@ -10,13 +10,16 @@ const absoluteImage = (path?: string | null) => {
 
 export type CampaignProduct = {
   name: string;
-  slug: string;
+  publicPath?: string;
+  slug?: string;
   sku: string;
   shortDescription: string | null;
   brand: string | null;
   category: string;
   imagePath: string | null;
 };
+
+const productPath = (product: CampaignProduct) => product.publicPath ?? `/products/${encodeURIComponent(product.slug ?? "")}`;
 
 export type CampaignCopy = {
   subject: string;
@@ -37,7 +40,7 @@ const productCard = (product: CampaignProduct, blurb: string, accent: string) =>
         <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:${accent}">${escapeHtml(product.brand ?? product.category)}</div>
         <h2 style="margin:6px 0 8px;font-size:18px;line-height:1.3;color:#071b33">${escapeHtml(product.name)}</h2>
         <p style="margin:0 0 14px;font-size:14px;line-height:1.6;color:#516273">${escapeHtml(blurb)}</p>
-        <a href="${siteUrl()}/products/${encodeURIComponent(product.slug)}" style="font-size:13px;font-weight:700;color:${accent};text-decoration:none">View product&nbsp; →</a>
+        <a href="${siteUrl()}${escapeHtml(productPath(product))}" style="font-size:13px;font-weight:700;color:${accent};text-decoration:none">View product&nbsp; →</a>
       </td>
     </tr>
   </table>`;
@@ -49,7 +52,7 @@ const spotlightCard = (product: CampaignProduct, blurb: string, accent: string) 
       <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:${accent}">${escapeHtml(product.brand ?? product.category)}</div>
       <h2 style="margin:7px 0 9px;font-size:22px;line-height:1.3;color:#071b33">${escapeHtml(product.name)}</h2>
       <p style="margin:0 0 15px;font-size:14px;line-height:1.7;color:#516273">${escapeHtml(blurb)}</p>
-      <a href="${siteUrl()}/products/${encodeURIComponent(product.slug)}" style="display:inline-block;border-radius:7px;background:#071b33;color:#ffffff;text-decoration:none;padding:11px 16px;font-size:13px;font-weight:700">View product</a>
+      <a href="${siteUrl()}${escapeHtml(productPath(product))}" style="display:inline-block;border-radius:7px;background:#071b33;color:#ffffff;text-decoration:none;padding:11px 16px;font-size:13px;font-weight:700">View product</a>
     </td></tr>
   </table>`;
 
