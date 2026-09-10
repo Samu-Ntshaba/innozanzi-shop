@@ -327,7 +327,7 @@ export async function getProductBySlug(slug: string, includeTestData = false) {
             specifications: { orderBy: { sortOrder: "asc" } },
             documents: { where: { isPublic: true } },
             inventory: { where: { variantId: null }, take: 1 },
-            reviews: { where: { status: "APPROVED" }, orderBy: { createdAt: "desc" }, take: 10, include: { user: { select: { name: true } } } },
+            reviews: { where: { status: { in: ["APPROVED", "PENDING"] } }, orderBy: { createdAt: "desc" }, take: 20, include: { user: { select: { name: true } } } },
         },
     });
 }

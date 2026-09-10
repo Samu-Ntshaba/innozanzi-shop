@@ -7,7 +7,7 @@ import { prisma } from "@/lib/prisma";
 const schema = z.object({
     sourceType: z.enum(["LOCAL", "SUPPLIER"]),
     productId: z.string().uuid(),
-    returnPath: z.string().startsWith("/").max(500),
+    returnPath: z.string().regex(/^\/(?:products|supplier-products)\/[a-z0-9-]+$/).max(500),
     rating: z.coerce.number().int().min(1).max(5),
     title: z.string().trim().min(3).max(120),
     body: z.string().trim().min(10).max(2000),
@@ -33,15 +33,15 @@ export async function submitProductReview(formData: FormData) {
     if (isLocal) {
         await prisma.review.upsert({
             where: { productId_userId: { productId: data.productId, userId: context.user.id } },
-            create: { productId: data.productId, userId: context.user.id, rating: data.rating, title: data.title, body: data.body, isVerifiedPurchase: Boolean(verifiedPurchase), status: "PENDING" },
-            update: { rating: data.rating, title: data.title, body: data.body, isVerifiedPurchase: Boolean(verifiedPurchase), status: "PENDING" },
+            create: { productId: data.productId, userId: context.user.id, rating: data.rating, title: data.title, body: data.body, isVerifiedPurchase: Boolean(verifiedPurchase), status: "APPROVED" },
+            update: { rating: data.rating, title: data.title, body: data.body, isVerifiedPurchase: Boolean(verifiedPurchase), status: "APPROVED" },
         });
     }
     else {
         await prisma.review.upsert({
             where: { supplierCatalogueProductId_userId: { supplierCatalogueProductId: data.productId, userId: context.user.id } },
-            create: { supplierCatalogueProductId: data.productId, userId: context.user.id, rating: data.rating, title: data.title, body: data.body, isVerifiedPurchase: Boolean(verifiedPurchase), status: "PENDING" },
-            update: { rating: data.rating, title: data.title, body: data.body, isVerifiedPurchase: Boolean(verifiedPurchase), status: "PENDING" },
+            create: { supplierCatalogueProductId: data.productId, userId: context.user.id, rating: data.rating, title: data.title, body: data.body, isVerifiedPurchase: Boolean(verifiedPurchase), status: "APPROVED" },
+            update: { rating: data.rating, title: data.title, body: data.body, isVerifiedPurchase: Boolean(verifiedPurchase), status: "APPROVED" },
         });
     }
     revalidatePath(data.returnPath);
