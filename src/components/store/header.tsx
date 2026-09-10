@@ -1,4 +1,4 @@
-import { CircleUserRound, Headphones, LogIn, Search, ShoppingCart, UserPlus } from "lucide-react";
+import { CircleUserRound, Headphones, LogIn, ShoppingCart, UserPlus } from "lucide-react";
 import Link from "next/link";
 import { BrandLogo } from "@/components/brand-logo";
 import { getCurrentCart } from "@/domain/cart/service";
@@ -6,6 +6,7 @@ import { getAuthContext } from "@/domain/auth/session";
 import { prisma } from "@/lib/prisma";
 import { MobileSearch } from "@/components/store/mobile-search";
 import { MobileMenu } from "@/components/store/mobile-menu";
+import { PredictiveSearch } from "@/components/store/predictive-search";
 
 export async function StoreHeader() {
   let cartCount = 0;
@@ -24,12 +25,7 @@ export async function StoreHeader() {
     <div className="mx-auto grid max-w-7xl grid-cols-[2.5rem_minmax(0,1fr)_auto] items-center gap-x-1 gap-y-2 px-2 py-2 sm:grid-cols-[2.75rem_minmax(0,1fr)_auto] sm:gap-2 sm:px-6 sm:py-3 lg:flex lg:flex-nowrap lg:px-8">
       <MobileMenu categories={categories} signedIn={Boolean(auth)}/>
       <BrandLogo className="ml-1 w-28 sm:ml-0 sm:w-44" priority />
-      <form action="/shop" className="hidden min-w-0 flex-1 lg:block">
-        <label className="flex w-full items-center overflow-hidden rounded-md border border-slate-300 bg-white focus-within:border-sky-700 focus-within:ring-1 focus-within:ring-sky-700">
-          <input className="h-10 min-w-0 flex-1 px-3 text-base outline-none sm:h-11 sm:px-4 sm:text-sm" name="search" enterKeyHint="search" autoComplete="off" aria-label="Search products" placeholder="Search products" />
-          <button aria-label="Search products" className="grid h-10 w-11 place-items-center text-slate-700 hover:bg-slate-50 sm:h-11 sm:w-12" type="submit"><Search className="size-5" /></button>
-        </label>
-      </form>
+      <div className="hidden min-w-0 flex-1 lg:block"><PredictiveSearch/></div>
       <nav aria-label="Customer shortcuts" className="ml-auto flex shrink-0 items-center gap-1">
         <MobileSearch/>
         <Link className="hidden items-center gap-2 whitespace-nowrap rounded-md p-2 text-sm font-medium text-slate-700 hover:bg-slate-50 lg:flex" href="/contact"><Headphones className="size-5" /><span className="hidden 2xl:inline">Help</span></Link>
