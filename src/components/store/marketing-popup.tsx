@@ -15,7 +15,7 @@ export type StorePopup = {
   audience:"ALL"|"GUEST"|"AUTHENTICATED";
   pathMode:"ALL"|"INCLUDE"|"EXCLUDE";
   paths:string[];
-  frequency:"ONCE_SESSION"|"ONCE_7_DAYS"|"EVERY_VISIT";
+  frequency:"ONCE_SESSION"|"ONCE_7_DAYS"|"ONCE_EVER"|"EVERY_VISIT";
   tone:"INFO"|"NOTICE"|"SUCCESS";
 };
 
@@ -32,6 +32,7 @@ export function MarketingPopup({popups,isAuthenticated}:{popups:StorePopup[];isA
       if(item.pathMode==="INCLUDE"&&!pathMatch)return false;
       if(item.pathMode==="EXCLUDE"&&pathMatch)return false;
       if(item.frequency==="ONCE_SESSION"&&sessionStorage.getItem(`popup:${item.id}`))return false;
+      if(item.frequency==="ONCE_EVER"&&localStorage.getItem(`popup:${item.id}`))return false;
       if(item.frequency==="ONCE_7_DAYS"){
         const dismissed=Number(localStorage.getItem(`popup:${item.id}`)??0);
         if(dismissed>Date.now()-7*24*60*60*1000)return false;
@@ -44,6 +45,7 @@ export function MarketingPopup({popups,isAuthenticated}:{popups:StorePopup[];isA
   if(!active)return null;
   const close=()=>{
     if(active.frequency==="ONCE_SESSION")sessionStorage.setItem(`popup:${active.id}`,"1");
+    if(active.frequency==="ONCE_EVER")localStorage.setItem(`popup:${active.id}`,"1");
     if(active.frequency==="ONCE_7_DAYS")localStorage.setItem(`popup:${active.id}`,String(Date.now()));
     setActive(null);
   };
@@ -57,7 +59,7 @@ export function MarketingPopup({popups,isAuthenticated}:{popups:StorePopup[];isA
         <h2 className="mt-2 text-2xl font-black leading-tight text-slate-950" id={`popup-title-${active.id}`}>{active.heading}</h2>
         <p className="mt-3 text-base leading-7 text-slate-600">{active.body}</p>
         <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:items-center">
-          <button className="min-h-11 px-5 text-sm font-bold text-slate-600 hover:text-slate-950" onClick={close} type="button">Continue browsing</button>
+          <button className="min-h-11 px-5 text-sm font-bold text-slate-600 hover:text-slate-950" onClick={close} type="button">{active.frequency==="ONCE_EVER"?"I understand":"Continue browsing"}</button>
           {active.buttonLink&&active.buttonLabel?<Link className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[#071b33] px-5 text-sm font-bold text-white hover:bg-sky-800" href={active.buttonLink} onClick={close}>{active.buttonLabel}</Link>:null}
         </div>
       </div>

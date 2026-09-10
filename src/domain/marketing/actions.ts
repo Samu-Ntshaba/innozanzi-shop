@@ -35,7 +35,7 @@ export async function saveMarketingPopup(formData:FormData){
     audience:z.enum(["ALL","GUEST","AUTHENTICATED"]),
     pathMode:z.enum(["ALL","INCLUDE","EXCLUDE"]),
     paths:text(1000),
-    frequency:z.enum(["ONCE_SESSION","ONCE_7_DAYS","EVERY_VISIT"]),
+    frequency:z.enum(["ONCE_SESSION","ONCE_7_DAYS","ONCE_EVER","EVERY_VISIT"]),
     tone:z.enum(["INFO","NOTICE","SUCCESS"]),
     displayOrder:z.coerce.number().int().min(0).max(1000),
     startsAt:optionalDate,
