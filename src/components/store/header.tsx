@@ -7,12 +7,13 @@ import { prisma } from "@/lib/prisma";
 import { MobileSearch } from "@/components/store/mobile-search";
 import { MobileMenu } from "@/components/store/mobile-menu";
 import { PredictiveSearch } from "@/components/store/predictive-search";
+import { sellableSupplierWhere } from "@/integrations/suppliers/availability";
 
 export async function StoreHeader() {
   let cartCount = 0;
   const [auth,supplierCategories]=await Promise.all([
     getAuthContext(),
-    prisma.supplierCatalogueProduct.groupBy({by:["category"],where:{active:true,category:{not:null},images:{isEmpty:false}},_count:true,orderBy:{_count:{category:"desc"}},take:4}).catch(()=>[]),
+    sellableSupplierWhere().then(where=>prisma.supplierCatalogueProduct.groupBy({by:["category"],where:{category:{not:null},...where},_count:true,orderBy:{_count:{category:"desc"}},take:4})).catch(()=>[]),
   ]);
   const categories=supplierCategories.map(item=>item.category).filter((name):name is string=>Boolean(name));
   try {

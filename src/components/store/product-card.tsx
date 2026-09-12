@@ -22,8 +22,8 @@ export function ProductCard({ product,recommendationId }: { product: ProductCard
       <div className="flex min-w-0 flex-1 flex-col border-t border-slate-100 p-2.5 sm:p-3">
         <p className="truncate text-[10px] font-semibold uppercase tracking-wide text-slate-500 sm:text-[11px]">{product.brand?.name ?? product.category.name}</p>
         <Link href={href} className="mt-1 line-clamp-2 min-h-9 text-[13px] font-medium leading-[18px] text-slate-900 group-hover:text-sky-800 sm:min-h-10 sm:text-sm sm:leading-5">{product.name}</Link>
-        <p className="mt-2 flex items-center gap-1 text-[11px] font-medium text-slate-600">
-          {inStock ? <Check className="size-3.5" /> : <PackageX className="size-3.5" />}{inStock ? "In stock" : "Check availability"}
+        <p className={`mt-2 flex w-fit items-center gap-1 rounded-full px-2 py-1 text-[10px] font-bold sm:text-[11px] ${inStock ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>
+          {inStock ? <Check className="size-3.5" /> : <PackageX className="size-3.5" />}{inStock ? "Available now" : "Check availability"}
         </p>
         <div className="mt-auto pt-2.5">
           <div className="flex items-end justify-between gap-2">

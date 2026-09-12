@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { supplierBrandAsset, supplierBrandAssets } from "@/config/supplier-marketing";
+import { supplierBrandAsset } from "@/config/supplier-marketing";
 import { sellableSupplierWhere } from "@/integrations/suppliers/availability";
 import { prisma } from "@/lib/prisma";
 
@@ -14,8 +14,9 @@ export async function BrandPartners(){
   try{
     const rows=await prisma.supplierCatalogueProduct.groupBy({by:["brand"],where:{active:true,availability:"IN_STOCK",stock:{gt:0},brand:{not:null},...await sellableSupplierWhere()},_count:{brand:true},orderBy:{_count:{brand:"desc"}},take:18});
     popular=rows.flatMap(row=>{if(!row.brand)return[];const asset=supplierBrandAsset(row.brand);return[{name:asset?.name??row.brand,slug:asset?.slug??row.brand,logo:asset?.logo}]});
-  }catch{/* The static rail remains available if catalogue data is temporarily unavailable. */}
-  const partners=[...popular,...supplierBrandAssets].filter((partner,index,array)=>array.findIndex(item=>item.name.toLowerCase()===partner.name.toLowerCase())===index).slice(0,20);
+  }catch{/* Hide the rail when live catalogue availability cannot be confirmed. */}
+  const partners=popular.filter((partner,index,array)=>array.findIndex(item=>item.name.toLowerCase()===partner.name.toLowerCase())===index).slice(0,20);
+  if(!partners.length)return null;
   return <section aria-labelledby="brand-partners-title" className="border-y border-slate-200 bg-white">
     <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
       <div className="flex items-center justify-between gap-4"><h2 className="text-xl font-semibold text-slate-950 sm:text-2xl" id="brand-partners-title">Brands available in our catalogue</h2><Link className="shrink-0 text-sm font-semibold text-sky-800 hover:underline" href="/shop">View all products</Link></div>

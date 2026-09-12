@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { CategoryIcon } from "@/components/store/category-icon";
 import { prisma } from "@/lib/prisma";
 import { sellableSupplierWhere } from "@/integrations/suppliers/availability";
+import { sellableManualWhere } from "@/domain/catalogue/queries";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
@@ -13,7 +14,7 @@ export const metadata: Metadata = {
 
 export default async function CategoriesPage() {
   const [manual,supplier] = await Promise.all([prisma.category.findMany({
-    where: { isActive: true, products: { some: { status: "PUBLISHED", deletedAt: null, isTestData: false } } },
+    where: { isActive: true, products: { some: sellableManualWhere } },
     orderBy: [{ displayOrder: "asc" }, { name: "asc" }],
     select: { id: true, name: true, slug: true, description: true, imagePath: true },
   }),prisma.supplierCatalogueProduct.groupBy({by:["category"],where:{active:true,category:{not:null},images:{isEmpty:false},...await sellableSupplierWhere()},_count:true,orderBy:{category:"asc"}})]);

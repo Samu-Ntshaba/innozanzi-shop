@@ -6,6 +6,7 @@ import { homepageShelf } from "./homepage-shelves";
 import type { Prisma } from "@/generated/prisma/client";
 import { supplierCapabilityWhere } from "./taxonomy";
 import { homepageShowcaseWindow, premiumShowcase } from "./homepage-rotation";
+import { mergeCatalogueFacets } from "./facets";
 export type ProductMarketingFlag = "PROMOTION" | "UNBOXED" | "LAST_CHANCE" | "SPECIAL";
 export function supplierMarketingFlags(categoryPath: string | null | undefined, promotionActive: boolean, special: boolean): ProductMarketingFlag[] {
     const path = categoryPath?.toLowerCase() ?? "", flags: ProductMarketingFlag[] = [];
@@ -35,7 +36,7 @@ const productCardSelect = {
     images: { where: { isPrimary: true }, take: 1, select: { path: true, altText: true } },
 } as const;
 
-const sellableManualWhere:Prisma.ProductWhereInput = {
+export const sellableManualWhere:Prisma.ProductWhereInput = {
     status: "PUBLISHED" as const,
     deletedAt: null,
     isTestData: false,
@@ -237,31 +238,41 @@ export async function getCatalogue(input: {
     const businessComputers = category === "business-computers";
     const catalogueNow = new Date();
     const promotionsOnly = input.promotion === "active" || input.collection === "promotions";
+    const manualSearchWhere = search ? { OR: searchTerms.flatMap(term => [{ name: { contains: term, mode: "insensitive" as const } }, { sku: { contains: term, mode: "insensitive" as const } }, { shortDescription: { contains: term, mode: "insensitive" as const } }, { description: { contains: term, mode: "insensitive" as const } }, { brand: { name: { contains: term, mode: "insensitive" as const } } }, { category: { name: { contains: term, mode: "insensitive" as const } } }]) } : {};
+    const manualCategoryWhere = category && !businessComputers ? { category: { slug: category } } : {};
+    const manualBrandWhere = input.brand ? { brand: { slug: input.brand } } : {};
     const where = {
         ...sellableManualWhere,
-        ...(search ? { OR: searchTerms.flatMap(term => [{ name: { contains: term, mode: "insensitive" as const } }, { sku: { contains: term, mode: "insensitive" as const } }, { shortDescription: { contains: term, mode: "insensitive" as const } }, { description: { contains: term, mode: "insensitive" as const } }, { brand: { name: { contains: term, mode: "insensitive" as const } } }, { category: { name: { contains: term, mode: "insensitive" as const } } }]) } : {}),
-        ...(category && !businessComputers ? { category: { slug: category } } : {}),
-        ...(input.brand ? { brand: { slug: input.brand } } : {}),
+        ...manualSearchWhere,
+        ...manualCategoryWhere,
+        ...manualBrandWhere,
     };
     const orderBy = input.sort === "name" ? { name: "asc" as const } : { publishedAt: "desc" as const };
     try {
-        const supplierWhere = { active: true, AND: [...(search ? [{ OR: searchTerms.flatMap(term => [{ name: { contains: term, mode: "insensitive" as const } }, { supplierSku: { contains: term, mode: "insensitive" as const } }, { manufacturerSku: { contains: term, mode: "insensitive" as const } }, { barcode: { contains: term, mode: "insensitive" as const } }, { brand: { contains: term, mode: "insensitive" as const } }, { category: { contains: term, mode: "insensitive" as const } }, { categoryPath: { contains: term, mode: "insensitive" as const } }, { description: { contains: term, mode: "insensitive" as const } }, { shortDescription: { contains: term, mode: "insensitive" as const } }]) }] : []), ...(businessComputers ? [{ category: "Computers", OR: [{ categoryPath: { contains: "Creator", mode: "insensitive" as const } }, { categoryPath: { contains: "Notebooks", mode: "insensitive" as const } }, { name: { contains: "workstation", mode: "insensitive" as const } }] }] : input.category ? [{ category: { equals: input.category, mode: "insensitive" as const } }] : []), ...(input.collection === "unboxed" ? [{ categoryPath: { contains: "|Unboxed", mode: "insensitive" as const } }] : []), ...(input.collection === "last-chance" ? [{ categoryPath: { contains: "|Last Chance", mode: "insensitive" as const } }] : []), ...(promotionsOnly ? [{ OR: [{ categoryPath: { startsWith: "On Promo/", mode: "insensitive" as const } }, { promotionalPrice: { not: null }, AND: [{ OR: [{ promotionStartsAt: null }, { promotionStartsAt: { lte: catalogueNow } }] }, { OR: [{ promotionEndsAt: null }, { promotionEndsAt: { gte: catalogueNow } }] }] }] }] : [])], ...(input.brand ? { brand: { equals: input.brand, mode: "insensitive" as const } } : {}), ...(input.availability === "in-stock" ? { availability: "IN_STOCK" } : {}) };
+        const supplierSearchConditions = search ? [{ OR: searchTerms.flatMap(term => [{ name: { contains: term, mode: "insensitive" as const } }, { supplierSku: { contains: term, mode: "insensitive" as const } }, { manufacturerSku: { contains: term, mode: "insensitive" as const } }, { barcode: { contains: term, mode: "insensitive" as const } }, { brand: { contains: term, mode: "insensitive" as const } }, { category: { contains: term, mode: "insensitive" as const } }, { categoryPath: { contains: term, mode: "insensitive" as const } }, { description: { contains: term, mode: "insensitive" as const } }, { shortDescription: { contains: term, mode: "insensitive" as const } }]) }] : [];
+        const supplierCategoryConditions = businessComputers ? [{ category: "Computers", OR: [{ categoryPath: { contains: "Creator", mode: "insensitive" as const } }, { categoryPath: { contains: "Notebooks", mode: "insensitive" as const } }, { name: { contains: "workstation", mode: "insensitive" as const } }] }] : input.category ? [{ category: { equals: input.category, mode: "insensitive" as const } }] : [];
+        const supplierCollectionConditions = [...(input.collection === "unboxed" ? [{ categoryPath: { contains: "|Unboxed", mode: "insensitive" as const } }] : []), ...(input.collection === "last-chance" ? [{ categoryPath: { contains: "|Last Chance", mode: "insensitive" as const } }] : []), ...(promotionsOnly ? [{ OR: [{ categoryPath: { startsWith: "On Promo/", mode: "insensitive" as const } }, { promotionalPrice: { not: null }, AND: [{ OR: [{ promotionStartsAt: null }, { promotionStartsAt: { lte: catalogueNow } }] }, { OR: [{ promotionEndsAt: null }, { promotionEndsAt: { gte: catalogueNow } }] }] }] }] : [])];
+        const supplierWhere = { active: true, AND: [...supplierSearchConditions, ...supplierCategoryConditions, ...supplierCollectionConditions], ...(input.brand ? { brand: { equals: input.brand, mode: "insensitive" as const } } : {}), ...(input.availability === "in-stock" ? { availability: "IN_STOCK" } : {}) };
         const supplierOnly = Boolean(input.promotion || input.collection);
+        const supplierSellable = await sellableSupplierWhere();
         const [supplierTotal, manualTotal, supplierCategories, supplierBrands, manualCategories, manualBrands] = await Promise.all([
             prisma.supplierCatalogueProduct.count({ where: {
                     ...supplierWhere,
-                    ...await sellableSupplierWhere()
+                    ...supplierSellable
                 } }), supplierOnly ? Promise.resolve(0) : prisma.product.count({ where }),
             prisma.supplierCatalogueProduct.findMany({ where: {
-                    ...{ active: true, category: { not: null } },
-                    ...await sellableSupplierWhere()
+                    ...{ active: true, category: { not: null }, AND: [...supplierSearchConditions, ...supplierCollectionConditions], ...(input.brand ? { brand: { equals: input.brand, mode: "insensitive" as const } } : {}) },
+                    ...supplierSellable
                 }, distinct: ["category"], select: { category: true }, orderBy: { category: "asc" } }),
             prisma.supplierCatalogueProduct.findMany({ where: {
-                    ...{ active: true, brand: { not: null } },
-                    ...await sellableSupplierWhere()
+                    ...{ active: true, brand: { not: null }, AND: [...supplierSearchConditions, ...supplierCategoryConditions, ...supplierCollectionConditions] },
+                    ...supplierSellable
                 }, distinct: ["brand"], select: { brand: true }, orderBy: { brand: "asc" } }),
-            prisma.category.findMany({ where: { isActive: true }, orderBy: { name: "asc" }, select: { name: true, slug: true } }), prisma.brand.findMany({ where: { isActive: true }, orderBy: { name: "asc" }, select: { name: true, slug: true } })
+            supplierOnly ? Promise.resolve([]) : prisma.category.findMany({ where: { isActive: true, products: { some: { ...sellableManualWhere, ...manualSearchWhere, ...manualBrandWhere } } }, orderBy: { name: "asc" }, select: { name: true, slug: true } }),
+            supplierOnly ? Promise.resolve([]) : prisma.brand.findMany({ where: { isActive: true, products: { some: { ...sellableManualWhere, ...manualSearchWhere, ...manualCategoryWhere } } }, orderBy: { name: "asc" }, select: { name: true, slug: true } })
         ]);
+        const categories = mergeCatalogueFacets(supplierCategories.map(x => ({ name: x.category!, slug: x.category! })), manualCategories);
+        const brands = mergeCatalogueFacets(supplierBrands.map(x => ({ name: x.brand!, slug: x.brand! })), manualBrands);
         const skip = (page - 1) * pageSize;
         const priceSort = input.sort === "price-asc" || input.sort === "price-desc";
         if (priceSort) {
@@ -273,8 +284,6 @@ export async function getCatalogue(input: {
             const effectivePrice = (product: ProductCardData) => Number(product.salePrice?.toString() ?? product.regularPrice?.toString() ?? Number.POSITIVE_INFINITY);
             allProducts.sort((a, b) => priceSort && input.sort === "price-desc" ? effectivePrice(b) - effectivePrice(a) : effectivePrice(a) - effectivePrice(b));
             const total = allProducts.length;
-            const categories = [...supplierCategories.map(x => ({ name: x.category!, slug: x.category! })), ...manualCategories];
-            const brands = [...supplierBrands.map(x => ({ name: x.brand!, slug: x.brand! })), ...manualBrands];
             return { products: allProducts.slice(skip, skip + pageSize), total, page, pages: Math.max(1, Math.ceil(total / pageSize)), categories, brands, matchMode: search && searchTerms.length > 1 ? "expanded" as const : "exact" as const };
         }
         const supplierEligibility = { ...supplierWhere, ...await sellableSupplierWhere() };
@@ -308,8 +317,6 @@ export async function getCatalogue(input: {
             : [];
         const products = [...await Promise.all(supplierProducts.map(supplierCard)), ...manualProducts];
         const total = supplierTotal + manualTotal;
-        const categories = [...supplierCategories.map(x => ({ name: x.category!, slug: x.category! })), ...manualCategories];
-        const brands = [...supplierBrands.map(x => ({ name: x.brand!, slug: x.brand! })), ...manualBrands];
         return { products, total, page, pages: Math.max(1, Math.ceil(total / pageSize)), categories, brands, matchMode: search && searchTerms.length > 1 ? "expanded" as const : "exact" as const };
     }
     catch (error) {
