@@ -3,6 +3,7 @@ import { enqueueEmail } from "@/integrations/email/outbox";
 import type { EmailMessage } from "@/integrations/email/provider";
 import { supportEmail } from "@/lib/support";
 import { sendMobileAdminPush } from "@/domain/mobile-admin/push";
+import { uniqueEmailRecipients } from "./recipients";
 
 export const STAFF_EMAIL_EVENTS = [
   ["USER_CREATED", "New user created", "A new account is created or invited."],
@@ -32,6 +33,25 @@ export async function staffEmailRecipients(eventKey: StaffEmailEvent) {
   });
   const unique = new Map(users.map((user) => [user.email.toLowerCase(), user]));
   return [...unique.values()];
+}
+
+export async function helpDeskCreatedRecipients() {
+  const [subscribed, administrators] = await Promise.all([
+    staffEmailRecipients("HELP_DESK_CREATED"),
+    prisma.user.findMany({
+      where: {
+        status: "ACTIVE",
+        deletedAt: null,
+        roles: { some: { role: { slug: { in: ["super-administrator", "administrator"] } } } },
+      },
+      select: { id: true, email: true },
+    }),
+  ]);
+  return uniqueEmailRecipients(
+    [{ id: "", email: supportEmail }],
+    administrators,
+    subscribed,
+  );
 }
 
 export async function sendStaffEmail(eventKey: StaffEmailEvent, message: EmailMessage) {

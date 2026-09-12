@@ -22,7 +22,7 @@ import {
   renderProductCampaign,
   type CampaignCopy,
 } from "@/domain/communications/marketing-email";
-import { staffEmailRecipients } from "@/domain/notifications/role-email";
+import { helpDeskCreatedRecipients, staffEmailRecipients } from "@/domain/notifications/role-email";
 import { resolveCatalogueReferences } from "@/domain/catalogue/admin-catalogue";
 
 const email = z.string().trim().toLowerCase().email().max(254);
@@ -36,6 +36,7 @@ const supportSchema = z.object({
     "ORDER",
     "PAYMENT",
     "PRODUCT",
+    "DELIVERY",
     "TECHNICAL",
     "ACCOUNT",
     "OTHER",
@@ -49,10 +50,26 @@ const supportDepartment: Record<z.infer<typeof supportSchema>["category"], strin
   PRODUCT: "Sales & Quotations",
   ORDER: "Order Operations",
   PAYMENT: "Finance",
+  DELIVERY: "Order Operations",
   TECHNICAL: "Technical Support",
   ACCOUNT: "Customer Care",
   OTHER: "Customer Care",
 };
+
+async function notifyHelpDeskCreated(input: { ticketNumber: string; department: string; name: string; email: string; subject: string; message: string; customerId?: string }) {
+  let recipients = [{ id: "", email: process.env.SUPPORT_EMAIL ?? "support@innozanzi.co.za" }];
+  try {
+    recipients = await helpDeskCreatedRecipients();
+  } catch (error) {
+    console.error("Help-desk staff recipients could not be resolved; using support mailbox", { ticketNumber: input.ticketNumber, error });
+  }
+  const deliveries = await Promise.allSettled([
+    enqueueEmail(emailTemplates.helpDeskReceived(input.email, input.name, input.ticketNumber), input.customerId),
+    ...recipients.map(recipient => enqueueEmail(emailTemplates.helpDeskDepartmentAlert(recipient.email, input.ticketNumber, input.department, input.name, input.email, input.subject, input.message), recipient.id || undefined)),
+  ]);
+  const failed = deliveries.filter(result => result.status === "rejected");
+  if (failed.length) console.error("Some help-desk creation emails were queued for retry", { ticketNumber: input.ticketNumber, failed: failed.length });
+}
 
 export async function subscribeNewsletter(formData: FormData) {
   const data = z
@@ -129,16 +146,7 @@ export async function submitHelpDeskTicket(formData: FormData) {
   const ticketNumber = `SUP-${Date.now().toString(36).toUpperCase()}`;
   const departmentName = supportDepartment[data.category];
   const department = await prisma.department.findFirst({ where: { companyId: null, name: departmentName, isActive: true }, select: { id: true } });
-  const subscribedStaff = await staffEmailRecipients("HELP_DESK_CREATED");
-  const departmentStaff = department ? await prisma.user.findMany({ where: { id: { in: subscribedStaff.map(({ id }) => id) }, departmentId: department.id }, select: { email: true } }) : subscribedStaff;
-  const notificationEmails = departmentStaff.length ? departmentStaff.map(({ email }) => email) : [process.env.SUPPORT_EMAIL ?? "support@innozanzi.co.za"];
-  await Promise.all([
-    enqueueEmail(
-      emailTemplates.helpDeskReceived(data.email, data.name, ticketNumber),
-    ),
-    ...notificationEmails.map((recipient) => enqueueEmail(emailTemplates.helpDeskDepartmentAlert(recipient, ticketNumber, departmentName, data.name, data.email, data.subject, data.message))),
-  ]);
-  await prisma.helpDeskTicket.create({
+  const ticket = await prisma.helpDeskTicket.create({
     data: {
       ticketNumber,
       ...data,
@@ -150,6 +158,7 @@ export async function submitHelpDeskTicket(formData: FormData) {
       activities: { create: { type: "CUSTOMER_MESSAGE", message: data.message } },
     },
   });
+  await notifyHelpDeskCreated({ ticketNumber, department: departmentName, name: data.name, email: data.email, subject: data.subject, message: data.message, customerId: ticket.customerId ?? undefined });
   redirect(`/contact?submitted=${ticketNumber}`);
 }
 
@@ -169,15 +178,9 @@ export async function createAdminHelpDeskTicket(formData: FormData) {
   }).parse(Object.fromEntries(formData));
   const department = await prisma.department.findFirstOrThrow({ where: { id: data.departmentId, isActive: true }, select: { id: true, name: true } });
   const customer = await prisma.user.findUnique({ where: { email: data.email }, select: { id: true } });
-  const subscribedStaff = await staffEmailRecipients("HELP_DESK_CREATED");
-  const departmentStaff = await prisma.user.findMany({ where: { id: { in: subscribedStaff.map(({ id }) => id) }, departmentId: department.id }, select: { email: true } });
-  const notificationEmails = departmentStaff.length ? departmentStaff.map(({email})=>email) : [process.env.SUPPORT_EMAIL ?? "support@innozanzi.co.za"];
   const ticketNumber = `SUP-${Date.now().toString(36).toUpperCase()}`;
-  await Promise.all([
-    enqueueEmail(emailTemplates.helpDeskReceived(data.email, data.name, ticketNumber), customer?.id),
-    ...notificationEmails.map(recipient=>enqueueEmail(emailTemplates.helpDeskDepartmentAlert(recipient,ticketNumber,department.name,data.name,data.email,data.subject,data.message))),
-  ]);
   const ticket = await prisma.helpDeskTicket.create({ data: { ticketNumber, name:data.name, email:data.email, phone:data.phone||null, companyName:data.companyName||null, departmentId:department.id, sourceChannel:data.sourceChannel, category:data.category, subject:data.subject, message:data.message, priority:data.priority, customerId:customer?.id??null, activities:{create:{actorId:ctx.user.id,type:"TICKET_CAPTURED",message:`Captured from ${data.sourceChannel.replaceAll("_"," ").toLowerCase()} and routed to ${department.name}.`}} } });
+  await notifyHelpDeskCreated({ticketNumber,department:department.name,name:data.name,email:data.email,subject:data.subject,message:data.message,customerId:customer?.id});
   await prisma.auditLog.create({data:{actorId:ctx.user.id,action:"helpdesk.capture",entityType:"HelpDeskTicket",entityId:ticket.id,after:{ticketNumber,department:department.name,sourceChannel:data.sourceChannel}}});
   redirect(`/admin/help-desk/${ticket.id}`);
 }
