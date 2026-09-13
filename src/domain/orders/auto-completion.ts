@@ -1,6 +1,4 @@
 import { prisma } from "@/lib/prisma";
-import { enqueueEmail } from "@/integrations/email/outbox";
-import { emailTemplates } from "@/integrations/email/templates";
 import { orderCompletionWindowDays, returnWindowEnd } from "@/domain/orders/settings";
 
 export async function completeDeliveredOrders(now = new Date()) {
@@ -19,7 +17,7 @@ export async function completeDeliveredOrders(now = new Date()) {
       await tx.auditLog.create({ data: { action: "order.auto-complete", entityType: "Order", entityId: order.id, before: { status: "DELIVERED" }, after: { status: "COMPLETED", completionWindowDays: days } } });
       return true;
     }, { isolationLevel: "Serializable" });
-    if (changed) { await enqueueEmail(emailTemplates.orderStatus(order.email, order.orderNumber, "COMPLETED"), order.userId ?? undefined); completed += 1; }
+    if (changed) completed += 1;
   }
   return { checked: candidates.length, completed, completionWindowDays: days };
 }

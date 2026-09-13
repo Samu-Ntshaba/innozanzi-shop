@@ -4,13 +4,11 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/domain/auth/session";
-import { enqueueEmail } from "@/integrations/email/outbox";
-import { emailTemplates } from "@/integrations/email/templates";
 
 export async function convertQuotationToOrder(formData: FormData) {
   const context = await requirePermission("quotations.manage");
   const id = z.string().uuid().parse(formData.get("id"));
-  const order = await prisma.$transaction(async (tx) => {
+  await prisma.$transaction(async (tx) => {
     const quote = await tx.quotation.findUniqueOrThrow({ where: { id }, include: { items: true, quotationRequest: true } });
     if (quote.convertedOrderId) return tx.order.findUniqueOrThrow({ where: { id: quote.convertedOrderId } });
     if (quote.status !== "ACCEPTED") throw new Error("Only accepted quotations can be converted.");
@@ -19,7 +17,6 @@ export async function convertQuotationToOrder(formData: FormData) {
     await tx.auditLog.create({ data: { actorId: context.user.id, action: "quotation.convert", entityType: "Quotation", entityId: id, after: { orderId: order.id, orderNumber: order.orderNumber } } });
     return order;
   });
-  await enqueueEmail(emailTemplates.orderCreated(order.email, order.orderNumber, order.grandTotal.toString()), order.userId ?? undefined);
   revalidatePath("/admin/quotations");
   redirect("/admin/orders");
 }
