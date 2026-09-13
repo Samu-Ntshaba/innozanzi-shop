@@ -9,13 +9,13 @@ import {
   tableClass,
 } from "@/components/admin/admin-ui";
 import { requirePermission } from "@/domain/auth/session";
-import { createPaystackRefund, verifyPaymentSubmission } from "@/domain/payments/actions";
+import { createPaystackRefund, reconcileHostedPayment, verifyPaymentSubmission } from "@/domain/payments/actions";
 import { getRetailPaymentSettings } from "@/domain/payments/settings";
 import { saveRetailPaymentSettings } from "@/domain/payments/settings-actions";
 import { reviewPaymentProof } from "@/domain/admin/actions";
 export default async function Page() {
   await requirePermission("payments.approve");
-  const [rows,onlinePayments,retailPaymentSettings,retailProofs] = await Promise.all([prisma.paymentSubmission.findMany({
+  const [rows,onlinePayments,pendingHostedPayments,retailPaymentSettings,retailProofs] = await Promise.all([prisma.paymentSubmission.findMany({
     include: {
       quotation: { include: { quotationRequest: true } },
       document: true,
@@ -26,7 +26,7 @@ export default async function Page() {
     },
     orderBy: { submittedAt: "desc" },
     take: 100,
-  }),prisma.payment.findMany({where:{provider:"PAYSTACK",status:{in:["PAID","PARTIALLY_REFUNDED"]}},include:{order:true},orderBy:{paidAt:"desc"},take:100}),getRetailPaymentSettings(),prisma.paymentProof.findMany({include:{payment:{include:{order:{select:{orderNumber:true,email:true}}}},uploadedBy:{select:{name:true,email:true}}},orderBy:{createdAt:"desc"},take:100})]);
+  }),prisma.payment.findMany({where:{provider:"PAYSTACK",status:{in:["PAID","PARTIALLY_REFUNDED"]}},include:{order:true},orderBy:{paidAt:"desc"},take:100}),prisma.payment.findMany({where:{provider:{in:["PAYFAST","OZOW"]},status:"PENDING"},include:{order:{select:{orderNumber:true,email:true,grandTotal:true}}},orderBy:{createdAt:"desc"},take:50}),getRetailPaymentSettings(),prisma.paymentProof.findMany({include:{payment:{include:{order:{select:{orderNumber:true,email:true}}}},uploadedBy:{select:{name:true,email:true}}},orderBy:{createdAt:"desc"},take:100})]);
   return (
     <AdminPage
       title="Payment verification"
@@ -49,6 +49,9 @@ export default async function Page() {
           {retailProofs.map(proof => <tr key={proof.id}><td><strong>{proof.payment.order.orderNumber}</strong><br/><span className="text-xs text-slate-500">{proof.payment.order.email}</span></td><td><a className="font-semibold text-sky-700 underline" href={"/api/admin/payment-proofs/" + proof.id} target="_blank">{proof.originalName}</a><br/><span className="text-xs text-slate-500">{proof.createdAt.toLocaleString("en-ZA")}</span></td><td>R {proof.payment.amount.toString()}</td><td><StatusBadge value={proof.status}/>{proof.reviewNote ? <p className="mt-1 max-w-xs text-xs">{proof.reviewNote}</p> : null}</td><td>{proof.status === "PENDING" ? <form action={reviewPaymentProof} className="grid min-w-64 gap-2"><input type="hidden" name="id" value={proof.id}/><input className={inputClass} name="note" placeholder="Finance review note"/><div className="flex gap-2"><button name="status" value="APPROVED" className="bg-emerald-700 px-3 py-2 text-xs font-bold text-white">Approve verified funds</button><button name="status" value="REJECTED" className="border border-red-300 px-3 py-2 text-xs font-bold text-red-800">Reject</button></div></form> : <span className="text-xs text-slate-500">Reviewed</span>}</td></tr>)}
           {!retailProofs.length ? <tr><td colSpan={5} className="py-8 text-center text-slate-500">No retail EFT proofs uploaded.</td></tr> : null}
         </tbody></table></div>
+      </Panel>
+      <Panel title="Hosted payments requiring reconciliation" description="Use only when PayFast or Ozow shows the exact transaction as successfully paid but its server notification did not reach Innozanzi. Verify the provider transaction, amount and customer before confirming.">
+        <div className="overflow-x-auto"><table className={tableClass}><thead><tr><th>Order</th><th>Provider</th><th>Expected amount</th><th>Finance-controlled confirmation</th></tr></thead><tbody>{pendingHostedPayments.map(payment=><tr key={payment.id}><td><strong>{payment.order.orderNumber}</strong><br/><span className="text-xs text-slate-500">{payment.order.email}</span></td><td><StatusBadge value={payment.provider}/><br/><span className="text-xs text-slate-500">Started {payment.createdAt.toLocaleString("en-ZA")}</span></td><td className="font-bold">R {payment.amount.toString()}</td><td><form action={reconcileHostedPayment} className="grid min-w-72 gap-2"><input type="hidden" name="paymentId" value={payment.id}/><input className={inputClass} name="providerTransactionId" placeholder={`${payment.provider} transaction ID`} required/><input className={inputClass} name="note" placeholder="How and where payment was verified" minLength={10} required/><label className="text-xs font-semibold text-red-800"><input className="mr-2" type="checkbox" name="confirmed" required/>I verified this exact successful transaction and amount in the provider dashboard.</label><button className="bg-emerald-700 px-3 py-2 text-xs font-bold text-white">Confirm paid & activate order</button></form></td></tr>)}{!pendingHostedPayments.length?<tr><td colSpan={4} className="py-8 text-center text-slate-500">No hosted payments require reconciliation.</td></tr>:null}</tbody></table></div>
       </Panel>
       <Panel>
         <div className="flex flex-wrap items-center justify-between gap-3">

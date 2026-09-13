@@ -17,7 +17,7 @@ export default async function Page({ params }: { params: Promise<{ paymentId: st
   if (amountError) return <main className="mx-auto max-w-lg px-4 py-12"><h1 className="text-2xl font-bold">Choose another way to pay</h1><p role="alert" className="mt-4 text-slate-700">{amountError}</p><Link className="mt-6 inline-block rounded-lg bg-sky-700 px-5 py-3 font-bold text-white" href={`/account/orders/${payment.order.orderNumber}`}>Return to your order</Link></main>;
   const providerName = payment.provider === "PAYFAST" ? "PayFast" : "Ozow";
   const Icon = payment.provider === "PAYFAST" ? CreditCard : Landmark;
-  const form = hostedFields(payment.provider, { id: payment.id, amount: payment.amount.toString(), email: payment.order.email, orderId: payment.orderId }, publicSiteUrl());
+  const form = hostedFields(payment.provider, { id: payment.id, amount: payment.amount.toString(), email: payment.order.email, orderId: payment.orderId, name: ctx.user.name }, publicSiteUrl());
   return <main className="grid min-h-[70vh] place-items-center bg-slate-50 px-4 py-12">
     <section className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm sm:p-8">
       <span className="mx-auto grid size-14 place-items-center rounded-full bg-sky-100 text-sky-800"><Icon className="size-7"/></span>

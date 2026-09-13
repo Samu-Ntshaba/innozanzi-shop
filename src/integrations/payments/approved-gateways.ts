@@ -10,13 +10,13 @@ const encode=(s:string)=>encodeURIComponent(s.trim()).replace(/[!'()*~]/g,c=>`%$
 export function payfastSignature(fields:Record<string,string>,passphrase:string){const data=Object.entries(fields).filter(([k,v])=>k!=="signature"&&v!=="").map(([k,v])=>`${k}=${encode(v)}`).join("&");return createHash("md5").update(`${data}&passphrase=${encode(passphrase)}`).digest("hex");}
 export function ozowHash(values:string[],privateKey:string){return createHash("sha512").update((values.join("")+privateKey).toLowerCase()).digest("hex");}
 function same(a:string,b:string){const x=Buffer.from(a),y=Buffer.from(b);return x.length===y.length&&timingSafeEqual(x,y);}
-export function hostedFields(gateway:ApprovedGateway,input:{id:string;amount:string;email:string;orderId:string},base:string){
+export function hostedFields(gateway:ApprovedGateway,input:{id:string;amount:string;email:string;orderId:string;name?:string|null},base:string){
  if(!gatewayConfigured(gateway))throw new Error("This payment method is not available yet.");
  const amountError=paymentAmountError(gateway,input.amount);if(amountError)throw new Error(amountError);
  const back=`${base}/api/payments/return/${input.id}`,notify=`${base}/api/webhooks/${gateway.toLowerCase()}`;
  const resultUrl=(result:"success"|"cancelled"|"error")=>`${back}?result=${result}`;
  if(gateway==="PAYFAST"){
- const fields:Record<string,string>={merchant_id:secret("PAYFAST_MERCHANT_ID"),merchant_key:secret("PAYFAST_MERCHANT_KEY"),return_url:resultUrl("success"),cancel_url:resultUrl("cancelled"),notify_url:notify,email_address:input.email,m_payment_id:input.id,amount:new Decimal(input.amount).toFixed(2),item_name:`Innozanzi order ${input.orderId.slice(0,8)}`};
+ const names=(input.name??"").trim().split(/\s+/).filter(Boolean),fields:Record<string,string>={merchant_id:secret("PAYFAST_MERCHANT_ID"),merchant_key:secret("PAYFAST_MERCHANT_KEY"),return_url:resultUrl("success"),cancel_url:resultUrl("cancelled"),notify_url:notify,...(names[0]?{name_first:names[0]}:{}),...(names.length>1?{name_last:names.slice(1).join(" ")}:{}),email_address:input.email,m_payment_id:input.id,amount:new Decimal(input.amount).toFixed(2),item_name:`Innozanzi order ${input.orderId.slice(0,8)}`};
  fields.signature=payfastSignature(fields,secret("PAYFAST_PASSPHRASE"));return {url:process.env.PAYFAST_SANDBOX==="true"?"https://sandbox.payfast.co.za/eng/process":"https://www.payfast.co.za/eng/process",fields};
  }
  const fields:Record<string,string>={SiteCode:secret("OZOW_SITE_CODE"),CountryCode:"ZA",CurrencyCode:"ZAR",Amount:new Decimal(input.amount).toFixed(2),TransactionReference:input.id,BankReference:`IZ${input.id.replaceAll("-","").slice(0,16)}`,Optional1:"",Optional2:"",Optional3:"",Optional4:"",Optional5:"",Customer:input.email,CancelUrl:resultUrl("cancelled"),ErrorUrl:resultUrl("error"),SuccessUrl:resultUrl("success"),NotifyUrl:notify,IsTest:process.env.OZOW_TEST_MODE==="true"?"true":"false"};

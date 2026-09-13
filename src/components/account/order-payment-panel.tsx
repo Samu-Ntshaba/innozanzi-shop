@@ -8,6 +8,7 @@ import { formatZar } from "@/lib/money";
 type PaymentOrder = { id: string; orderNumber: string; grandTotal: { toString(): string }; paymentMethod: string; paymentStatus: string };
 
 export function OrderPaymentPanel({ order, notice, payfastAvailable, ozowAvailable, eftSettings }: { order: PaymentOrder; notice?: string; payfastAvailable: boolean; ozowAvailable: boolean; eftSettings: RetailPaymentSettings }) {
+  if (notice === "processing" && order.paymentStatus === "PENDING") return <section className="mt-5 min-w-0 overflow-hidden rounded-2xl border border-amber-200 bg-amber-50 p-4 sm:mt-6 sm:p-6"><h2 className="text-lg font-black text-amber-950 sm:text-xl">Verifying your payment</h2><p className="mt-2 text-sm leading-6 text-amber-900">Your purchase is saved. We are waiting for the payment provider’s secure server confirmation and will refresh this page automatically. Do not pay again.</p></section>;
   if (order.paymentStatus === "AWAITING_REVIEW") return <section className="mt-5 min-w-0 overflow-hidden rounded-2xl border border-amber-200 bg-amber-50 p-4 sm:mt-6 sm:p-6"><h2 className="break-words text-lg font-black text-amber-950 sm:text-xl">EFT proof under review</h2><p className="mt-2 text-sm leading-6 text-amber-900">Your order has not entered fulfilment yet. We’ll notify you after finance verifies the payment in the company bank account.</p></section>;
   const payfastError = paymentAmountError("PAYFAST", order.grandTotal.toString());
   const payfastEligible = payfastAvailable && !payfastError;
