@@ -60,9 +60,11 @@ export async function processPaymentEvent(provider: "PAYSTACK" | "YOCO" | "OZOW"
       select: { id: true },
     });
     if (!newerActiveAttempt) {
-      await tx.order.update({ where: { id: payment.orderId }, data: { paymentStatus: event.status, status: nextOrderStatus } });
+      await tx.order.update({ where: { id: payment.orderId }, data: { paymentStatus: event.status, status: nextOrderStatus, placedAt: event.status === "PAID" ? new Date() : undefined } });
     }
     if (event.status === "PAID") {
+      const cartId = payment.idempotencyKey.startsWith("retail:") ? payment.idempotencyKey.split(":")[1] : undefined;
+      if (cartId) await tx.cart.updateMany({ where: { id: cartId, status: "ACTIVE" }, data: { status: "CONVERTED" } });
       await tx.orderStatusHistory.create({ data: { orderId: payment.orderId, fromStatus: payment.order.status, toStatus: "PAYMENT_VERIFIED", note: stockIssue?`${provider} payment received; stock exception requires procurement review`:`${provider} payment confirmed; settlement and procurement require separate review` } });
       await tx.deliveryTrackingEvent.create({ data: { orderId: payment.orderId, status: "PAYMENT_VERIFIED", publicNote: "Your payment has been confirmed. We are preparing your order for fulfilment.", internalNote: `${provider} webhook ${event.eventId}` } });
       const staff = await tx.user.findMany({ where: { status: "ACTIVE", deletedAt: null, accountType: "INTERNAL_EMPLOYEE" }, select: { id: true } });

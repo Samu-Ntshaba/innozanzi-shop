@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import type { OrderStatus } from "@/generated/prisma/enums";
 
 export async function getAdminDashboard() {
   const [products, orders, customers, pendingPayments, lowStock, revenue, openRequests, quotesToApprove, outstandingInvoices, pipeline, awaitingPayment, expiredQuotes, verifiedPayments, activeOrders, deliveriesInProgress, completedOrders, partnershipApplications, unassignedPartnerRequests, openHelpDesk, paidOrdersToAccept, procurementOrders, readyForDelivery, openReturns, overdueOrders] = await prisma.$transaction([
@@ -35,7 +36,7 @@ export const getAdminCategories = () => prisma.category.findMany({ include: { _c
 export const getAdminBrands = () => prisma.brand.findMany({ include: { _count: { select: { products: true } } }, orderBy: { name: "asc" } });
 export const getAdminSuppliers = () => prisma.supplier.findMany({ where: { deletedAt: null }, include: { _count: { select: { products: true, documents:true } } }, orderBy: { companyName: "asc" } });
 export const getAdminInventory = () => prisma.inventory.findMany({ include: { product: { select: { name: true, sku: true } }, variant: { select: { name: true } } }, orderBy: { updatedAt: "desc" }, take: 150 });
-export const getAdminOrders = (supplierId?:string) => prisma.order.findMany({ where:supplierId?{items:{some:{supplierId}}}:undefined,include: { items:{select:{supplierId:true}},_count: { select: { items: true } },payments:{where:{status:"PAID"},select:{paidAt:true},orderBy:{paidAt:"desc"},take:1} }, orderBy: { createdAt: "desc" }, take: 100 });
+export const getAdminOrders = (supplierId?:string,status?:OrderStatus) => prisma.order.findMany({ where:{paymentStatus:{in:["PAID","REFUNDED","PARTIALLY_REFUNDED"]},...(supplierId?{items:{some:{supplierId}}}:{}),...(status?{status}:{})},include: { items:{select:{supplierId:true}},_count: { select: { items: true } },payments:{where:{status:{in:["PAID","REFUNDED","PARTIALLY_REFUNDED"]}},select:{paidAt:true},orderBy:{paidAt:"desc"},take:1} }, orderBy: { placedAt: "desc" }, take: 100 });
 export const getAdminPayments = () => prisma.paymentProof.findMany({ include: { payment: { include: { order: { select: { orderNumber: true, email: true } } } } }, orderBy: { createdAt: "desc" }, take: 100 });
 export const getAdminCustomers = () => prisma.user.findMany({ where: { customerProfile: { isNot: null } }, include: { customerProfile: { include: { company: true, _count: { select: { notes: true } } } }, _count: { select: { orders: true } } }, orderBy: { createdAt: "desc" }, take: 500 });
 export const getAdminReviews = () => prisma.review.findMany({ include: { product: { select: { name: true } }, supplierCatalogueProduct: { select: { name: true } }, user: { select: { email: true, name: true } } }, orderBy: { createdAt: "desc" }, take: 100 });

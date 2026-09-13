@@ -17,9 +17,6 @@ import { orderNumber } from "@/domain/quotations/lifecycle";
 import { beginHostedOrderPayment } from "@/domain/payments/orchestration";
 import { deliveryFromForm } from "@/domain/addresses/service";
 import { prisma } from "@/lib/prisma";
-import { enqueueEmail } from "@/integrations/email/outbox";
-import { emailTemplates } from "@/integrations/email/templates";
-import { sendStaffEmail } from "@/domain/notifications/role-email";
 
 const schema = z.object({ notes: z.string().trim().max(1000).optional(), paymentMethod: z.enum(["PAYFAST", "OZOW"]) });
 
@@ -40,7 +37,7 @@ export async function placeRetailOrder(_state: { error: string }, formData: Form
   const testLines=lines.filter(line=>line.sourceSnapshot.isTestData===true);
   const isTestOrder=testLines.length>0;
   if(isTestOrder&&(!canAccessTestProducts(ctx)||testLines.length!==lines.length))return {error:"Testing products must be checked out alone by an assigned product tester."};
-  const order=await prisma.$transaction(async tx=>{
+  await prisma.$transaction(async tx=>{
     await tx.$queryRaw`SELECT id FROM "Cart" WHERE id = ${cart.id}::uuid FOR UPDATE`;
     const lockedCart=await tx.cart.findUniqueOrThrow({where:{id:cart.id}});if(lockedCart.status!=="ACTIVE")throw new Error("This cart has already been checked out.");
     if(quote.coupon){
@@ -53,16 +50,11 @@ export async function placeRetailOrder(_state: { error: string }, formData: Form
       const count = await tx.address.count({ where: { userId: ctx.user.id, deletedAt: null } });
       if (count < 20) await tx.address.create({ data: { userId: ctx.user.id, type: "DELIVERY", isDefault: count === 0, recipient: data.recipient, phone: data.phone, line1: data.line1, line2: data.line2, suburb: data.suburb, city: data.city, province: data.province, postalCode: data.postalCode, googlePlaceId: data.googlePlaceId } });
     }
-    const created=await tx.order.create({data:{orderNumber:orderNumber(),userId:ctx.user.id,pcProjectId:cart.pcProjectId,origin:isTestOrder?"ADMIN_PAYMENT_TEST":cart.origin,aiRecommendationId:isTestOrder?null:cart.aiRecommendationId,email:ctx.user.email,phone:data.phone,subtotal,vatTotal,deliveryTotal,grandTotal,status:"AWAITING_PAYMENT",paymentStatus:"PENDING",paymentMethod:data.paymentMethod,placedAt:new Date(),customerNotes:data.notes||null,isTestData:isTestOrder,items:{create:lines.map(line=>({productId:line.productId,variantId:line.variantId,productName:line.productName,sku:line.sku??line.supplierSku??"ITEM",quantity:line.quantity,unitPrice:line.grossUnit,costPrice:line.costPrice,vatRate:line.vatRate,vatTotal:line.vatUnit.mul(line.quantity),lineTotal:line.grossUnit.mul(line.quantity),sourceType:line.sourceType,sourceId:line.sourceId,supplierId:line.supplierId,supplierSku:line.supplierSku,sourceSnapshot:{...line.sourceSnapshot,expectedUnitEconomics:contributionAtPrice(line.costPrice,line.grossUnit,pricingSettings,data.paymentMethod)},pricingRule:line.pricingRule,markupPercent:markup,stockSnapshot:line.available}))},addresses:{create:{type:"DELIVERY",recipient:data.recipient,phone:data.phone,line1:data.line1,line2:data.line2||null,suburb:data.suburb||null,city:data.city,province:data.province,postalCode:data.postalCode}},payments:{create:{id:paymentId,provider:data.paymentMethod,status:"PENDING",amount:grandTotal,idempotencyKey,isTestData:isTestOrder}},statusHistory:{create:{toStatus:"AWAITING_PAYMENT",actorId:ctx.user.id,note:isTestOrder?"Administrator live payment test":cart.pcProjectId?"PC project component purchase":"Direct retail checkout"}}}});
+    const created=await tx.order.create({data:{orderNumber:orderNumber(),userId:ctx.user.id,pcProjectId:cart.pcProjectId,origin:isTestOrder?"ADMIN_PAYMENT_TEST":cart.origin,aiRecommendationId:isTestOrder?null:cart.aiRecommendationId,email:ctx.user.email,phone:data.phone,subtotal,vatTotal,deliveryTotal,grandTotal,status:"AWAITING_PAYMENT",paymentStatus:"PENDING",paymentMethod:data.paymentMethod,placedAt:null,customerNotes:data.notes||null,isTestData:isTestOrder,items:{create:lines.map(line=>({productId:line.productId,variantId:line.variantId,productName:line.productName,sku:line.sku??line.supplierSku??"ITEM",quantity:line.quantity,unitPrice:line.grossUnit,costPrice:line.costPrice,vatRate:line.vatRate,vatTotal:line.vatUnit.mul(line.quantity),lineTotal:line.grossUnit.mul(line.quantity),sourceType:line.sourceType,sourceId:line.sourceId,supplierId:line.supplierId,supplierSku:line.supplierSku,sourceSnapshot:{...line.sourceSnapshot,expectedUnitEconomics:contributionAtPrice(line.costPrice,line.grossUnit,pricingSettings,data.paymentMethod)},pricingRule:line.pricingRule,markupPercent:markup,stockSnapshot:line.available}))},addresses:{create:{type:"DELIVERY",recipient:data.recipient,phone:data.phone,line1:data.line1,line2:data.line2||null,suburb:data.suburb||null,city:data.city,province:data.province,postalCode:data.postalCode}},payments:{create:{id:paymentId,provider:data.paymentMethod,status:"PENDING",amount:grandTotal,idempotencyKey,isTestData:isTestOrder}},statusHistory:{create:{toStatus:"AWAITING_PAYMENT",actorId:ctx.user.id,note:isTestOrder?"Administrator live payment test":cart.pcProjectId?"PC project payment attempt":"Retail payment attempt"}}}});
     if(quote.coupon)await tx.couponRedemption.create({data:{couponId:quote.coupon.id,userId:ctx.user.id,orderId:created.id,discountAmount:quote.coupon.discount}});
     if(cart.aiRecommendationId&&!isTestOrder){await tx.aIUsage.updateMany({where:{recommendationId:cart.aiRecommendationId},data:{orderId:created.id}});await tx.recommendationEvent.create({data:{userId:ctx.user.id,sessionId:`user:${ctx.user.id}`,eventType:"AI_CHECKOUT_STARTED",entityType:"ORDER",entityId:created.id,recommendationId:cart.aiRecommendationId,context:"checkout"}})}
-    await tx.cart.update({where:{id:cart.id},data:{status:"CONVERTED"}});return created;
+    return created;
   },{isolationLevel:"Serializable"});
-
-  try { const supplierIds=[...new Set(lines.map(line=>line.supplierId).filter((id):id is string=>Boolean(id)))],suppliers=await prisma.supplier.findMany({where:{id:{in:supplierIds}},select:{id:true,companyName:true}}),supplierNames=new Map(suppliers.map(supplier=>[supplier.id,supplier.companyName]));await Promise.all([
-    enqueueEmail(emailTemplates.orderPlaced(ctx.user.email, ctx.user.name ?? "Customer", order.orderNumber, order.grandTotal.toString()), ctx.user.id),
-    sendStaffEmail("ORDER_PLACED", emailTemplates.orderPlacedInternal({id:order.id,number:order.orderNumber,email:order.email,total:order.grandTotal.toString(),paymentMethod:data.paymentMethod,items:lines.map(line=>({name:line.productName,sku:line.supplierSku??line.sku??"ITEM",supplier:line.supplierId?supplierNames.get(line.supplierId)??"Unknown distributor":"Innozanzi stock",quantity:line.quantity}))})),
-  ]); } catch (error) { console.error("Order created, but placement notifications were queued for retry", error); }
 
   const base=(process.env.NEXT_PUBLIC_SITE_URL??"https://shop.innozanzi.co.za").replace(/\/$/,"");
   const session=await beginHostedOrderPayment({paymentId,callbackUrl:`${base}/api/payments/return/${paymentId}`});
