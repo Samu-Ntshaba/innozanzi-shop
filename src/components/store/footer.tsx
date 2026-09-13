@@ -14,6 +14,23 @@ function FooterLinks({ title, links }: { title: string; links: ReadonlyArray<rea
   return <><details className="group border-t border-slate-700/70 py-1 sm:hidden"><summary className="flex min-h-12 cursor-pointer list-none items-center justify-between font-semibold text-white [&::-webkit-details-marker]:hidden">{title}<span className="text-xl text-sky-300 transition group-open:rotate-45">+</span></summary>{list}</details><div className="hidden sm:block"><p className="font-semibold text-white">{title}</p>{list}</div></>;
 }
 
+function PaymentMethods() {
+  return <div className="border-t border-slate-200 bg-white text-slate-900">
+    <div className="mx-auto flex max-w-7xl flex-col gap-5 px-4 py-7 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
+      <div><p className="text-sm font-bold">Secure payment methods</p><p className="mt-1 text-xs text-slate-500">Available options are shown at checkout.</p></div>
+      <div className="flex flex-wrap items-center gap-x-7 gap-y-5" aria-label="Accepted payment methods">
+        <span aria-label="Visa" className="text-2xl font-black italic tracking-[-0.08em] text-[#1434cb]">VISA</span>
+        <span aria-label="Mastercard" className="flex items-center gap-2 text-xs font-bold text-slate-800"><span className="relative h-7 w-11" aria-hidden="true"><span className="absolute left-0 top-0 size-7 rounded-full bg-[#eb001b]"/><span className="absolute right-0 top-0 size-7 rounded-full bg-[#f79e1b] opacity-90"/></span>mastercard</span>
+        <span aria-label="American Express" className="rounded-sm bg-[#006fcf] px-2 py-1 text-[10px] font-black leading-tight tracking-tight text-white">AMERICAN<br/>EXPRESS</span>
+        <span aria-label="PayFast" className="text-xl font-black italic tracking-tight text-[#00a9e0]">pay<span className="text-[#005baa]">fast</span></span>
+        <span aria-label="Ozow" className="text-xl font-black tracking-[-0.08em] text-black">OZOW<span className="text-[#ff1f6d]">.</span></span>
+        <span aria-label="MobiCred" className="text-lg font-black tracking-tight text-[#663399]">mobi<span className="font-medium text-slate-700">cred</span></span>
+      </div>
+    </div>
+    <div className="border-t border-slate-200 px-4 py-5 text-center text-xs text-slate-500">© {new Date().getFullYear()} {brand.legalName}. All rights reserved.</div>
+  </div>;
+}
+
 export function StoreFooter() {
   return (
     <footer className="mt-16 border-t border-slate-200 bg-[#071b33] text-slate-300">
@@ -34,7 +51,7 @@ export function StoreFooter() {
         </div>
         {footerGroups.map(group => <FooterLinks key={group.title} {...group} />)}
       </div>
-      <div className="border-t border-slate-800 px-4 py-5 text-center text-xs text-slate-500">© {new Date().getFullYear()} {brand.legalName}. All rights reserved.</div>
+      <PaymentMethods />
     </footer>
   );
 }
