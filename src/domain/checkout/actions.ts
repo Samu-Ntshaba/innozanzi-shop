@@ -1,4 +1,6 @@
 "use server";
+import { paymentAmountError } from "@/domain/payments/limits";
+
 import { gatewayConfigured } from "@/integrations/payments/approved-gateways";
 
 import { contributionAtPrice } from "@/domain/commerce/engine";
@@ -15,25 +17,24 @@ import { orderNumber } from "@/domain/quotations/lifecycle";
 import { beginHostedOrderPayment } from "@/domain/payments/orchestration";
 import { deliveryFromForm } from "@/domain/addresses/service";
 import { prisma } from "@/lib/prisma";
-import { eftConfigured, getRetailPaymentSettings } from "@/domain/payments/settings";
 import { enqueueEmail } from "@/integrations/email/outbox";
 import { emailTemplates } from "@/integrations/email/templates";
 import { sendStaffEmail } from "@/domain/notifications/role-email";
 
-const schema = z.object({ notes: z.string().trim().max(1000).optional(), paymentMethod: z.enum(["PAYFAST", "OZOW", "EFT"]) });
+const schema = z.object({ notes: z.string().trim().max(1000).optional(), paymentMethod: z.enum(["PAYFAST", "OZOW"]) });
 
 export async function placeRetailOrder(_state: { error: string }, formData: FormData) {
   const ctx = await requireUser();
   let data;
   try { data = { ...schema.parse(Object.fromEntries(formData)), ...await deliveryFromForm(ctx.user.id, formData) }; }
   catch (error) { return { error: error instanceof Error && /^(Complete|Please select|Please enter|Choose one|Please add|We currently deliver)/.test(error.message) ? error.message : "Please check your delivery and payment details." }; }
-  const retailPaymentSettings = await getRetailPaymentSettings();
-  if(data.paymentMethod === "EFT" ? !eftConfigured(retailPaymentSettings) : !gatewayConfigured(data.paymentMethod))return {error:"This payment method is not available yet. Please contact support."};
+  if(!gatewayConfigured(data.paymentMethod))return {error:"This payment method is not available yet. Please contact support."};
   const cart = await getCurrentCart();
   if(!cart||(!cart.items.length&&!cart.supplierItems.length))throw new Error("Your cart is empty.");
   const code=String(formData.get("couponCode")??"").trim().slice(0,40);
   let quote;try{quote=await checkoutQuote(cart,ctx.user.id,code);}catch(error){return {error:error instanceof Error?error.message:"Please review your basket."};}
   if(formData.get("priceFingerprint")!==quote.fingerprint)return {error:"Prices, stock or an offer changed. Reload checkout to review the updated total before paying."};
+  const amountError=paymentAmountError(data.paymentMethod,quote.total);if(amountError)return {error:amountError};
   const pricingSettings=await getCommerceSettings();
   const {lines,subtotal,vat:vatTotal,delivery:deliveryTotal,total:grandTotal}=quote,markup=new Decimal(0),paymentId=randomUUID(),idempotencyKey=`retail:${cart.id}:${randomUUID()}`;
   const testLines=lines.filter(line=>line.sourceSnapshot.isTestData===true);
@@ -63,7 +64,6 @@ export async function placeRetailOrder(_state: { error: string }, formData: Form
     sendStaffEmail("ORDER_PLACED", emailTemplates.orderPlacedInternal({id:order.id,number:order.orderNumber,email:order.email,total:order.grandTotal.toString(),paymentMethod:data.paymentMethod,items:lines.map(line=>({name:line.productName,sku:line.supplierSku??line.sku??"ITEM",supplier:line.supplierId?supplierNames.get(line.supplierId)??"Unknown distributor":"Innozanzi stock",quantity:line.quantity}))})),
   ]); } catch (error) { console.error("Order created, but placement notifications were queued for retry", error); }
 
-  if(data.paymentMethod==="EFT")redirect(`/account/orders/${order.orderNumber}?payment=eft`);
   const base=(process.env.NEXT_PUBLIC_SITE_URL??"https://shop.innozanzi.co.za").replace(/\/$/,"");
   const session=await beginHostedOrderPayment({paymentId,callbackUrl:`${base}/api/payments/return/${paymentId}`});
   if(!session.redirectUrl)throw new Error("Secure checkout is unavailable.");redirect(session.redirectUrl);

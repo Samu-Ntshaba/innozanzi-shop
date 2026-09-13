@@ -1,3 +1,4 @@
+import { paymentAmountError } from "@/domain/payments/limits";
 import { gatewayConfigured } from "@/integrations/payments/approved-gateways";
 import Decimal from "decimal.js";
 import { paymentAdapter } from "@/integrations/payments/adapters";
@@ -14,6 +15,7 @@ export async function beginHostedOrderPayment(input:{paymentId:string;callbackUr
   if(payment.currency!=="ZAR"||new Decimal(payment.amount).lte(0))throw new Error("Invalid payment amount or currency");
   if(payment.provider==="OZOW"||payment.provider==="PAYFAST"){
     if(!gatewayConfigured(payment.provider))throw new Error("This payment method is not available yet.");
+    const amountError=paymentAmountError(payment.provider,payment.amount);if(amountError)throw new Error(amountError);
     await prisma.payment.update({where:{id:payment.id},data:{externalReference:payment.id}});
     return {externalReference:payment.id,redirectUrl:`/pay/${payment.id}`};
   }

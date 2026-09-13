@@ -1,3 +1,5 @@
+import Link from "next/link";
+import { paymentAmountError } from "@/domain/payments/limits";
 import { CreditCard, Landmark, LoaderCircle, LockKeyhole } from "lucide-react";
 import { notFound } from "next/navigation";
 import { AutoSubmitPaymentForm } from "@/components/payments/auto-submit-payment-form";
@@ -11,6 +13,8 @@ export default async function Page({ params }: { params: Promise<{ paymentId: st
   const ctx = await requireUser();
   const payment = await prisma.payment.findFirst({ where: { id: (await params).paymentId, status: "PENDING", provider: { in: ["PAYFAST", "OZOW"] }, order: { userId: ctx.user.id } }, include: { order: true } });
   if (!payment || (payment.provider !== "PAYFAST" && payment.provider !== "OZOW")) notFound();
+  const amountError = paymentAmountError(payment.provider, payment.amount);
+  if (amountError) return <main className="mx-auto max-w-lg px-4 py-12"><h1 className="text-2xl font-bold">Choose another way to pay</h1><p role="alert" className="mt-4 text-slate-700">{amountError}</p><Link className="mt-6 inline-block rounded-lg bg-sky-700 px-5 py-3 font-bold text-white" href={`/account/orders/${payment.order.orderNumber}`}>Return to your order</Link></main>;
   const providerName = payment.provider === "PAYFAST" ? "PayFast" : "Ozow";
   const Icon = payment.provider === "PAYFAST" ? CreditCard : Landmark;
   const form = hostedFields(payment.provider, { id: payment.id, amount: payment.amount.toString(), email: payment.order.email, orderId: payment.orderId }, publicSiteUrl());

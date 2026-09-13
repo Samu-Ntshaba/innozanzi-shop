@@ -18,7 +18,7 @@ it("requires sign-in for unlimited AI shopping requests", () => {
   expect(service).not.toContain("AI_USER_DAILY_LIMIT");
 });
 
-it("tells EFT customers to pay immediately and wait for reflected funds", () => {
+it("removes new EFT payments while preserving guidance for existing EFT orders", () => {
   const selector = readFileSync(
     "src/components/store/payment-method-selector.tsx",
     "utf8",
@@ -28,8 +28,8 @@ it("tells EFT customers to pay immediately and wait for reflected funds", () => 
     "utf8",
   );
 
-  expect(selector).toContain("Make your EFT payment immediately");
-  expect(selector).toContain("payment has reflected in our bank account");
+  expect(selector).not.toContain("Pay by EFT");
+  expect(selector).not.toContain("Continue with EFT");
   expect(paymentPanel).toContain("Please make payment immediately");
   expect(paymentPanel).toContain("funds have reflected in our bank account");
 });

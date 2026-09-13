@@ -1,3 +1,4 @@
+import { paymentAmountError } from "@/domain/payments/limits";
 import { createHash, timingSafeEqual } from "node:crypto";
 import Decimal from "decimal.js";
 import type { PaymentEvent } from "./provider";
@@ -11,6 +12,7 @@ export function ozowHash(values:string[],privateKey:string){return createHash("s
 function same(a:string,b:string){const x=Buffer.from(a),y=Buffer.from(b);return x.length===y.length&&timingSafeEqual(x,y);}
 export function hostedFields(gateway:ApprovedGateway,input:{id:string;amount:string;email:string;orderId:string},base:string){
  if(!gatewayConfigured(gateway))throw new Error("This payment method is not available yet.");
+ const amountError=paymentAmountError(gateway,input.amount);if(amountError)throw new Error(amountError);
  const back=`${base}/api/payments/return/${input.id}`,notify=`${base}/api/webhooks/${gateway.toLowerCase()}`;
  const resultUrl=(result:"success"|"cancelled"|"error")=>`${back}?result=${result}`;
  if(gateway==="PAYFAST"){

@@ -1,6 +1,6 @@
 # PayFast live setup
 
-PayFast appears first and is selected by default when configured. Checkout, accepted quotations and unpaid-order retries use the hosted PayFast payment page. Customers enter card details there; the shop does not collect them. Ozow and configured manual EFT remain available.
+PayFast appears first and is selected by default when configured. Checkout, accepted quotations and unpaid-order retries use the hosted PayFast payment page. Customers enter card details there; the shop does not collect them. Ozow remains available. Manual EFT is removed from new checkout, quotation and retry payment options; existing EFT orders retain their proof review flow.
 
 ## Account and Railway variables
 
@@ -28,3 +28,5 @@ After deployment, complete a small live purchase and confirm the order becomes p
 Official references:
 - https://support.payfast.help/portal/en/kb/articles/how-do-i-enable-a-passphrase-on-my-payfast-account-20-9-2022
 - https://developers.payfast.co.za/documentation/
+
+PayFast documents a R5 minimum for live payments. The application blocks smaller PayFast attempts before creating an order or redirecting, and explains the limit to the customer. Use at least R5 for a live test.
