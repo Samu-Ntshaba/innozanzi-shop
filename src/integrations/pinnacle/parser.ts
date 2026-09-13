@@ -1,7 +1,11 @@
 import { XMLParser } from "fast-xml-parser";
 import { z } from "zod";
 
-const text = z.preprocess(value => value === undefined || value === null ? "" : String(value).replace(/\u00a0/g, " ").trim(), z.string());
+function decodeNumericEntities(value: string) {
+  return value.replace(/&#x([0-9a-f]+);/gi, (match, digits: string) => { const code = Number.parseInt(digits, 16); return code <= 0x10ffff ? String.fromCodePoint(code) : match; }).replace(/&#([0-9]+);/g, (match, digits: string) => { const code = Number.parseInt(digits, 10); return code <= 0x10ffff ? String.fromCodePoint(code) : match; });
+}
+
+const text = z.preprocess(value => value === undefined || value === null ? "" : decodeNumericEntities(String(value)).replace(/\u00a0/g, " ").trim(), z.string());
 const rowSchema = z.object({
   LastUpdated: text,
   StockCode: text.pipe(z.string().min(1)),

@@ -1,7 +1,7 @@
 import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import sharp from "sharp";
+import sharp, { type OverlayOptions } from "sharp";
 import { z } from "zod";
 import { brand } from "@/config/brand";
 import { marketingBusinessRules } from "@/config/business-facts";
@@ -20,16 +20,36 @@ const dailyCopySchema = z.object({
   title: z.string().trim().min(5).max(70),
   caption: z.string().trim().min(40).max(650),
   imageAlt: z.string().trim().min(10).max(220),
+  hashtags: z.array(z.string().trim().min(2).max(40)).min(2).max(4),
 });
 
 type Source = { type: DailySocialType; sourceType: string; sourceId: string; name: string; detail: string; image?: string; images?: string[]; url: string };
-const CONTENT_ANGLES = ["practical product discovery", "a useful buying consideration", "how the product fits work or study", "a simple setup improvement", "a small-business technology need", "an everyday customer benefit", "a weekend technology find"] as const;
+const CONTENT_PLANS = [
+  { angle: "practical product discovery", tone: "clear, confident and useful", emoji: false },
+  { angle: "one helpful buying consideration", tone: "expert but easy to understand", emoji: false },
+  { angle: "how this could improve work or study", tone: "aspirational without exaggeration", emoji: false },
+  { angle: "a satisfying setup improvement", tone: "visual, energetic and concise", emoji: true },
+  { angle: "a real small-business technology need", tone: "professional and outcome-focused", emoji: false },
+  { angle: "an everyday benefit people can immediately recognise", tone: "warm and conversational", emoji: true },
+  { angle: "a fun weekend technology find", tone: "playful, tasteful and never gimmicky", emoji: true },
+] as const;
+const VISUAL_STYLES = [
+  { centre: "#ffffff", edge: "#eef3f7", mark: false },
+  { centre: "#ffffff", edge: "#eef3f7", mark: false },
+  { centre: "#ffffff", edge: "#e8f6fb", mark: false },
+  { centre: "#fafdff", edge: "#dceff7", mark: true },
+  { centre: "#fffdf8", edge: "#e9eef4", mark: false },
+  { centre: "#ffffff", edge: "#e0e7ff", mark: false },
+  { centre: "#f7fcff", edge: "#d7f0fa", mark: true },
+] as const;
 const clean = (value?: string | null) => (value ?? "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
 const baseUrl = () => (process.env.NEXT_PUBLIC_SITE_URL ?? brand.siteUrl).replace(/\/$/, "");
 export const socialContentDay = (date = new Date()) => new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Johannesburg", year: "numeric", month: "2-digit", day: "2-digit" }).format(date);
 export const socialContentDate = (day: string) => new Date(`${day}T00:00:00.000Z`);
 const fingerprint = (parts: string[]) => createHash("sha256").update(parts.join("|")).digest("hex");
-const angleForDay = (day: string) => CONTENT_ANGLES[Number.parseInt(createHash("sha256").update(day).digest("hex").slice(0, 8), 16) % CONTENT_ANGLES.length];
+const seedNumber = (seed: string) => Number.parseInt(createHash("sha256").update(seed).digest("hex").slice(0, 8), 16);
+const planForDay = (day: string) => CONTENT_PLANS[seedNumber(day) % CONTENT_PLANS.length];
+const visualForDay = (day: string) => VISUAL_STYLES[seedNumber(`visual:${day}`) % VISUAL_STYLES.length];
 type GenerationStage = "CATALOGUE" | "COPY" | "PRODUCT_ARTWORK" | "STORAGE" | "EMAIL";
 const stageError = (stage: GenerationStage, error: unknown) => new Error(`SOCIAL_${stage}: ${error instanceof Error ? error.message : "Unknown failure"}`);
 async function atStage<T>(stage: GenerationStage, work: () => Promise<T>) { try { return await work(); } catch (error) { throw stageError(stage, error); } }
@@ -72,14 +92,17 @@ async function chooseDailySource(seed: string): Promise<Source> {
 }
 
 async function createDailyCopy(source: Source, day: string, direction: string) {
+  const plan = planForDay(day);
   const response = await withTransientRetry(() => getOpenAIClient().responses.create({
     model: process.env.OPENAI_SOCIAL_MODEL ?? process.env.OPENAI_MODEL ?? "gpt-5.6", store: false,
-    input: `Write one ready-to-post social caption for Innozanzi Shop using only the supplied product facts.\n\n${marketingBusinessRules}\n\nProduct: ${JSON.stringify(source)}\nContent angle: ${angleForDay(day)}.\nBrand direction: ${direction}.\n\nTarget customers are in South Africa. Make it genuinely useful, specific and human—not AI copy or a corporate brochure. Use two short natural paragraphs: first a strong reason this product may matter, then one honest buying consideration and a clear invitation to view it. Never invent specifications, price, stock level, discounts, delivery promises or customer claims. Do not use markdown, emojis, headings or hashtags; the system adds the link and focused hashtags. Return JSON only.`,
-    text: { format: { type: "json_schema", name: "daily_social_post", strict: true, schema: { type: "object", additionalProperties: false, properties: { title: { type: "string", minLength: 5, maxLength: 70 }, caption: { type: "string", minLength: 40, maxLength: 650 }, imageAlt: { type: "string", minLength: 10, maxLength: 220 } }, required: ["title", "caption", "imageAlt"] } } },
+    input: `Write one ready-to-post social caption for Innozanzi Shop using only the supplied product facts.\n\n${marketingBusinessRules}\n\nProduct: ${JSON.stringify(source)}\nContent angle: ${plan.angle}.\nTone for today: ${plan.tone}.\nBrand direction: ${direction}.\n\nTarget customers are in South Africa. Open with a strong, natural hook that suits today's angle, then explain one concrete customer benefit or useful buying consideration. Keep it human and specific—not AI copy, clickbait or a corporate brochure. Vary sentence rhythm and wording from a standard product advert. ${plan.emoji ? "You may use one relevant emoji if it genuinely improves the post." : "Do not use emojis."} Never invent specifications, price, stock level, discounts, delivery information, performance claims or customer claims. Do not mention delivery. Do not put hashtags inside the caption; return 2–4 focused hashtags separately, including a relevant South African technology or audience tag. Return JSON only.`,
+    text: { format: { type: "json_schema", name: "daily_social_post", strict: true, schema: { type: "object", additionalProperties: false, properties: { title: { type: "string", minLength: 5, maxLength: 70 }, caption: { type: "string", minLength: 40, maxLength: 650 }, imageAlt: { type: "string", minLength: 10, maxLength: 220 }, hashtags: { type: "array", minItems: 2, maxItems: 4, items: { type: "string", minLength: 2, maxLength: 40 } } }, required: ["title", "caption", "imageAlt", "hashtags"] } } },
   }, { timeout: 60_000 }));
   const post = dailyCopySchema.parse(JSON.parse(response.output_text));
   const body = post.caption.replace(/#[A-Za-z0-9]+/g, "").replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n").trim().slice(0, 500).trim();
-  return { ...post, caption: `${body}\n\nExplore it: ${source.url}\n\n#TechSouthAfrica #ShopTech #Innozanzi` };
+  const suggested = post.hashtags.map(value => `#${value.replace(/^#/, "").replace(/[^A-Za-z0-9]/g, "")}`).filter(value => value.length > 2).slice(0, 2);
+  const hashtags = [...new Set([...suggested, "#TechSouthAfrica", "#Innozanzi"])].slice(0, 4);
+  return { ...post, caption: `${body}\n\nExplore it: ${source.url}\n\n${hashtags.join(" ")}` };
 }
 
 async function bestProductImage(source: Source) {
@@ -91,15 +114,18 @@ async function bestProductImage(source: Source) {
 }
 
 // Image-only artwork: no generated typography, logo, banner, line or promotional claim.
-async function cleanProductArtwork(source: Source) {
+async function cleanProductArtwork(source: Source, seed = "neutral") {
   const product = await bestProductImage(source);
-  return cleanImageArtwork(product);
+  return cleanImageArtwork(product, seed);
 }
 
-async function cleanImageArtwork(product: Buffer) {
-  const background = Buffer.from(`<svg width="1080" height="1350" xmlns="http://www.w3.org/2000/svg"><defs><radialGradient id="b" cx="50%" cy="44%" r="68%"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#eef3f7"/></radialGradient></defs><rect width="1080" height="1350" fill="url(#b)"/></svg>`);
+async function cleanImageArtwork(product: Buffer, seed = "neutral") {
+  const style = visualForDay(seed);
+  const background = Buffer.from(`<svg width="1080" height="1350" xmlns="http://www.w3.org/2000/svg"><defs><radialGradient id="b" cx="50%" cy="44%" r="68%"><stop offset="0" stop-color="${style.centre}"/><stop offset="1" stop-color="${style.edge}"/></radialGradient></defs><rect width="1080" height="1350" fill="url(#b)"/></svg>`);
   const prepared = await sharp(product).rotate().trim({ background: { r: 255, g: 255, b: 255, alpha: 0 } }).resize(900, 1120, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 }, kernel: "lanczos3" }).sharpen({ sigma: 0.7 }).png().toBuffer();
-  return sharp(background).composite([{ input: prepared, gravity: "centre" }]).webp({ quality: 96, smartSubsample: true }).toBuffer();
+  const layers: OverlayOptions[] = [{ input: prepared, gravity: "centre" }];
+  if (style.mark) layers.push({ input: await sharp(await readFile(path.join(process.cwd(), "public/brand/innozanzi-shop-mark.png"))).resize(74, 74).png().toBuffer(), left: 958, top: 1228 });
+  return sharp(background).composite(layers).webp({ quality: 96, smartSubsample: true }).toBuffer();
 }
 
 async function uploadArtwork(bytes: Buffer, day: string, type: string) {
@@ -140,7 +166,7 @@ export async function generateDailySocialContent(options: { date?: Date; actorId
   const generationSeed = options.force ? `${day}:${Date.now()}` : day;
   const source = await atStage("CATALOGUE", () => chooseDailySource(generationSeed));
   const post = await atStage("COPY", () => createDailyCopy(source, generationSeed, settings.brandDirection));
-  const bytes = await atStage("PRODUCT_ARTWORK", () => cleanProductArtwork(source));
+  const bytes = await atStage("PRODUCT_ARTWORK", () => cleanProductArtwork(source, generationSeed));
   const imageUrl = await atStage("STORAGE", () => uploadArtwork(bytes, day, source.type));
   const data = { contentDate: socialContentDate(day), contentType: source.type, title: post.title, caption: post.caption, imageUrl, imageAlt: post.imageAlt, destinationUrl: source.url, sourceType: source.sourceType, sourceId: source.sourceId, fingerprint: fingerprint([source.type, source.sourceId, post.caption]), generationKey: `daily:${day}:PRIMARY`, emailStatus: "PENDING", emailedAt: null, error: null, createdById: options.actorId };
   const item = existing ? await prisma.$transaction(async transaction => {
@@ -158,7 +184,7 @@ export async function generateBlogSocialContent(post: { id: string; title: strin
   const url = `${baseUrl()}/blog/${post.slug}`;
   const response = await getOpenAIClient().responses.create({ model: process.env.OPENAI_SOCIAL_MODEL ?? process.env.OPENAI_MODEL ?? "gpt-5.6", store: false, input: `Write one natural, human social caption that sells the value of this Innozanzi insight without sounding like AI. ${marketingBusinessRules} Use plain English, a clear reason to read, this URL, and no more than 3 hashtags. Title: ${post.title}\nExcerpt: ${post.excerpt}\nURL: ${url}` }, { timeout: 30_000 });
   const source: Source = { type: "PC_BUILDER", sourceType: "BLOG", sourceId: post.id, name: post.title, detail: post.excerpt, image: post.coverImageUrl ?? undefined, url }, day = socialContentDay();
-  const artwork = post.coverImageUrl ? await cleanProductArtwork(source) : await cleanImageArtwork(await readFile(path.join(process.cwd(), "public/social/innozanzi-share.png")));
+  const artwork = post.coverImageUrl ? await cleanProductArtwork(source, `blog:${post.id}`) : await cleanImageArtwork(await readFile(path.join(process.cwd(), "public/social/innozanzi-share.png")), `blog:${post.id}`);
   const item = await prisma.socialContent.create({ data: { contentDate: socialContentDate(day), contentType: "INSIGHT", title: post.title, caption: response.output_text.trim(), imageUrl: await uploadArtwork(artwork, day, "INSIGHT"), imageAlt: `Clean social image for ${post.title}`, destinationUrl: url, sourceType: "BLOG", sourceId: post.id, fingerprint: fingerprint(["BLOG", post.id]), generationKey, createdById: actorId } });
   await emailContent([item.id], day, settings.recipientEmail, "A new insight is ready to promote. The image and caption are attached for manual posting."); return item;
 }
