@@ -21,7 +21,7 @@ async function handle(request: Request, context: { params: Promise<{ paymentId: 
       await tx.payment.update({ where: { id: payment.id }, data: { status: paymentStatus, failureReason: result === "cancelled" ? "Customer cancelled at payment provider." : "Customer returned from a provider error." } });
       if (payment.order.status === "AWAITING_PAYMENT" && payment.order.paymentStatus !== "PAID") {
         await tx.order.update({ where: { id: payment.orderId }, data: { paymentStatus } });
-        await tx.orderStatusHistory.create({ data: { orderId: payment.orderId, fromStatus: "AWAITING_PAYMENT", toStatus: "AWAITING_PAYMENT", note: result === "cancelled" ? "Customer cancelled the Ozow payment attempt. The order remains unpaid and can be retried." : "The Ozow payment attempt was not completed. The order remains unpaid and can be retried." } });
+        await tx.orderStatusHistory.create({ data: { orderId: payment.orderId, fromStatus: "AWAITING_PAYMENT", toStatus: "AWAITING_PAYMENT", note: result === "cancelled" ? "Customer cancelled the payment attempt. The order remains unpaid and can be retried." : "The payment attempt was not completed. The order remains unpaid and can be retried." } });
       }
     });
   }

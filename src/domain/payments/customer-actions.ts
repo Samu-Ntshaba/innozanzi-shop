@@ -12,9 +12,9 @@ import { eftConfigured, getRetailPaymentSettings } from "./settings";
 
 export async function retryOrderPayment(formData: FormData) {
   const ctx = await requireUser();
-  const input = z.object({ orderId: z.string().uuid(), paymentMethod: z.enum(["OZOW", "EFT"]) }).parse(Object.fromEntries(formData));
+  const input = z.object({ orderId: z.string().uuid(), paymentMethod: z.enum(["PAYFAST", "OZOW", "EFT"]) }).parse(Object.fromEntries(formData));
   const settings = await getRetailPaymentSettings();
-  if (input.paymentMethod === "OZOW" && !gatewayConfigured("OZOW")) throw new Error("Ozow is temporarily unavailable.");
+  if (input.paymentMethod !== "EFT" && !gatewayConfigured(input.paymentMethod)) throw new Error("This payment method is temporarily unavailable.");
   if (input.paymentMethod === "EFT" && !eftConfigured(settings)) throw new Error("EFT is not enabled yet.");
   const payment = await prisma.$transaction(async tx => {
     await tx.$queryRaw`SELECT id FROM "Order" WHERE id = ${input.orderId}::uuid FOR UPDATE`;

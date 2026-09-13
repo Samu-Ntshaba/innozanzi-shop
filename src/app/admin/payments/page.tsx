@@ -32,7 +32,7 @@ export default async function Page() {
       title="Payment verification"
       description="Proof review controls order activation. Uploading evidence never verifies payment automatically."
     >
-      <Panel title="Customer payment methods" description="Ozow is the only live instant-payment gateway. Enable EFT only after verifying the company banking details below. PayFast is unavailable for new customer payments.">
+      <Panel title="Customer payment methods" description="PayFast is the default when configured, followed by Ozow. Live PayFast requires merchant credentials, a matching security passphrase and PAYFAST_SANDBOX=false. Enable EFT only after verifying the company banking details below.">
         <form action={saveRetailPaymentSettings} className="grid gap-4 sm:grid-cols-2">
           <label className="flex items-center gap-3 rounded-lg border p-3 text-sm font-bold sm:col-span-2"><input type="checkbox" name="eftEnabled" defaultChecked={retailPaymentSettings.eftEnabled}/>Enable EFT at checkout</label>
           <label className="text-sm font-semibold">Bank name<input className={inputClass} name="bankName" defaultValue={retailPaymentSettings.bankName}/></label>

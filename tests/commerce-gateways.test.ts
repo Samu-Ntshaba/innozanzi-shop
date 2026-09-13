@@ -9,3 +9,23 @@ it("verifies PayFast signatures and server validation before accepting payment",
 it("rejects signed PayFast notifications when the provider refuses validation",async()=>{const data={merchant_id:"10000100",signature:""};data.signature=payfastSignature(data,"pass phrase");vi.stubGlobal("fetch",vi.fn().mockResolvedValue({ok:true,text:async()=>"INVALID"}));await expect(verifyApprovedNotification("PAYFAST",new URLSearchParams(data).toString())).rejects.toThrow("verified");});
 it("validates Ozow hash and independently queries transaction status",async()=>{const data:Record<string,string>={SiteCode:"site",TransactionId:"event",TransactionReference:"payment",Amount:"123.45",Status:"Complete",Optional1:"",Optional2:"",Optional3:"",Optional4:"",Optional5:"",CurrencyCode:"ZAR",IsTest:"true",StatusMessage:""};data.Hash=ozowHash(Object.values(data),"private-secret");vi.stubGlobal("fetch",vi.fn().mockResolvedValue({ok:true,json:async()=>[{...data,Amount:123.45}]}));expect(await verifyApprovedNotification("OZOW",new URLSearchParams(data).toString())).toMatchObject({status:"PAID",currency:"ZAR",externalReference:"payment"});vi.stubGlobal("fetch",vi.fn().mockResolvedValue({ok:true,json:async()=>[{...data,Amount:1}]}));await expect(verifyApprovedNotification("OZOW",new URLSearchParams(data).toString())).rejects.toThrow("mismatch");});
 it("rejects duplicate notification fields",async()=>{await expect(verifyApprovedNotification("OZOW","Amount=1&Amount=2")).rejects.toThrow("Duplicate");});
+
+it("requires a passphrase and blocks PayFast sandbox in production", () => {
+  vi.stubEnv("NODE_ENV", "production");
+  vi.stubEnv("TEST_MODE_ENVIRONMENT", "false");
+  expect(gatewayConfigured("PAYFAST")).toBe(false);
+  vi.stubEnv("PAYFAST_SANDBOX", "false");
+  expect(gatewayConfigured("PAYFAST")).toBe(true);
+  vi.stubEnv("PAYFAST_PASSPHRASE", "");
+  expect(gatewayConfigured("PAYFAST")).toBe(false);
+});
+it("opens live PayFast with recoverable returns and all enabled payment methods", () => {
+  vi.stubEnv("PAYFAST_SANDBOX", "false");
+  const result = hostedFields("PAYFAST", { id: "payment", amount: "123.45", email: "test@example.com", orderId: "order" }, "https://shop.example");
+  expect(result.url).toBe("https://www.payfast.co.za/eng/process");
+  expect(result.fields.return_url).toBe("https://shop.example/api/payments/return/payment?result=success");
+  expect(result.fields.cancel_url).toBe("https://shop.example/api/payments/return/payment?result=cancelled");
+  expect(result.fields.notify_url).toBe("https://shop.example/api/webhooks/payfast");
+  expect(result.fields).not.toHaveProperty("payment_method");
+  expect(result.fields).not.toHaveProperty("passphrase");
+});

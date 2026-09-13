@@ -20,7 +20,7 @@ import { enqueueEmail } from "@/integrations/email/outbox";
 import { emailTemplates } from "@/integrations/email/templates";
 import { sendStaffEmail } from "@/domain/notifications/role-email";
 
-const schema = z.object({ notes: z.string().trim().max(1000).optional(), paymentMethod: z.enum(["OZOW", "EFT"]) });
+const schema = z.object({ notes: z.string().trim().max(1000).optional(), paymentMethod: z.enum(["PAYFAST", "OZOW", "EFT"]) });
 
 export async function placeRetailOrder(_state: { error: string }, formData: FormData) {
   const ctx = await requireUser();
@@ -28,7 +28,7 @@ export async function placeRetailOrder(_state: { error: string }, formData: Form
   try { data = { ...schema.parse(Object.fromEntries(formData)), ...await deliveryFromForm(ctx.user.id, formData) }; }
   catch (error) { return { error: error instanceof Error && /^(Complete|Please select|Please enter|Choose one|Please add|We currently deliver)/.test(error.message) ? error.message : "Please check your delivery and payment details." }; }
   const retailPaymentSettings = await getRetailPaymentSettings();
-  if(data.paymentMethod === "OZOW" ? !gatewayConfigured("OZOW") : !eftConfigured(retailPaymentSettings))return {error:"This payment method is not available yet. Please contact support."};
+  if(data.paymentMethod === "EFT" ? !eftConfigured(retailPaymentSettings) : !gatewayConfigured(data.paymentMethod))return {error:"This payment method is not available yet. Please contact support."};
   const cart = await getCurrentCart();
   if(!cart||(!cart.items.length&&!cart.supplierItems.length))throw new Error("Your cart is empty.");
   const code=String(formData.get("couponCode")??"").trim().slice(0,40);
