@@ -18,4 +18,10 @@ describe("order notification timing", () => {
     expect(alert).toContain('sendStaffEmail("ORDER_PAID"');
     expect(webhook).toContain('status: "CONVERTED"');
   });
+
+  it("keeps the owned payment return page available while verification completes", () => {
+    const page = readFileSync("src/app/account/orders/[orderNumber]/page.tsx", "utf8");
+    expect(page).toContain('const paymentReturn = ["processing", "cancelled", "error"]');
+    expect(page).toContain("<PaymentStatusRefresh");
+  });
 });
