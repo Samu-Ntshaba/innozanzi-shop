@@ -81,6 +81,9 @@ export async function processPaymentEvent(provider: "PAYSTACK" | "YOCO" | "OZOW"
     await tx.auditLog.create({ data: { action: "payment.webhook", entityType: "Payment", entityId: payment.id, metadata: { eventId: event.eventId, provider } } });
     return { duplicate: false, paymentId: payment.id, order: payment.order, amount: payment.amount.toString() };
   });
-  if (!result.duplicate && event.status === "PAID") await notifyStaffOfPaidOrder(result.order.id);
+  if (!result.duplicate && event.status === "PAID") {
+    try { await notifyStaffOfPaidOrder(result.order.id); }
+    catch (error) { console.error("Paid order notification failed after payment was committed", { orderId: result.order.id, error: error instanceof Error ? error.message : "Unknown error" }); }
+  }
   return { duplicate: result.duplicate, paymentId: result.paymentId };
 }
