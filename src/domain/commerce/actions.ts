@@ -1,25 +1,41 @@
 "use server";
-import { createHash } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { requirePermission } from "@/domain/auth/session";
 import { prisma } from "@/lib/prisma";
-import { commerceSchema } from "./config";
 import { pricingImpact } from "./impact";
-import { protectedPrice } from "./engine";
-function parseSettings(form:FormData){
- const customCosts=JSON.parse(String(form.get("customCosts")??"[]"));
- return commerceSchema.parse({...Object.fromEntries(form),customCosts,vatRegistered:form.get("vatRegistered")==="true"});
+import { parsePricingForm, PricingPublicationError, publishPricing } from "./publication";
+
+function failure(error:unknown){
+ if(error instanceof PricingPublicationError)return {error:error.message};
+ const reference=randomUUID();
+ console.error("Pricing operation failed",{reference,name:error instanceof Error?error.name:"Unknown",code:error&&typeof error==="object"&&"code" in error?String(error.code):undefined});
+ return {error:`Pricing could not be saved or calculated. The active settings were retained. Reference ${reference}.`};
 }
 export async function previewCommerceSettings(form:FormData){
  await requirePermission("settings.manage");
- return pricingImpact(parseSettings(form));
+ try{return {ok:true as const,impact:await pricingImpact(parsePricingForm(form))};}
+ catch(error){return {ok:false as const,...failure(error)};}
 }
-export async function saveCommerceSettings(form:FormData){
- const ctx=await requirePermission("settings.manage");const reason=String(form.get("reason")??"").trim();if(reason.length<8||reason.length>500)throw new Error("Describe the reason for this pricing change.");
- const data=parseSettings(form);
- const impact=await pricingImpact(data);
- if(form.get("confirmImpact")!=="on"||form.get("impactToken")!==impact.token)throw new Error("Preview the current catalogue impact and confirm it before publishing. Prices or settings may have changed.");
- for(const cost of [1,800,5000,15000])for(const gateway of ["OZOW","PAYFAST"] as const)protectedPrice(cost,data,gateway);
- await prisma.$transaction(async tx=>{await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended('commerce.pricing.v1',0))`;const before=await tx.siteSetting.findUnique({where:{key:"commerce.pricing.v1"}});if(createHash("sha256").update(JSON.stringify(commerceSchema.parse(before?.value??{}))).digest("hex")!==impact.baseline)throw new Error("Pricing settings changed. Preview again before publishing.");await tx.siteSetting.upsert({where:{key:"commerce.pricing.v1"},create:{key:"commerce.pricing.v1",value:data},update:{value:data}});await tx.auditLog.create({data:{actorId:ctx.user.id,action:"commerce.pricing.update",entityType:"SiteSetting",entityId:"commerce.pricing.v1",before:before?.value??undefined,after:data,metadata:{reason,impact}}});});
- revalidatePath("/","layout");
+export async function saveDraftCommerceSettings(form:FormData){
+ const ctx=await requirePermission("settings.manage");
+ try{
+  const settings=parsePricingForm(form);
+  await prisma.$transaction(async tx=>{
+   await tx.siteSetting.upsert({where:{key:"commerce.pricing.draft"},create:{key:"commerce.pricing.draft",value:settings},update:{value:settings}});
+   await tx.auditLog.create({data:{actorId:ctx.user.id,action:"commerce.pricing.draft",entityType:"SiteSetting",entityId:"commerce.pricing.draft"}});
+  });
+  return {error:"",success:"Draft saved. Active prices have not changed."};
+ }catch(error){return {...failure(error),success:""};}
+}
+export async function saveCommerceSettings(_state:{error:string;success:string},form:FormData){
+ const ctx=await requirePermission("settings.manage");
+ let published:Awaited<ReturnType<typeof publishPricing>>;
+ try{
+  published=await publishPricing({settings:parsePricingForm(form),reason:String(form.get("reason")??"").trim(),actorId:ctx.user.id,impactToken:String(form.get("impactToken")??""),confirmed:form.get("confirmImpact")==="on"});
+ }catch(error){return {...failure(error),success:""};}
+ // A refresh failure after commit must not be reported as a rolled-back publication.
+ try{revalidatePath("/","layout");}
+ catch{console.error("Pricing published but cache refresh failed",{version:published.version});return {error:"",success:`Pricing version ${published.version} was published. Refresh the page to check the active version.`};}
+ return {error:"",success:`Pricing is active. Published version ${published.version}.`};
 }

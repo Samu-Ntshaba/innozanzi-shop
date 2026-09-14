@@ -1,6 +1,7 @@
 import "dotenv/config";
 import { prisma } from "../src/lib/prisma";
 import { commerceSchema } from "../src/domain/commerce/config";
+import { pricingImpact } from "../src/domain/commerce/impact";
 import { innozanziPrice } from "../src/domain/commerce/engine";
 import { gatewayConfigured } from "../src/integrations/payments/approved-gateways";
 
@@ -8,6 +9,14 @@ import { gatewayConfigured } from "../src/integrations/payments/approved-gateway
 async function main(){
  const settingsRow=await prisma.siteSetting.findUnique({where:{key:"commerce.pricing.v1"}});
  const settings=commerceSchema.parse(settingsRow?.value??{});
+ if(process.argv.includes("--diagnose-pricing")){
+  const started=Date.now();console.log("Preview",await pricingImpact(settings),"elapsedMs",Date.now()-started);
+  for(const cast of [false,true]){
+   try{const result=await prisma.$transaction(async tx=>cast?tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended('innozanzi.audit.readonly',0))::text AS locked`:tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended('innozanzi.audit.readonly',0))`);console.log("Advisory lock",{cast,result});}
+   catch(error){console.log("Advisory lock",{cast,error:error instanceof Error?error.message:"Unknown error"});}
+  }
+  return;
+ }
  const [feeds,products,locals,pendingPayments,pendingCommunication,paidWithoutInvoice,failedEmail]=await Promise.all([
   prisma.supplierFeed.findMany({select:{provider:true,enabled:true,lastSuccessAt:true,supplier:{select:{purchasingEnabled:true,approvalStatus:true}}}}),
   prisma.supplierCatalogueProduct.findMany({where:{active:true},select:{costPrice:true,recommendedRetail:true,stock:true,lastSeenAt:true}}),

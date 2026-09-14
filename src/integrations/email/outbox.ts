@@ -7,7 +7,7 @@ import { getEmailProvider, mailDeliveryMode, type EmailMessage } from "./provide
 // this function resolves successfully.
 export async function enqueueEmail(message: EmailMessage, userId?: string) {
   const result=await prisma.$transaction(async tx=>{
-    await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`email:${message.idempotencyKey}`},0))`;
+    await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`email:${message.idempotencyKey}`},0))::text AS locked`;
     try{return {notification:await deliverEmail(message,userId,tx)};}
     catch(error){return {error};}
   },{timeout:60000});
