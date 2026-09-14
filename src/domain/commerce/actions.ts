@@ -5,6 +5,7 @@ import { requirePermission } from "@/domain/auth/session";
 import { prisma } from "@/lib/prisma";
 import { pricingImpact } from "./impact";
 import { parsePricingForm, PricingPublicationError, publishPricing } from "./publication";
+import { getPricingDraft } from "./draft";
 
 function failure(error:unknown){
  if(error instanceof PricingPublicationError)return {error:error.message};
@@ -21,18 +22,27 @@ export async function saveDraftCommerceSettings(form:FormData){
  const ctx=await requirePermission("settings.manage");
  try{
   const settings=parsePricingForm(form);
+  const version=randomUUID(),savedAt=new Date();
   await prisma.$transaction(async tx=>{
    await tx.siteSetting.upsert({where:{key:"commerce.pricing.draft"},create:{key:"commerce.pricing.draft",value:settings},update:{value:settings}});
-   await tx.auditLog.create({data:{actorId:ctx.user.id,action:"commerce.pricing.draft",entityType:"SiteSetting",entityId:"commerce.pricing.draft"}});
+   await tx.auditLog.create({data:{id:version,actorId:ctx.user.id,action:"commerce.pricing.draft",entityType:"SiteSetting",entityId:"commerce.pricing.draft",after:settings,metadata:{savedAt:savedAt.toISOString()}}});
   });
-  return {error:"",success:"Draft saved. Active prices have not changed."};
+  revalidatePath("/admin/pricing");
+  return {error:"",success:"Draft saved successfully.",draft:{settings,version,savedAt:savedAt.toISOString(),savedBy:ctx.user.name??ctx.user.email}};
  }catch(error){return {...failure(error),success:""};}
+}
+export async function loadDraftCommerceSettings(){
+ await requirePermission("settings.manage");
+ try{const draft=await getPricingDraft();return draft?{ok:true as const,draft}:{ok:false as const,error:"No saved pricing draft is available."};}
+ catch(error){return {ok:false as const,...failure(error)};}
 }
 export async function saveCommerceSettings(_state:{error:string;success:string},form:FormData){
  const ctx=await requirePermission("settings.manage");
  let published:Awaited<ReturnType<typeof publishPricing>>;
  try{
-  published=await publishPricing({settings:parsePricingForm(form),reason:String(form.get("reason")??"").trim(),actorId:ctx.user.id,impactToken:String(form.get("impactToken")??""),confirmed:form.get("confirmImpact")==="on"});
+  const settings=parsePricingForm(form),draft=await getPricingDraft();
+  if(!draft||JSON.stringify(draft.settings)!==JSON.stringify(settings))throw new PricingPublicationError("Save these exact settings as a draft, then load or preview them before publishing.");
+  published=await publishPricing({settings,reason:String(form.get("reason")??"").trim(),actorId:ctx.user.id,impactToken:String(form.get("impactToken")??""),confirmed:form.get("confirmImpact")==="on"});
  }catch(error){return {...failure(error),success:""};}
  // A refresh failure after commit must not be reported as a rolled-back publication.
  try{revalidatePath("/","layout");}

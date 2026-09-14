@@ -8,13 +8,14 @@ import type { CommerceSettings } from "./config";
 export async function pricingImpact(next: CommerceSettings) {
   const before = await getCommerceSettings();
   const [suppliers, locals] = await Promise.all([
-    prisma.supplierCatalogueProduct.findMany({ where: { active: true }, orderBy:{id:"asc"},select: { id: true, costPrice: true, promotionalPrice: true, promotionStartsAt: true, promotionEndsAt: true } }),
+    prisma.supplierCatalogueProduct.findMany({ where: { active: true }, orderBy:{id:"asc"},select: { id: true, costPrice: true, recommendedRetail:true, promotionalPrice: true, promotionStartsAt: true, promotionEndsAt: true } }),
     prisma.product.findMany({ where: { status: "PUBLISHED", deletedAt: null, isTestData: false },orderBy:{id:"asc"}, select: { id: true, costPrice: true, regularPrice: true, salePrice: true, saleStartsAt: true, saleEndsAt: true } }),
   ]);
   const now = new Date();
-  let increasing = 0, decreasing = 0, unchanged = 0, exceptions = 0, localBelowFloor = 0, sumChange = new Decimal(0);
+  let increasing = 0, decreasing = 0, unchanged = 0, exceptions = 0, localBelowFloor = 0, withoutRrp=0, sumChange = new Decimal(0);
   const entries: unknown[] = [];
   for (const row of suppliers) {
+    if(!row.recommendedRetail)withoutRrp++;
     try {
       const promotion = row.promotionalPrice && row.costPrice && row.promotionalPrice.lt(row.costPrice) && row.promotionalPrice.gt(0)
         && (!row.promotionStartsAt || row.promotionStartsAt <= now) && (!row.promotionEndsAt || row.promotionEndsAt >= now);
@@ -37,7 +38,7 @@ export async function pricingImpact(next: CommerceSettings) {
     } catch { exceptions++; entries.push([row.id, "REVIEW"]); }
   }
   const checked = increasing + decreasing + unchanged;
-  return { increasing, decreasing, unchanged, exceptions, localBelowFloor, supplierProducts: suppliers.length, localProducts: locals.length,
+  return { increasing, decreasing, unchanged, exceptions, localBelowFloor, withoutRrp, costOnly:withoutRrp, evaluated:suppliers.length+locals.length, pricedSuccessfully:suppliers.length+locals.length-exceptions, excluded:0, warnings:localBelowFloor, blockingErrors:exceptions, supplierProducts: suppliers.length, localProducts: locals.length,
     averageChange: checked ? sumChange.div(checked).toFixed(2) : "0.00",
     baseline: createHash("sha256").update(JSON.stringify(before)).digest("hex"),
     token: createHash("sha256").update(JSON.stringify({ before, next, entries })).digest("hex"),
