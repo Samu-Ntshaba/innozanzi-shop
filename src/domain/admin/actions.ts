@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
+import { reviewOrderEconomics } from "@/domain/commerce/order-review";
 import { requirePermission } from "@/domain/auth/session";
 import { enqueueEmail } from "@/integrations/email/outbox";
 import { emailTemplates } from "@/integrations/email/templates";
@@ -117,6 +118,8 @@ export async function setOrderStatus(formData: FormData) {
   const order = await prisma.$transaction(async (tx) => {
     const before = await tx.order.findUniqueOrThrow({ where: { id }, include: { items: true, payments: true, shipments: { take: 1 }, convertedQuotation: true } });
     assertOrderTransition(before.status, status);
+    if(status!=="CANCELLED"&&before.paymentStatus!=="PAID")throw new Error("Verified payment is required before fulfilment.");
+    if(status==="PROCESSING"&&!before.isTestData){const review=await reviewOrderEconomics(tx,before.items);if(review.length)throw new Error(`MARGIN REVIEW REQUIRED: ${review.join(" ")}`);}
     assertOrderTransitionRequirements({ from: before.status, to: status, hasSupplierItems: before.items.some(item => item.sourceType === "SUPPLIER" || Boolean(item.supplierId)), hasShipment: before.shipments.length > 0 });
     if (status === "CANCELLED") {
       for (const item of before.items) {

@@ -1,5 +1,6 @@
 import { paymentAmountError } from "@/domain/payments/limits";
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import { listAddresses } from "@/domain/addresses/service";
 import { mapsConfigured } from "@/domain/addresses/google-places";
 import { prisma } from "@/lib/prisma";
@@ -19,6 +20,7 @@ export default async function CustomerQuotations({searchParams}:{searchParams:Pr
   const paymentMethods = { PAYFAST: gatewayConfigured("PAYFAST"), OZOW: gatewayConfigured("OZOW") };
   const addressChoice = <label className="block text-sm font-semibold">Delivery address<select className={input} name="addressId" defaultValue={addresses[0]?.id ?? ""} required><option value="" disabled>Choose a saved delivery address</option>{addresses.map(a => <option key={a.id} value={a.id}>{a.line1}, {a.city}{a.isDefault ? " (default)" : ""}</option>)}</select><Link href="/account/addresses" className="mt-2 inline-block font-normal text-sky-700 underline">Add or manage addresses</Link></label>;
   const quotes=await prisma.quotation.findMany({where:{customerId:ctx.user.id},include:{items:true,paymentSubmissions:{orderBy:{submittedAt:"desc"},take:1}},orderBy:{createdAt:"desc"}});
+  if(!quotes.length)notFound();
   const notice=params.address ? "Please add a complete delivery address to your account, then select it before payment." : params.online==="paid"?"Your payment was verified. Your order is now active.":params.online==="verification-failed"?"We could not verify the returned payment. If funds were deducted, the secure webhook will still update your order.":params.payment?"Proof received. Payment verification is pending.":params.submitted?`Quotation request ${params.submitted} was submitted.`:null;
   return <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
     <div className="flex min-w-0 flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between"><div className="min-w-0"><h1 className="text-3xl font-black">Your quotations</h1><p className="mt-1 text-sm text-slate-600">Review quotes, decisions and payment progress.</p></div><Link className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-sky-600 px-4 py-2.5 text-center text-sm font-bold text-white sm:w-auto" href="/shop">Start another request</Link></div>

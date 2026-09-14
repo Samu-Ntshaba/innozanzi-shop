@@ -30,3 +30,13 @@ it("opens live PayFast with recoverable returns and all enabled payment methods"
   expect(result.fields).not.toHaveProperty("payment_method");
   expect(result.fields).not.toHaveProperty("passphrase");
 });
+
+import { reconcileApprovedPayment } from "@/integrations/payments/approved-gateways";
+it("reconciles Ozow only from matching provider-returned evidence",async()=>{
+ vi.stubGlobal("fetch",vi.fn().mockResolvedValue({ok:true,json:async()=>[{SiteCode:"site",TransactionId:"tx",TransactionReference:"payment",CurrencyCode:"ZAR",Status:"Complete",Amount:"123.45"}]}));
+ expect(await reconcileApprovedPayment("OZOW","tx","payment")).toMatchObject({eventId:"tx",amount:"123.45",status:"PAID"});
+ await expect(reconcileApprovedPayment("OZOW","tx","other-payment")).rejects.toThrow("mismatch");
+});
+it("cannot reconcile PayFast from a typed transaction ID alone",async()=>{
+ await expect(reconcileApprovedPayment("PAYFAST","tx","payment")).rejects.toThrow("signed PayFast notification");
+});

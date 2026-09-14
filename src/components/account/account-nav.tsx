@@ -10,18 +10,18 @@ const links = [
   ["Delivery addresses", "/account/addresses", "⌖"],
   ["My PC Projects", "/account/pc-projects", "PC"],
   ["Orders & tracking", "/account/orders", "↗"],
-  ["Quotations", "/account/quotations", "Q"],
   ["Returns & concerns", "/account/returns", "↩"],
   ["Support", "/account/support", "?"],
   ["Partnership", "/account/partnership", "◇"],
 ] as const;
 
-export function AccountNav({ showAdmin }: { showAdmin: boolean }) {
+export function AccountNav({ showAdmin, showPartnership=false }: { showAdmin: boolean; showPartnership?:boolean }) {
   const pathname = usePathname();
   const active = (href: string) => pathname === href || (href !== "/account" && pathname.startsWith(href + "/"));
-  const current = links.find(([, href]) => active(href))?.[0] ?? "Account menu";
+  const visibleLinks=links.filter(([,href])=>href!=="/account/partnership"||showPartnership);
+  const current = visibleLinks.find(([, href]) => active(href))?.[0] ?? "Account menu";
   const items = <>
-    {links.map(([label, href, icon]) => (
+    {visibleLinks.map(([label, href, icon]) => (
       <Link
         aria-current={active(href) ? "page" : undefined}
         className={`flex min-w-0 items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold transition ${active(href) ? "bg-sky-50 text-sky-800 ring-1 ring-sky-200" : "text-slate-600 hover:bg-slate-50 hover:text-slate-950"}`}

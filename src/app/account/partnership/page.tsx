@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import { FileUp, ListChecks } from "lucide-react";
 import { requireUser } from "@/domain/auth/session";
 import { partnershipEligibility } from "@/domain/partnerships/service";
@@ -13,6 +14,7 @@ export default async function PartnershipAccount({ searchParams }: { searchParam
   const eligibility = await partnershipEligibility(ctx.user.id);
   const latest = await prisma.partnershipApplication.findFirst({ where: { userId: ctx.user.id }, include: { partnershipType: true, documents: true, statusHistory: { orderBy: { createdAt: "desc" }, take: 12 } }, orderBy: { createdAt: "desc" } });
 
+  if(!latest&&!eligibility.approvedPartnership)notFound();
   if (eligibility.approvedPartnership) return <main className="mx-auto max-w-5xl px-4 py-10"><h1 className="text-3xl font-black">Partnership</h1><div className="mt-6 rounded-xl border border-emerald-300 bg-emerald-50 p-6"><h2 className="text-xl font-bold text-emerald-900">Your partnership is active</h2><p className="mt-2 text-emerald-800">Partner reference {eligibility.approvedPartnership.partnerNumber}</p><Link className="mt-5 inline-block rounded-lg bg-[#071b33] px-5 py-3 font-bold text-white" href="/account/partner">Open Partner Workspace</Link></div></main>;
 
   const editable = latest ? editableStatuses.includes(latest.status) : false;

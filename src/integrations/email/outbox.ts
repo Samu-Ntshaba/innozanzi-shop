@@ -1,3 +1,4 @@
+import type { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getEmailProvider, mailDeliveryMode, type EmailMessage } from "./provider";
 
@@ -5,7 +6,17 @@ import { getEmailProvider, mailDeliveryMode, type EmailMessage } from "./provide
 // Callers can therefore send first and only commit their business record after
 // this function resolves successfully.
 export async function enqueueEmail(message: EmailMessage, userId?: string) {
-  const existing = await prisma.notification.findFirst({ where: { type: "EMAIL_OUTBOX", data: { path: ["idempotencyKey"], equals: message.idempotencyKey } } });
+  const result=await prisma.$transaction(async tx=>{
+    await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`email:${message.idempotencyKey}`},0))`;
+    try{return {notification:await deliverEmail(message,userId,tx)};}
+    catch(error){return {error};}
+  },{timeout:60000});
+  if("error" in result)throw result.error;
+  return result.notification;
+}
+
+async function deliverEmail(message: EmailMessage, userId: string|undefined, db:Prisma.TransactionClient) {
+  const existing = await db.notification.findFirst({ where: { type: "EMAIL_OUTBOX", data: { path: ["idempotencyKey"], equals: message.idempotencyKey } } });
   const deliveryMode = mailDeliveryMode();
   const existingData = existing?.data && typeof existing.data === "object" && !Array.isArray(existing.data)
     ? existing.data as Record<string, unknown>
@@ -23,18 +34,18 @@ export async function enqueueEmail(message: EmailMessage, userId?: string) {
     const failureData = { to: message.to, cc: message.cc, text: message.text, idempotencyKey: message.idempotencyKey, deliveryMode, from: message.from, category: message.category };
     const failure = error instanceof Error ? error.message.slice(0, 2_000) : "Email provider rejected the message.";
     if (existing) {
-      await prisma.notification.update({ where: { id: existing.id }, data: { userId: userId ?? existing.userId, subject: message.subject, body: message.html, data: failureData, status: "FAILED", sentAt: null, error: failure } });
+      await db.notification.update({ where: { id: existing.id }, data: { userId: userId ?? existing.userId, subject: message.subject, body: message.html, data: failureData, status: "FAILED", sentAt: null, error: failure } });
     } else {
-      await prisma.notification.create({ data: { userId, type: "EMAIL_OUTBOX", channel: "email", subject: message.subject, body: message.html, data: failureData, status: "FAILED", error: failure } });
+      await db.notification.create({ data: { userId, type: "EMAIL_OUTBOX", channel: "email", subject: message.subject, body: message.html, data: failureData, status: "FAILED", error: failure } });
     }
     throw error;
   }
   const data = { to: message.to, cc: message.cc, text: message.text, idempotencyKey: message.idempotencyKey, messageId: result.messageId, deliveryMode, from: message.from, category: message.category };
 
   if (existing) {
-    return prisma.notification.update({ where: { id: existing.id }, data: { userId: userId ?? existing.userId, subject: message.subject, body: message.html, data, status: "SENT", sentAt: new Date(), error: null } });
+    return db.notification.update({ where: { id: existing.id }, data: { userId: userId ?? existing.userId, subject: message.subject, body: message.html, data, status: "SENT", sentAt: new Date(), error: null } });
   }
-  return prisma.notification.create({ data: { userId, type: "EMAIL_OUTBOX", channel: "email", subject: message.subject, body: message.html, data, status: "SENT", sentAt: new Date() } });
+  return db.notification.create({ data: { userId, type: "EMAIL_OUTBOX", channel: "email", subject: message.subject, body: message.html, data, status: "SENT", sentAt: new Date() } });
 }
 
 export async function retryFailedEmails(limit = 50) {
@@ -64,8 +75,8 @@ export async function retryFailedEmails(limit = 50) {
         : undefined,
     };
     try {
-      const result = await getEmailProvider().send(message);
-      await prisma.notification.update({ where: { id: row.id }, data: { status: "SENT", sentAt: new Date(), error: null, data: { ...data, retryAttempts: attempts + 1, lastRetryAt: new Date().toISOString(), messageId: result.messageId, deliveryMode: mailDeliveryMode() } } });
+      const result = await enqueueEmail(message,row.userId??undefined);
+      await prisma.notification.update({ where: { id: result.id }, data: { data: { ...(result.data as Record<string,string>), retryAttempts: attempts + 1, lastRetryAt: new Date().toISOString() } } });
       sent += 1;
     } catch (error) {
       const reason = error instanceof Error ? error.message.slice(0, 2_000) : "Email retry failed.";

@@ -18,12 +18,11 @@ beforeEach(() => {
   }));
 });
 
-it("records a cancelled Ozow attempt and returns to the exact retryable order", async () => {
+it("returns to the order without treating browser cancellation as payment evidence", async () => {
   const response = await GET(new Request("https://shop.example/api/payments/return/" + id + "?result=cancelled"), { params: Promise.resolve({ paymentId: id }) });
   expect(response.status).toBe(303);
   expect(response.headers.get("location")).toBe("https://shop.innozanzi.co.za/account/orders/ORD-TEST?payment=cancelled");
-  expect(mocks.paymentUpdate).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: "CANCELLED" }) }));
-  expect(mocks.orderUpdate).toHaveBeenCalledWith(expect.objectContaining({ data: { paymentStatus: "CANCELLED" } }));
+  expect(mocks.transaction).not.toHaveBeenCalled();
 });
 
 it("does not mark a successful browser return paid or cancelled before the verified webhook", async () => {

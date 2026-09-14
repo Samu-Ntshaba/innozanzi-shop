@@ -1,0 +1,19 @@
+# Go-live audit — 14 September 2026
+
+## Phase 1: existing implementation, before edits
+
+The authoritative settings record is `SiteSetting[commerce.pricing.v1]`, edited by `settings.manage` at Admin > Pricing. `commerce/engine.ts` computes protected contribution prices; `catalogue/retail-pricing.ts` wraps it for both distributors. No replacement engine is needed.
+
+Let C be supplier cost excluding VAT, D delivery + surcharge + handling per unit, L=(C+D) × unrecoverable input VAT factor, V output VAT factor, p gateway percentage × unrecoverable fee VAT factor, f fixed fee including payout allocation, m minimum gateway fee, r reserve fraction, g cost-band contribution margin and M minimum rand contribution. Net revenue is the maximum of four branches: percentage-fee margin, percentage-fee minimum contribution, minimum-fee margin, minimum-fee minimum contribution. The percentage branch solves `(L+f)/(1-g-r-pV)` and `(L+f+M)/(1-r-pV)`. The minimum-fee branches replace percentage deductions with minimum gateway fee plus payout allocation. Gross is net × V, rounded upward. The public floor is the greater of PayFast and Ozow floors.
+
+Existing defaults: 18/12/8% contribution margins; R120/350/750 minimum contribution across cost bands; supplier/input and fee VAT treatment depends on configured registration. These are configuration assumptions, not verified merchant contracts. Monthly platform expense is reporting-only. Local products keep manually published prices with a checkout floor guard. Supplier prices additionally used `max(engine floor, supplier RRP)` — contrary to the requested benchmark-only meaning. Promotional supplier costs already respect start/end dates. Coupons cannot consume protected floor headroom. Settings are included in immutable order-line snapshots.
+
+Supplier feeds retain separate costs, RRP, promotion costs, availability and identities. Shared display reconciliation ranks eligible offers by unit cost; delivery allocation is presently global. Checkout recalculates server-side and compares a reviewed fingerprint. Gateway notifications verify signatures, reference, amount, currency and remote provider evidence. Row locks and unique gateway event IDs protect duplicate payment transitions. Customer confirmation occurs after commit, but is not durably queued inside the payment transaction. Staff and customer email use existing outbox/retry machinery. Procurement is manually recorded and does not call supplier ordering APIs.
+
+Desktop orders require orders.view; mobile layout requires mobile-admin membership, but the orders page lacked orders.view. Customer order queries constrain userId. Browser return routes previously mutated failed/cancelled state based on unsigned URL parameters. Polling was unbounded. Customer tracker exposed supplier procurement stages and labelled dispatch/in-transit as out-for-delivery. All 78 baseline test files / 262 tests passed despite these gaps; many tests inspect source strings rather than exercising a database or browser.
+
+## Phase 2: minimum design
+
+Extend existing JSON pricing settings and existing engine with explicit optional overhead allocation and custom costs, benchmark-only supplier RRP, a guarded competitive adjustment, and an impact preview before publishing. Preserve existing cost-band minimums, tax treatment, upward rounding and order snapshots. Add no alternate engine and no automatic below-floor permission bypass.
+
+Make browser returns read-only; bound polling; protect procurement with paid-state and commercial checks; strengthen mobile authorization; simplify public tracking using existing statuses. Surface unresolved operations using existing admin records. Validate with regression tests, lint, TypeScript and production build. Do not send live mail, place supplier orders, charge/refund money, or change secrets.

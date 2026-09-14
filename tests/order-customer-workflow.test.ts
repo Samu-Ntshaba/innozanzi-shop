@@ -6,7 +6,7 @@ import { DEFAULT_ORDER_COMPLETION_WINDOW_DAYS, returnWindowEnd } from "@/domain/
 describe("customer order workflow", () => {
   it("uses customer-friendly labels for internal fulfilment states", () => {
     expect(customerOrderStatusLabel("SOURCING_ITEMS")).toBe("Products being prepared");
-    expect(customerOrderStatusLabel("DISPATCHED")).toBe("Out for delivery");
+    expect(customerOrderStatusLabel("DISPATCHED")).toBe("Shipped");
     expect(customerOrderStatusLabel("DELIVERED")).not.toBe(customerOrderStatusLabel("COMPLETED"));
   });
 

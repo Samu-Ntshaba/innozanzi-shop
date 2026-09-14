@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { validateQuotationPrices } from "@/domain/commerce/quotation-guard";
 import { paymentAmountError } from "@/domain/payments/limits";
 import { CreditCard, Landmark, LoaderCircle, LockKeyhole } from "lucide-react";
 import { notFound } from "next/navigation";
@@ -11,8 +12,14 @@ import { formatZar } from "@/lib/money";
 
 export default async function Page({ params }: { params: Promise<{ paymentId: string }> }) {
   const ctx = await requireUser();
-  const payment = await prisma.payment.findFirst({ where: { id: (await params).paymentId, status: "PENDING", provider: { in: ["PAYFAST", "OZOW"] }, order: { userId: ctx.user.id } }, include: { order: true } });
+  const configuredPricing=await prisma.siteSetting.findUnique({where:{key:"commerce.pricing.v1"},select:{key:true}});
+  if(!configuredPricing)return <main className="mx-auto max-w-lg px-4 py-12"><h1 className="text-2xl font-bold">Pricing approval pending</h1><p className="mt-4">Please contact support before making a payment. Your saved order has not been changed.</p><Link className="underline" href="/account/support">Contact support</Link></main>;
+  const payment = await prisma.payment.findFirst({ where: { id: (await params).paymentId, status: "PENDING", provider: { in: ["PAYFAST", "OZOW"] }, order: { userId: ctx.user.id } }, include: { order: {include:{items:true}} } });
   if (!payment || (payment.provider !== "PAYFAST" && payment.provider !== "OZOW")) notFound();
+  if(payment.order.paymentStatus!=="PENDING"||payment.order.status!=="AWAITING_PAYMENT")notFound();
+  if(!payment.order.isTestData){
+    try{await validateQuotationPrices(payment.order.items);}catch{return <main className="mx-auto max-w-lg px-4 py-12"><h1 className="text-2xl font-bold">Your order needs a price or availability review</h1><p className="mt-4">Supplier details have changed since checkout. No additional charge has been made. Please contact support with order {payment.order.orderNumber} before paying.</p><Link className="underline" href="/account/support">Contact support</Link></main>;}
+  }
   const amountError = paymentAmountError(payment.provider, payment.amount);
   if (amountError) return <main className="mx-auto max-w-lg px-4 py-12"><h1 className="text-2xl font-bold">Choose another way to pay</h1><p role="alert" className="mt-4 text-slate-700">{amountError}</p><Link className="mt-6 inline-block rounded-lg bg-sky-700 px-5 py-3 font-bold text-white" href={`/account/orders/${payment.order.orderNumber}`}>Return to your order</Link></main>;
   const providerName = payment.provider === "PAYFAST" ? "PayFast" : "Ozow";

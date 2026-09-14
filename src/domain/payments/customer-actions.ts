@@ -1,4 +1,5 @@
 "use server";
+import { validateQuotationPrices } from "@/domain/commerce/quotation-guard";
 import { paymentAmountError } from "@/domain/payments/limits";
 
 
@@ -15,10 +16,12 @@ export async function retryOrderPayment(formData: FormData) {
   const ctx = await requireUser();
   const input = z.object({ orderId: z.string().uuid(), paymentMethod: z.enum(["PAYFAST", "OZOW"]) }).parse(Object.fromEntries(formData));
   if (!gatewayConfigured(input.paymentMethod)) throw new Error("This payment method is temporarily unavailable.");
+  if(!await prisma.siteSetting.findUnique({where:{key:"commerce.pricing.v1"},select:{key:true}}))throw new Error("Pricing is awaiting final approval. Please contact support before paying.");
   const payment = await prisma.$transaction(async tx => {
     await tx.$queryRaw`SELECT id FROM "Order" WHERE id = ${input.orderId}::uuid FOR UPDATE`;
-    const order = await tx.order.findUniqueOrThrow({ where: { id: input.orderId } });
+    const order = await tx.order.findUniqueOrThrow({ where: { id: input.orderId }, include:{items:true} });
     if (order.userId !== ctx.user.id || order.status !== "AWAITING_PAYMENT" || !["PENDING", "FAILED", "CANCELLED"].includes(order.paymentStatus)) throw new Error("This order is not available for another payment attempt.");
+    if(!order.isTestData)await validateQuotationPrices(order.items);
     const amountError=paymentAmountError(input.paymentMethod,order.grandTotal);if(amountError)throw new Error(amountError);
     await tx.payment.updateMany({ where: { orderId: order.id, status: "PENDING" }, data: { status: "CANCELLED", failureReason: "Replaced by a new customer payment attempt." } });
     const created = await tx.payment.create({ data: { orderId: order.id, provider: input.paymentMethod, status: "PENDING", amount: order.grandTotal, currency: order.currency, idempotencyKey: `retry:${order.id}:${randomUUID()}`, isTestData: order.isTestData } });

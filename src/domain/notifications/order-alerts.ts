@@ -1,3 +1,4 @@
+import { ensurePaidOrderInvoice } from "@/domain/orders/paid-invoice";
 import { prisma } from "@/lib/prisma";
 import { emailTemplates } from "@/integrations/email/templates";
 import { sendStaffEmail } from "./role-email";
@@ -5,6 +6,26 @@ import { supplierOrderRequestPdf } from "@/domain/orders/supplier-order-document
 import { sendPaidOrderConfirmation } from "@/domain/notifications/customer-order";
 
 export async function notifyStaffOfPaidOrder(orderId:string) {
+  // Serialize deliveries for this order without holding a payment transaction open.
+  await prisma.$transaction(async tx=>{
+    const lock=await tx.$queryRaw<Array<{locked:boolean}>>`SELECT pg_try_advisory_xact_lock(hashtextextended(${`paid-order:${orderId}`},0)) AS locked`;
+    if(!lock[0]?.locked)return;
+    const job=await tx.notification.findUnique({where:{id:orderId}});
+    if(job?.type==="PAID_ORDER_COMMUNICATION"&&job.status==="SENT")return;
+    await deliverPaidOrderMessages(orderId);
+    await ensurePaidOrderInvoice(orderId);
+    if(job?.type==="PAID_ORDER_COMMUNICATION")await tx.notification.update({where:{id:orderId},data:{status:"SENT",sentAt:new Date(),error:null}});
+  },{timeout:120000});
+}
+
+export async function retryPaidOrderNotifications(limit=50){
+  const rows=await prisma.notification.findMany({where:{type:"PAID_ORDER_COMMUNICATION",status:{in:["PENDING","FAILED"]}},orderBy:{createdAt:"asc"},take:Math.min(100,Math.max(1,limit))});
+  let failed=0;
+  for(const row of rows){try{await notifyStaffOfPaidOrder(row.id);}catch{failed++;}}
+  return {checked:rows.length,failed};
+}
+
+async function deliverPaidOrderMessages(orderId:string) {
   await sendPaidOrderConfirmation(orderId);
   const order=await prisma.order.findUnique({where:{id:orderId},include:{items:{select:{productName:true,sku:true,supplierSku:true,sourceType:true,quantity:true,lineTotal:true,costPrice:true,supplierId:true}},addresses:{where:{type:{in:["DELIVERY","BOTH"]}},take:1}}});
   if(!order)return;

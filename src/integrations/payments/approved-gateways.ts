@@ -43,3 +43,21 @@ export async function verifyApprovedNotification(gateway:ApprovedGateway,body:st
  if(!row||row.SiteCode!==data.SiteCode||row.TransactionReference!==data.TransactionReference||row.CurrencyCode!=="ZAR"||row.Status!=="Complete"||data.Status!=="Complete"||!new Decimal(String(row.Amount)).equals(data.Amount))throw new Error("Payment verification mismatch");
  return {eventId:data.TransactionId,externalReference:data.TransactionReference,status:"PAID",amount:data.Amount,currency:"ZAR",raw:{providerId:data.TransactionId,status:data.Status}};
 }
+
+// Reconciliation uses the same provider evidence as notifications, never a typed amount.
+export async function reconcileApprovedPayment(gateway:ApprovedGateway,transactionId:string,reference:string,signedNotification?:string):Promise<PaymentEvent>{
+ if(!gatewayConfigured(gateway))throw new Error("Gateway unavailable for verification.");
+ if(gateway==="PAYFAST"){
+   if(!signedNotification)throw new Error("A signed PayFast notification is required. Request an ITN resend from PayFast; a dashboard checkbox cannot mark an order paid.");
+   const event=await verifyApprovedNotification(gateway,signedNotification);
+   if(event.eventId!==transactionId||event.externalReference!==reference)throw new Error("Payment verification reference mismatch");
+   return event;
+ }
+ const query=new URLSearchParams({siteCode:secret("OZOW_SITE_CODE"),transactionId,isTest:process.env.OZOW_TEST_MODE==="true"?"true":"false"});
+ const response=await fetch(`https://api.ozow.com/GetTransaction?${query}`,{headers:{ApiKey:secret("OZOW_API_KEY"),Accept:"application/json"},cache:"no-store",signal:AbortSignal.timeout(15000)});
+ if(!response.ok)throw new Error("Payment verification unavailable");
+ const rows=await response.json() as Array<Record<string,unknown>>;
+ const row=Array.isArray(rows)?rows.find(r=>r.TransactionId===transactionId):undefined;
+ if(!row||row.SiteCode!==secret("OZOW_SITE_CODE")||row.TransactionReference!==reference||row.CurrencyCode!=="ZAR"||row.Status!=="Complete")throw new Error("Payment verification mismatch");
+ return {eventId:transactionId,externalReference:reference,status:"PAID",amount:String(row.Amount),currency:"ZAR",raw:{providerId:transactionId,status:row.Status,reconciliation:"PROVIDER_VERIFIED"}};
+}

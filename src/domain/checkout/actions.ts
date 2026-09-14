@@ -7,7 +7,7 @@ import { contributionAtPrice } from "@/domain/commerce/engine";
 import { getCommerceSettings } from "@/domain/commerce/settings";
 import { checkoutQuote } from "@/domain/commerce/checkout";
 import { orderDiscount } from "@/domain/commerce/discounts";
-import { randomUUID } from "node:crypto";
+import { randomUUID, createHash } from "node:crypto";
 import Decimal from "decimal.js";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -26,6 +26,7 @@ export async function placeRetailOrder(_state: { error: string }, formData: Form
   try { data = { ...schema.parse(Object.fromEntries(formData)), ...await deliveryFromForm(ctx.user.id, formData) }; }
   catch (error) { return { error: error instanceof Error && /^(Complete|Please select|Please enter|Choose one|Please add|We currently deliver)/.test(error.message) ? error.message : "Please check your delivery and payment details." }; }
   if(!gatewayConfigured(data.paymentMethod))return {error:"This payment method is not available yet. Please contact support."};
+  if(!await prisma.siteSetting.findUnique({where:{key:"commerce.pricing.v1"},select:{key:true}}))return {error:"Pricing is awaiting final approval. Please contact support before placing an order."};
   const cart = await getCurrentCart();
   if(!cart||(!cart.items.length&&!cart.supplierItems.length))throw new Error("Your cart is empty.");
   const code=String(formData.get("couponCode")??"").trim().slice(0,40);
@@ -33,13 +34,15 @@ export async function placeRetailOrder(_state: { error: string }, formData: Form
   if(formData.get("priceFingerprint")!==quote.fingerprint)return {error:"Prices, stock or an offer changed. Reload checkout to review the updated total before paying."};
   const amountError=paymentAmountError(data.paymentMethod,quote.total);if(amountError)return {error:amountError};
   const pricingSettings=await getCommerceSettings();
-  const {lines,subtotal,vat:vatTotal,delivery:deliveryTotal,total:grandTotal}=quote,markup=new Decimal(0),paymentId=randomUUID(),idempotencyKey=`retail:${cart.id}:${randomUUID()}`;
+  const {lines,subtotal,vat:vatTotal,delivery:deliveryTotal,total:grandTotal}=quote,markup=new Decimal(0),paymentId=randomUUID(),idempotencyKey=`retail:${cart.id}:${createHash("sha256").update(JSON.stringify({fingerprint:quote.fingerprint,address:data,paymentMethod:data.paymentMethod})).digest("hex")}`;
   const testLines=lines.filter(line=>line.sourceSnapshot.isTestData===true);
   const isTestOrder=testLines.length>0;
   if(isTestOrder&&(!canAccessTestProducts(ctx)||testLines.length!==lines.length))return {error:"Testing products must be checked out alone by an assigned product tester."};
-  await prisma.$transaction(async tx=>{
+  const savedPaymentId=await prisma.$transaction(async tx=>{
     await tx.$queryRaw`SELECT id FROM "Cart" WHERE id = ${cart.id}::uuid FOR UPDATE`;
     const lockedCart=await tx.cart.findUniqueOrThrow({where:{id:cart.id}});if(lockedCart.status!=="ACTIVE")throw new Error("This cart has already been checked out.");
+    const existing=await tx.payment.findUnique({where:{idempotencyKey},select:{id:true}});
+    if(existing)return existing.id;
     if(quote.coupon){
       await tx.$queryRaw`SELECT id FROM "Coupon" WHERE id = ${quote.coupon.id}::uuid FOR UPDATE`;
       const current=await orderDiscount(quote.baseLines,ctx.user.id,code,tx);
@@ -50,13 +53,13 @@ export async function placeRetailOrder(_state: { error: string }, formData: Form
       const count = await tx.address.count({ where: { userId: ctx.user.id, deletedAt: null } });
       if (count < 20) await tx.address.create({ data: { userId: ctx.user.id, type: "DELIVERY", isDefault: count === 0, recipient: data.recipient, phone: data.phone, line1: data.line1, line2: data.line2, suburb: data.suburb, city: data.city, province: data.province, postalCode: data.postalCode, googlePlaceId: data.googlePlaceId } });
     }
-    const created=await tx.order.create({data:{orderNumber:orderNumber(),userId:ctx.user.id,pcProjectId:cart.pcProjectId,origin:isTestOrder?"ADMIN_PAYMENT_TEST":cart.origin,aiRecommendationId:isTestOrder?null:cart.aiRecommendationId,email:ctx.user.email,phone:data.phone,subtotal,vatTotal,deliveryTotal,grandTotal,status:"AWAITING_PAYMENT",paymentStatus:"PENDING",paymentMethod:data.paymentMethod,placedAt:null,customerNotes:data.notes||null,isTestData:isTestOrder,items:{create:lines.map(line=>({productId:line.productId,variantId:line.variantId,productName:line.productName,sku:line.sku??line.supplierSku??"ITEM",quantity:line.quantity,unitPrice:line.grossUnit,costPrice:line.costPrice,vatRate:line.vatRate,vatTotal:line.vatUnit.mul(line.quantity),lineTotal:line.grossUnit.mul(line.quantity),sourceType:line.sourceType,sourceId:line.sourceId,supplierId:line.supplierId,supplierSku:line.supplierSku,sourceSnapshot:{...line.sourceSnapshot,expectedUnitEconomics:contributionAtPrice(line.costPrice,line.grossUnit,pricingSettings,data.paymentMethod)},pricingRule:line.pricingRule,markupPercent:markup,stockSnapshot:line.available}))},addresses:{create:{type:"DELIVERY",recipient:data.recipient,phone:data.phone,line1:data.line1,line2:data.line2||null,suburb:data.suburb||null,city:data.city,province:data.province,postalCode:data.postalCode}},payments:{create:{id:paymentId,provider:data.paymentMethod,status:"PENDING",amount:grandTotal,idempotencyKey,isTestData:isTestOrder}},statusHistory:{create:{toStatus:"AWAITING_PAYMENT",actorId:ctx.user.id,note:isTestOrder?"Administrator live payment test":cart.pcProjectId?"PC project payment attempt":"Retail payment attempt"}}}});
+    const created=await tx.order.create({data:{orderNumber:orderNumber(),userId:ctx.user.id,pcProjectId:cart.pcProjectId,origin:isTestOrder?"ADMIN_PAYMENT_TEST":cart.origin,aiRecommendationId:isTestOrder?null:cart.aiRecommendationId,email:ctx.user.email,phone:data.phone,subtotal,vatTotal,deliveryTotal,grandTotal,discountTotal:quote.coupon?.discount??new Decimal(0),status:"AWAITING_PAYMENT",paymentStatus:"PENDING",paymentMethod:data.paymentMethod,placedAt:null,customerNotes:data.notes||null,isTestData:isTestOrder,items:{create:lines.map(line=>({productId:line.productId,variantId:line.variantId,productName:line.productName,sku:line.sku??line.supplierSku??"ITEM",quantity:line.quantity,unitPrice:line.grossUnit,costPrice:line.costPrice,vatRate:line.vatRate,vatTotal:line.vatUnit.mul(line.quantity),lineTotal:line.grossUnit.mul(line.quantity),sourceType:line.sourceType,sourceId:line.sourceId,supplierId:line.supplierId,supplierSku:line.supplierSku,sourceSnapshot:{...line.sourceSnapshot,expectedUnitEconomics:contributionAtPrice(line.costPrice,line.grossUnit,pricingSettings,data.paymentMethod)},pricingRule:line.pricingRule,markupPercent:markup,stockSnapshot:line.available}))},addresses:{create:{type:"DELIVERY",recipient:data.recipient,phone:data.phone,line1:data.line1,line2:data.line2||null,suburb:data.suburb||null,city:data.city,province:data.province,postalCode:data.postalCode}},payments:{create:{id:paymentId,provider:data.paymentMethod,status:"PENDING",amount:grandTotal,idempotencyKey,isTestData:isTestOrder}},statusHistory:{create:{toStatus:"AWAITING_PAYMENT",actorId:ctx.user.id,note:isTestOrder?"Administrator live payment test":cart.pcProjectId?"PC project payment attempt":"Retail payment attempt"}}}});
     if(quote.coupon)await tx.couponRedemption.create({data:{couponId:quote.coupon.id,userId:ctx.user.id,orderId:created.id,discountAmount:quote.coupon.discount}});
     if(cart.aiRecommendationId&&!isTestOrder){await tx.aIUsage.updateMany({where:{recommendationId:cart.aiRecommendationId},data:{orderId:created.id}});await tx.recommendationEvent.create({data:{userId:ctx.user.id,sessionId:`user:${ctx.user.id}`,eventType:"AI_CHECKOUT_STARTED",entityType:"ORDER",entityId:created.id,recommendationId:cart.aiRecommendationId,context:"checkout"}})}
-    return created;
+    return paymentId;
   },{isolationLevel:"Serializable"});
 
   const base=(process.env.NEXT_PUBLIC_SITE_URL??"https://shop.innozanzi.co.za").replace(/\/$/,"");
-  const session=await beginHostedOrderPayment({paymentId,callbackUrl:`${base}/api/payments/return/${paymentId}`});
+  const session=await beginHostedOrderPayment({paymentId:savedPaymentId,callbackUrl:`${base}/api/payments/return/${savedPaymentId}`});
   if(!session.redirectUrl)throw new Error("Secure checkout is unavailable.");redirect(session.redirectUrl);
 }

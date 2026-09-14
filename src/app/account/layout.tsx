@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { prisma } from "@/lib/prisma";
 import { AccountNav } from "@/components/account/account-nav";
 import { logoutAction } from "@/app/(auth)/actions";
 import { requireUser } from "@/domain/auth/session";
@@ -7,6 +8,8 @@ import { StoreHeader } from "@/components/store/header";
 
 export default async function AccountLayout({ children }: { children: React.ReactNode }) {
   const context = await requireUser();
+  const participation=await prisma.user.findUnique({where:{id:context.user.id},select:{_count:{select:{partnershipApplications:true,partnerships:true}}}});
+  const showPartnership=Boolean(participation&&(participation._count.partnershipApplications||participation._count.partnerships));
   const showAdmin = context.isSuperAdministrator || context.grants.some(({ effect }) => effect === "ALLOW");
   return (
     <div className="account-shell flex min-h-screen flex-col overflow-x-clip bg-slate-50 text-slate-950">
@@ -15,7 +18,7 @@ export default async function AccountLayout({ children }: { children: React.Reac
         <aside className="border-b border-slate-200 bg-white lg:sticky lg:top-28 lg:self-start lg:border-b-0 lg:border-r lg:pb-4">
           <div className="flex min-w-0 items-center justify-between gap-3 px-4 py-3 lg:hidden"><div className="min-w-0"><p className="text-[10px] font-bold uppercase tracking-[.16em] text-sky-700">My account</p><p className="truncate text-sm font-semibold">{context.user.name ?? context.user.email}</p></div><form action={logoutAction}><button className="min-h-10 shrink-0 rounded-lg border border-slate-200 px-3 text-sm font-semibold text-slate-600">Sign out</button></form></div>
           <div className="hidden px-5 pb-2 pt-6 lg:block"><p className="text-[10px] font-bold uppercase tracking-[.16em] text-sky-700">My account</p><p className="mt-1 truncate text-sm font-semibold">{context.user.name ?? context.user.email}</p></div>
-          <AccountNav showAdmin={showAdmin} />
+          <AccountNav showAdmin={showAdmin} showPartnership={showPartnership} />
           <form action={logoutAction} className="hidden px-4 pt-2 lg:block"><button className="flex min-h-11 w-full items-center rounded-lg border border-slate-200 px-4 text-left text-sm font-semibold text-slate-700 transition hover:border-sky-300 hover:bg-sky-50 hover:text-sky-800">Sign out</button></form>
           <div className="m-4 hidden rounded-xl bg-[#071b33] p-4 text-white lg:block"><p className="text-xs font-bold text-sky-300">Need help?</p><p className="mt-1 text-xs leading-5 text-slate-300">Our support team can help with products, quotations and delivery.</p><Link className="mt-3 inline-block text-xs font-bold text-white underline" href="/contact">Contact support</Link></div>
         </aside>
