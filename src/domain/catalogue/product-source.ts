@@ -1,3 +1,4 @@
+import type { CommerceSettings } from "@/domain/commerce/config";
 import { getCommerceSettings } from "@/domain/commerce/settings";
 import Decimal from "decimal.js";
 import { prisma } from "@/lib/prisma";
@@ -33,8 +34,8 @@ const positiveCost = (value: Decimal.Value | null | undefined, productName: stri
         throw new Error(`${productName} has no verified cost price and cannot be priced automatically.`);
     return cost;
 };
-export async function resolveQuotationCart(cart: CurrentCart, markup: Decimal): Promise<QuotationSourceLine[]> {
-    const settings=await getCommerceSettings();
+export async function resolveQuotationCart(cart: CurrentCart, markup: Decimal, policy?:CommerceSettings): Promise<QuotationSourceLine[]> {
+    const settings=policy??await getCommerceSettings();
     const local = await Promise.all(cart.items.map(async (item): Promise<QuotationSourceLine> => {
         const inventory = item.variant?.inventory ?? item.product.inventory[0];
         const available = inventory ? inventory.onHand - inventory.reserved : 0;
@@ -46,7 +47,7 @@ export async function resolveQuotationCart(cart: CurrentCart, markup: Decimal): 
         // The customer-visible catalogue price is authoritative through cart, checkout and payment.
         // Never silently replace it with a second cost-plus calculation at checkout.
         const grossUnit = activeUnitPrice(item.product, item.variant);
-        const minimum = item.product.isTestData ? grossUnit : await minimumRetailPrice(cost);
+        const minimum = item.product.isTestData ? grossUnit : await minimumRetailPrice(cost,settings);
         if (!item.product.isTestData && grossUnit.lt(minimum))
             throw new Error(`${item.product.name} needs a pricing review before checkout. Its displayed price is below the approved minimum.`);
         const netUnit=settings.vatRegistered?grossUnit.div(new Decimal(1).plus(settings.vatPercent/100)):grossUnit;
@@ -77,7 +78,7 @@ export async function resolveQuotationCart(cart: CurrentCart, markup: Decimal): 
         if (item.quantity > product.stock)
             throw new Error(`${product.name} only has ${product.stock} supplier units currently available.`);
         const cost = positiveCost(product.costPrice, product.name);
-        const retail = await supplierRetailPrice({ costPrice: cost, recommendedRetail: product.recommendedRetail, promotionalPrice: product.promotionalPrice, promotionStartsAt: product.promotionStartsAt, promotionEndsAt: product.promotionEndsAt, special: isDailySpecial(product.id) });
+        const retail = await supplierRetailPrice({ costPrice: cost, recommendedRetail: product.recommendedRetail, promotionalPrice: product.promotionalPrice, promotionStartsAt: product.promotionStartsAt, promotionEndsAt: product.promotionEndsAt, special: isDailySpecial(product.id) },settings);
         const grossUnit = retail.salePrice ?? retail.regularPrice;
         const netUnit=settings.vatRegistered?grossUnit.div(new Decimal(1).plus(settings.vatPercent/100)):grossUnit;
         const price = { netUnit, vatUnit: grossUnit.minus(netUnit), grossUnit };

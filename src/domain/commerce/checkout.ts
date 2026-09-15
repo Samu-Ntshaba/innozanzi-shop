@@ -6,7 +6,7 @@ import type { getCurrentCart } from "@/domain/cart/service";
 import { getCommerceSettings } from "./settings";
 import { orderDiscount } from "./discounts";
 export async function checkoutQuote(cart:NonNullable<Awaited<ReturnType<typeof getCurrentCart>>>,userId:string,code=""){
- const settings=await getCommerceSettings(),baseLines=await resolveQuotationCart(cart,new Decimal(0)),testOnly=baseLines.length>0&&baseLines.every(line=>line.sourceSnapshot.isTestData===true),coupon=testOnly?null:await orderDiscount(baseLines,userId,code);
+ const settings=await getCommerceSettings(),baseLines=await resolveQuotationCart(cart,new Decimal(0),settings),testOnly=baseLines.length>0&&baseLines.every(line=>line.sourceSnapshot.isTestData===true),coupon=testOnly?null:await orderDiscount(baseLines,userId,code);
  const headroom=baseLines.map(l=>Decimal.max(0,l.grossUnit.minus(String(l.sourceSnapshot.protectedFloor??l.grossUnit)).mul(l.quantity))),room=headroom.reduce((a,b)=>a.plus(b),new Decimal(0));
  let remainder=coupon?.discount??new Decimal(0);
  const lines=baseLines.map((l,i)=>{const discount=Decimal.min(headroom[i],i===baseLines.length-1?remainder:coupon&&room.gt(0)?coupon.discount.mul(headroom[i]).div(room).toDecimalPlaces(2,Decimal.ROUND_DOWN):0);remainder=remainder.minus(discount);const grossUnit=l.grossUnit.minus(discount.div(l.quantity)),netUnit=grossUnit.div(l.vatRate.plus(1));return {...l,grossUnit,netUnit,vatUnit:grossUnit.minus(netUnit),sourceSnapshot:{...l.sourceSnapshot,preDiscountUnit:l.grossUnit.toString(),couponCode:coupon?.code??null,lineDiscount:discount.toString()} as Prisma.InputJsonObject};});

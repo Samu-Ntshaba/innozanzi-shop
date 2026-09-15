@@ -2,6 +2,18 @@ import type { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getEmailProvider, mailDeliveryMode, type EmailMessage } from "./provider";
 
+// Persist required order milestones in the same transaction as their state change.
+// The email worker can recover them if the process stops immediately after commit.
+export async function stageEmail(db: Prisma.TransactionClient, message: EmailMessage, userId?: string, orderId?: string) {
+  if (message.attachments?.length) throw new Error("Attached emails require their document delivery workflow.");
+  const existing = await db.notification.findFirst({ where: { type: "EMAIL_OUTBOX", data: { path: ["idempotencyKey"], equals: message.idempotencyKey } } });
+  if (existing) return existing;
+  return db.notification.create({ data: {
+    userId, type: "EMAIL_OUTBOX", channel: "email", subject: message.subject, body: message.html, status: "PENDING",
+    data: { orderId, to: message.to, cc: message.cc, text: message.text, idempotencyKey: message.idempotencyKey, from: message.from, category: message.category },
+  } });
+}
+
 // Required emails are fail-closed: delivery happens before any outbox write.
 // Callers can therefore send first and only commit their business record after
 // this function resolves successfully.
@@ -31,7 +43,7 @@ async function deliverEmail(message: EmailMessage, userId: string|undefined, db:
   try {
     result = await getEmailProvider().send(message);
   } catch (error) {
-    const failureData = { to: message.to, cc: message.cc, text: message.text, idempotencyKey: message.idempotencyKey, deliveryMode, from: message.from, category: message.category };
+    const failureData = { ...existingData, to: message.to, cc: message.cc, text: message.text, idempotencyKey: message.idempotencyKey, deliveryMode, from: message.from, category: message.category };
     const failure = error instanceof Error ? error.message.slice(0, 2_000) : "Email provider rejected the message.";
     if (existing) {
       await db.notification.update({ where: { id: existing.id }, data: { userId: userId ?? existing.userId, subject: message.subject, body: message.html, data: failureData, status: "FAILED", sentAt: null, error: failure } });
@@ -40,7 +52,7 @@ async function deliverEmail(message: EmailMessage, userId: string|undefined, db:
     }
     throw error;
   }
-  const data = { to: message.to, cc: message.cc, text: message.text, idempotencyKey: message.idempotencyKey, messageId: result.messageId, deliveryMode, from: message.from, category: message.category };
+  const data = { ...existingData, to: message.to, cc: message.cc, text: message.text, idempotencyKey: message.idempotencyKey, messageId: result.messageId, deliveryMode, from: message.from, category: message.category };
 
   if (existing) {
     return db.notification.update({ where: { id: existing.id }, data: { userId: userId ?? existing.userId, subject: message.subject, body: message.html, data, status: "SENT", sentAt: new Date(), error: null } });
@@ -50,7 +62,7 @@ async function deliverEmail(message: EmailMessage, userId: string|undefined, db:
 
 export async function retryFailedEmails(limit = 50) {
   const rows = await prisma.notification.findMany({
-    where: { type: "EMAIL_OUTBOX", status: "FAILED" },
+    where: { type: "EMAIL_OUTBOX", status: { in: ["PENDING", "FAILED"] } },
     orderBy: { updatedAt: "asc" },
     take: Math.min(Math.max(limit, 1), 100),
   });

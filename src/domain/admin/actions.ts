@@ -5,10 +5,10 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { reviewOrderEconomics } from "@/domain/commerce/order-review";
 import { requirePermission } from "@/domain/auth/session";
-import { enqueueEmail } from "@/integrations/email/outbox";
+import { enqueueEmail, stageEmail } from "@/integrations/email/outbox";
 import { emailTemplates } from "@/integrations/email/templates";
 import { notifyStaffOfPaidOrder } from "@/domain/notifications/order-alerts";
-import { assertOrderTransition, assertOrderTransitionRequirements, reservationAfterRelease, shouldEmailCustomerForOrderStatus } from "@/domain/orders/lifecycle";
+import { assertOrderTransition, assertOrderTransitionRequirements, defaultOrderTransitionNote, reservationAfterRelease, shouldEmailCustomerForOrderStatus } from "@/domain/orders/lifecycle";
 import { categoryIconOptions } from "@/components/store/category-icon";
 
 const slugify = (value: string) => value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
@@ -109,7 +109,10 @@ export async function adjustInventory(formData: FormData) {
 
 export async function setOrderStatus(formData: FormData) {
   const context = await requirePermission("orders.update");
-  const { id, status, note, internalNote } = z.object({ id: z.string().uuid(), status: z.enum(["PAYMENT_VERIFIED", "PROCESSING", "SOURCING_ITEMS", "ITEMS_RECEIVED", "PACKING", "READY_FOR_DELIVERY", "DISPATCHED", "IN_TRANSIT", "DELIVERED", "COMPLETED", "CANCELLED"]), note: z.string().trim().min(3).max(500), internalNote: z.string().trim().max(500).optional() }).parse(Object.fromEntries(formData));
+  const data = z.object({ id: z.string().uuid(), status: z.enum(["PAYMENT_VERIFIED", "PROCESSING", "SOURCING_ITEMS", "ITEMS_RECEIVED", "PACKING", "READY_FOR_DELIVERY", "DISPATCHED", "IN_TRANSIT", "OUT_FOR_DELIVERY", "DELIVERED", "COMPLETED", "CANCELLED"]), note: z.string().trim().max(500).optional(), internalNote: z.string().trim().max(500).optional() }).parse(Object.fromEntries(formData));
+  const { id, status, internalNote } = data;
+  const note = data.note || defaultOrderTransitionNote(status);
+  if (status === "CANCELLED" && !data.note) throw new Error("Record the customer-facing cancellation reason.");
   const refundConfirmed = formData.get("refundConfirmed") === "on";
   if (status === "CANCELLED") {
     await requirePermission("payments.approve");
@@ -139,10 +142,11 @@ export async function setOrderStatus(formData: FormData) {
     const transitionTime = new Date();
     await tx.order.update({ where: { id }, data: { status, paymentStatus: status === "CANCELLED" ? "REFUNDED" : undefined, completedAt: status === "COMPLETED" ? transitionTime : undefined, cancelledAt: status === "CANCELLED" ? transitionTime : undefined } });
     if (status === "DELIVERED" && before.shipments[0]) await tx.shipment.update({ where: { id: before.shipments[0].id }, data: { status: "DELIVERED", deliveredAt: transitionTime } });
-    if (["DISPATCHED", "IN_TRANSIT"].includes(status) && before.shipments[0]) await tx.shipment.update({ where: { id: before.shipments[0].id }, data: { status: "IN_TRANSIT", shippedAt: status === "DISPATCHED" ? transitionTime : undefined } });
+    if (["DISPATCHED", "IN_TRANSIT", "OUT_FOR_DELIVERY"].includes(status) && before.shipments[0]) await tx.shipment.update({ where: { id: before.shipments[0].id }, data: { status: "IN_TRANSIT", shippedAt: status === "DISPATCHED" ? transitionTime : undefined } });
     await tx.orderStatusHistory.create({ data: { orderId: id, fromStatus: before.status, toStatus: status, actorId: context.user.id, note } });
     await tx.deliveryTrackingEvent.create({ data: { orderId: id, status, actorId: context.user.id, publicNote: note, internalNote: internalNote || null } });
     await tx.auditLog.create({ data: { actorId: context.user.id, action: status === "CANCELLED" ? "order.cancel-and-release" : "order.status", entityType: "Order", entityId: id, before: { status: before.status, paymentStatus: before.paymentStatus }, after: { status, note, refundConfirmed: status === "CANCELLED" ? true : undefined } } });
+    if (shouldEmailCustomerForOrderStatus(status)) await stageEmail(tx, emailTemplates.orderStatus(before.email, before.orderNumber, status), before.userId ?? undefined, id);
     return tx.order.findUniqueOrThrow({ where: { id }, select: { orderNumber: true, email: true, userId: true } });
   }, { isolationLevel: "Serializable" });
   if(shouldEmailCustomerForOrderStatus(status))await enqueueEmail(emailTemplates.orderStatus(order.email, order.orderNumber, status), order.userId ?? undefined);
@@ -155,9 +159,10 @@ export async function saveShipmentDetails(formData: FormData) {
   const context = await requirePermission("orders.update");
   const data = z.object({ orderId: z.string().uuid(), deliveryCompany: z.string().trim().min(2).max(160), contactName: z.string().trim().max(120).optional(), contactPhone: z.string().trim().max(40).optional(), trackingNumber: z.string().trim().max(120).optional(), trackingUrl: z.string().url().optional(), estimatedDeliveryAt: z.coerce.date(), deliveryInstructions: z.string().trim().max(2000).optional() }).parse({ ...Object.fromEntries(formData), trackingUrl: formData.get("trackingUrl") || undefined });
   const order = await prisma.order.findUniqueOrThrow({ where: { id: data.orderId }, include: { shipments: { orderBy: { createdAt: "desc" }, take: 1 } } });
-  if(data.trackingNumber)await enqueueEmail(emailTemplates.deliveryScheduled(order.email, order.orderNumber, data.deliveryCompany, data.estimatedDeliveryAt, data.trackingNumber), order.userId??undefined);
+  const message=data.trackingNumber?emailTemplates.deliveryScheduled(order.email, order.orderNumber, data.deliveryCompany, data.estimatedDeliveryAt, data.trackingNumber):null;
   const shipmentData = { deliveryCompany: data.deliveryCompany, contactName: data.contactName||null, contactPhone: data.contactPhone||null, trackingNumber: data.trackingNumber||null, trackingUrl: data.trackingUrl||null, estimatedDeliveryAt: data.estimatedDeliveryAt, deliveryNoteNumber: order.shipments[0]?.deliveryNoteNumber??`DN-${order.orderNumber}`, deliveryInstructions: data.deliveryInstructions||null };
-  await prisma.$transaction(async tx=>{if(order.shipments[0])await tx.shipment.update({where:{id:order.shipments[0].id},data:shipmentData});else await tx.shipment.create({data:{orderId:order.id,...shipmentData}});await tx.deliveryTrackingEvent.create({data:{orderId:order.id,status:order.status,actorId:context.user.id,publicNote:`Delivery planned with ${data.deliveryCompany} for ${data.estimatedDeliveryAt.toLocaleString("en-ZA")}.`,internalNote:data.deliveryInstructions||null}});await tx.auditLog.create({data:{actorId:context.user.id,action:"shipment.plan",entityType:"Order",entityId:order.id,after:shipmentData}})});
+  await prisma.$transaction(async tx=>{if(order.shipments[0])await tx.shipment.update({where:{id:order.shipments[0].id},data:shipmentData});else await tx.shipment.create({data:{orderId:order.id,...shipmentData}});await tx.deliveryTrackingEvent.create({data:{orderId:order.id,status:order.status,actorId:context.user.id,publicNote:`Delivery planned with ${data.deliveryCompany} for ${data.estimatedDeliveryAt.toLocaleString("en-ZA")}.`,internalNote:data.deliveryInstructions||null}});await tx.auditLog.create({data:{actorId:context.user.id,action:"shipment.plan",entityType:"Order",entityId:order.id,after:shipmentData}});if(message)await stageEmail(tx,message,order.userId??undefined,order.id)});
+  if(message)try{await enqueueEmail(message,order.userId??undefined)}catch(error){console.error("Delivery email failed after shipment details were saved",{orderId:order.id,error:error instanceof Error?error.message:"Unknown error"})}
   revalidatePath(`/admin/orders/${order.id}`);
 }
 

@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { commerceSchema, type CommerceSettings } from "./config";
 
@@ -13,6 +14,9 @@ export async function getPricingDraft(): Promise<PricingDraft | null> {
   if (!row) return null;
   const parsed = commerceSchema.safeParse(row.value);
   if (!parsed.success) throw new Error("The stored pricing draft is invalid. Save a new draft before publishing.");
+  // Metadata travels with the settings in one atomic row read.
+  const stored=z.object({_draft:z.object({version:z.string(),savedAt:z.iso.datetime(),savedBy:z.string()})}).safeParse(row.value);
+  if(stored.success)return {settings:parsed.data,...stored.data._draft};
   const audit = await prisma.auditLog.findFirst({
     where: { action: "commerce.pricing.draft", entityId: "commerce.pricing.draft" },
     orderBy: { createdAt: "desc" },

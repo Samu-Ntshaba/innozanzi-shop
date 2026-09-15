@@ -15,3 +15,18 @@ it("allocates savings without taking any line below its protected floor",async()
 it("changes the review fingerprint when price, quantity or delivery settings change",async()=>{const original=(await checkoutQuote(cart,"user")).fingerprint;mocks.settings.mockResolvedValue({...DEFAULT_COMMERCE,customerDelivery:110});expect((await checkoutQuote(cart,"user")).fingerprint).not.toBe(original);});
 it("keeps output VAT at zero in nonregistered mode",async()=>{expect((await checkoutQuote(cart,"user")).vat.toString()).toBe("0");});
 it("accounts for delivery VAT without charging it twice when registration changes",async()=>{mocks.settings.mockResolvedValue({...DEFAULT_COMMERCE,vatRegistered:true});mocks.discount.mockResolvedValue(null);const item=line("one",1,115,100);item.netUnit=new Decimal(100);item.vatUnit=new Decimal(15);item.vatRate=new Decimal(.15);mocks.resolve.mockResolvedValue([item]);const q=await checkoutQuote(cart,"user");expect(q.total.toFixed(2)).toBe("215.00");expect(q.vat.toFixed(2)).toBe("28.04");expect(q.subtotal.plus(q.vat).plus(q.delivery).toFixed(2)).toBe(q.total.toFixed(2));});
+it("uses the same settings for item pricing, snapshots and checkout totals",async()=>{
+ const settings={...DEFAULT_COMMERCE,vatRegistered:true,customerDelivery:0};
+ mocks.settings.mockResolvedValue(settings);
+ mocks.resolve.mockImplementation(async(_cart:unknown,_markup:unknown,policy:typeof DEFAULT_COMMERCE|undefined)=>{
+  const effective=policy??DEFAULT_COMMERCE;
+  const item=line("one",1,115,100);
+  item.vatRate=new Decimal(effective.vatRegistered?0.15:0);
+  item.sourceSnapshot={...item.sourceSnapshot,pricingSettings:effective};
+  return [item];
+ });
+ mocks.discount.mockResolvedValue(null);
+ const quote=await checkoutQuote(cart,"user");
+ expect(quote.vat.toFixed(2)).toBe("15.00");
+ expect(quote.lines[0].sourceSnapshot.pricingSettings).toEqual(settings);
+});

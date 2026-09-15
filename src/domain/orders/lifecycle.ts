@@ -6,7 +6,8 @@ export const FULFILMENT_TRANSITIONS: Record<string, readonly string[]> = {
   PACKING: ["READY_FOR_DELIVERY", "CANCELLED"],
   READY_FOR_DELIVERY: ["DISPATCHED", "CANCELLED"],
   DISPATCHED: ["IN_TRANSIT"],
-  IN_TRANSIT: ["DELIVERED"],
+  IN_TRANSIT: ["OUT_FOR_DELIVERY"],
+  OUT_FOR_DELIVERY: ["DELIVERED"],
   DELIVERED: ["COMPLETED"],
   COMPLETED: [],
   CANCELLED: [],
@@ -21,6 +22,7 @@ const STAGE_COPY: Record<string, { phase: string; reason: string; next: string; 
   READY_FOR_DELIVERY: { phase: "Ready for delivery", reason: "The parcel is packed and must be assigned to a delivery provider.", next: "Plan delivery before dispatch", owner: "Logistics", customer: "Ready for delivery" },
   DISPATCHED: { phase: "Dispatched", reason: "The parcel has left fulfilment and is with the delivery provider.", next: "Confirm the parcel is in transit", owner: "Logistics", customer: "On the way" },
   IN_TRANSIT: { phase: "In transit", reason: "The parcel is travelling to the customer.", next: "Confirm delivery", owner: "Logistics", customer: "On the way" },
+  OUT_FOR_DELIVERY: { phase: "Out for delivery", reason: "The delivery provider has the parcel on its final delivery route.", next: "Confirm delivery", owner: "Logistics", customer: "Out for delivery" },
   DELIVERED: { phase: "Delivered", reason: "Delivery has been recorded and remains visible for after-sales support.", next: "Complete the order after confirmation", owner: "Customer service", customer: "Delivered" },
   COMPLETED: { phase: "Completed", reason: "The commercial and fulfilment lifecycle is complete.", next: "Monitor after-sales requests", owner: "Customer service", customer: "Completed" },
   CANCELLED: { phase: "Cancelled", reason: "The order was cancelled and cannot continue through fulfilment.", next: "Review the audit trail and refund record", owner: "Finance", customer: "Cancelled" },
@@ -30,10 +32,10 @@ export function orderStageContext(status: string) {
   return STAGE_COPY[status] ?? { phase: status.replaceAll("_", " "), reason: "This order is awaiting its next system event.", next: "Review the order", owner: "Operations", customer: "Order received" };
 }
 
-const CUSTOMER_STATUS_LABELS: Record<string,string> = { DRAFT:"Order started",PENDING:"Order placed",AWAITING_PAYMENT:"Awaiting payment",PAYMENT_UNDER_REVIEW:"Payment under review",PAID:"Payment confirmed",PAYMENT_VERIFIED:"Payment confirmed",PROCESSING:"Order being processed",SOURCING_ITEMS:"Products being prepared",ITEMS_RECEIVED:"Products ready for packing",PACKING:"Order being packed",READY_FOR_DELIVERY:"Delivery being scheduled",DISPATCHED:"Shipped",IN_TRANSIT:"In transit",SHIPPED:"Shipped",DELIVERED:"Delivered",COMPLETED:"Order completed",CANCELLED:"Order cancelled",REFUNDED:"Order refunded",PARTIALLY_REFUNDED:"Order partially refunded" };
+const CUSTOMER_STATUS_LABELS: Record<string,string> = { DRAFT:"Order started",PENDING:"Order placed",AWAITING_PAYMENT:"Awaiting payment",PAYMENT_UNDER_REVIEW:"Payment under review",PAID:"Order confirmed",PAYMENT_VERIFIED:"Order confirmed",PROCESSING:"Processing",SOURCING_ITEMS:"Processing",ITEMS_RECEIVED:"Processing",PACKING:"Processing",READY_FOR_DELIVERY:"Processing",DISPATCHED:"Shipped",IN_TRANSIT:"Shipped",OUT_FOR_DELIVERY:"Out for delivery",SHIPPED:"Shipped",DELIVERED:"Delivered",COMPLETED:"Delivered",CANCELLED:"Cancelled",REFUNDED:"Refunded",PARTIALLY_REFUNDED:"Partially refunded" };
 export function customerOrderStatusLabel(status:string){return CUSTOMER_STATUS_LABELS[status]??"Order update"}
 
-const CUSTOMER_EMAIL_STATUSES = new Set(["DISPATCHED", "DELIVERED", "CANCELLED", "REFUNDED", "PARTIALLY_REFUNDED"]);
+const CUSTOMER_EMAIL_STATUSES = new Set(["DISPATCHED", "OUT_FOR_DELIVERY", "DELIVERED", "CANCELLED", "REFUNDED", "PARTIALLY_REFUNDED"]);
 export function shouldEmailCustomerForOrderStatus(status:string){return CUSTOMER_EMAIL_STATUSES.has(status)}
 
 export function allowedOrderTransitions(status: string) {
@@ -56,6 +58,20 @@ export function cancellationRequiresFinanceConfirmation(status: string) {
   return allowedOrderTransitions(status).includes("CANCELLED");
 }
 
+const DEFAULT_TRANSITION_NOTES: Record<string, string> = {
+  PROCESSING: "Your order has been accepted and is being processed.",
+  SOURCING_ITEMS: "Your products are being prepared.",
+  ITEMS_RECEIVED: "Your products are ready for packing.",
+  PACKING: "Your order is being packed.",
+  READY_FOR_DELIVERY: "Your delivery is being arranged.",
+  DISPATCHED: "Your order has been dispatched.",
+  IN_TRANSIT: "Your order is in transit.",
+  OUT_FOR_DELIVERY: "Your order is out for delivery.",
+  DELIVERED: "Your order has been delivered.",
+  COMPLETED: "Your order is complete.",
+};
+export function defaultOrderTransitionNote(status: string) { return DEFAULT_TRANSITION_NOTES[status] ?? "Your order has been updated."; }
+
 export function currentOperationalTime() { return Date.now(); }
 
 export function reservationAfterRelease(currentReserved: number, quantity: number) {
@@ -63,4 +79,11 @@ export function reservationAfterRelease(currentReserved: number, quantity: numbe
     throw new Error("Reserved inventory cannot be released safely.");
   }
   return currentReserved - quantity;
+}
+
+// Preserve historical records, but keep automated purchasing details off the customer tracker.
+export function customerOrderPublicNote(note: string | null) {
+  if (note === "The supplier order has been placed and your products are being prepared.") return "Your products are being prepared.";
+  if (note === "The supplier has confirmed the product order. We will update you when the items are ready for delivery.") return "Your products have been confirmed. We will update you when they are ready for delivery.";
+  return note;
 }

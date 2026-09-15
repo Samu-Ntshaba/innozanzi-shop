@@ -47,3 +47,8 @@ it("rejects invalid cost and impossible custom fee models",()=>{
  for(const cost of [0,-1,NaN,Infinity])expect(()=>protectedPrice(cost)).toThrow();
  expect(()=>protectedPrice(800,commerceSchema.parse({...DEFAULT_COMMERCE,customCosts:[{name:"Impossible",basis:"PERCENT_NET",amount:100}]}))).toThrow();
 });
+it("honours one captured pricing policy when publication changes the global policy",async()=>{
+ const captured={...DEFAULT_COMMERCE,competitiveAdjustment:20};
+ const price=await supplierRetailPrice({costPrice:800},captured);
+ expect(price.regularPrice.toString()).toBe(innozanziPrice(800,captured).gross.toString());
+});

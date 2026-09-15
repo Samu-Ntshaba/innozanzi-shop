@@ -13,7 +13,7 @@ export type OrderProgressDetails = {
   events?: Array<{ status: string; occurredAt: Date }>;
 };
 
-const statusRank: Record<string, number> = { PENDING: 0, AWAITING_PAYMENT: 0, PAYMENT_UNDER_REVIEW: 0, PAID: 1, PAYMENT_VERIFIED: 1, PROCESSING: 2, SOURCING_ITEMS: 3, ITEMS_RECEIVED: 4, PACKING: 4, READY_FOR_DELIVERY: 5, DISPATCHED: 6, IN_TRANSIT: 6, SHIPPED: 6, DELIVERED: 7, COMPLETED: 8 };
+const statusRank: Record<string, number> = { PENDING: 0, AWAITING_PAYMENT: 0, PAYMENT_UNDER_REVIEW: 0, PAID: 1, PAYMENT_VERIFIED: 1, PROCESSING: 2, SOURCING_ITEMS: 3, ITEMS_RECEIVED: 4, PACKING: 4, READY_FOR_DELIVERY: 5, DISPATCHED: 6, IN_TRANSIT: 6, OUT_FOR_DELIVERY: 7, SHIPPED: 6, DELIVERED: 8, COMPLETED: 8 };
 const eventDate = (events: OrderProgressDetails["events"], statuses: string[]) => events?.find(event => statuses.includes(event.status))?.occurredAt ?? null;
 
 export function OrderProgress({ status, compact = false, details }: { status: string; compact?: boolean; details?: Omit<OrderProgressDetails, "status"> }) {

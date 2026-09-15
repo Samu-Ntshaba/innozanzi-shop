@@ -25,7 +25,7 @@ function form() {
 beforeEach(() => {
   vi.resetAllMocks();
   mocks.permission.mockResolvedValue({ user: { id: "admin" } });
-  mocks.transaction.mockImplementation(fn => fn({ siteSetting: { upsert: mocks.upsert }, auditLog: { create: mocks.audit } }));
+  mocks.transaction.mockImplementation(fn => fn({ $queryRaw: vi.fn(), siteSetting: { upsert: mocks.upsert }, auditLog: { create: mocks.audit } }));
   mocks.publish.mockResolvedValue({ version: "version-1" });
   mocks.draft.mockResolvedValue({settings:DEFAULT_COMMERCE,version:"draft-1",savedAt:"2026-09-14T12:00:00.000Z",savedBy:"Admin"});
 });

@@ -23,12 +23,15 @@ export async function saveDraftCommerceSettings(form:FormData){
  try{
   const settings=parsePricingForm(form);
   const version=randomUUID(),savedAt=new Date();
+  const metadata={version,savedAt:savedAt.toISOString(),savedBy:ctx.user.name??ctx.user.email??"Administrator"};
+  const value={...settings,_draft:metadata};
   await prisma.$transaction(async tx=>{
-   await tx.siteSetting.upsert({where:{key:"commerce.pricing.draft"},create:{key:"commerce.pricing.draft",value:settings},update:{value:settings}});
+   await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended('commerce.pricing.v1',0))::text AS locked`;
+   await tx.siteSetting.upsert({where:{key:"commerce.pricing.draft"},create:{key:"commerce.pricing.draft",value},update:{value}});
    await tx.auditLog.create({data:{id:version,actorId:ctx.user.id,action:"commerce.pricing.draft",entityType:"SiteSetting",entityId:"commerce.pricing.draft",after:settings,metadata:{savedAt:savedAt.toISOString()}}});
   });
   revalidatePath("/admin/pricing");
-  return {error:"",success:"Draft saved successfully.",draft:{settings,version,savedAt:savedAt.toISOString(),savedBy:ctx.user.name??ctx.user.email}};
+  return {error:"",success:"Draft saved successfully.",draft:{settings,...metadata}};
  }catch(error){return {...failure(error),success:""};}
 }
 export async function loadDraftCommerceSettings(){

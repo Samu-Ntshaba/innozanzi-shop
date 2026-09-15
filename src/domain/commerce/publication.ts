@@ -19,6 +19,9 @@ export async function publishPricing(input:{settings:CommerceSettings;reason:str
  await prisma.$transaction(async tx=>{
   // PostgreSQL returns void here; Prisma requires a supported scalar result type.
   await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended('commerce.pricing.v1',0))::text AS locked`;
+  const draft=await tx.siteSetting.findUnique({where:{key:"commerce.pricing.draft"}});
+  const parsedDraft=commerceSchema.safeParse(draft?.value);
+  if(!draft||!parsedDraft.success||JSON.stringify(parsedDraft.data)!==JSON.stringify(settings))throw new PricingPublicationError("The saved draft changed. Load the current draft and preview again before publishing.");
   const before=await tx.siteSetting.findUnique({where:{key:"commerce.pricing.v1"}});
   if(createHash("sha256").update(JSON.stringify(commerceSchema.parse(before?.value??{}))).digest("hex")!==impact.baseline)throw new PricingPublicationError("Another administrator published settings. Preview again before publishing.");
   await tx.siteSetting.upsert({where:{key:"commerce.pricing.v1"},create:{key:"commerce.pricing.v1",value:settings},update:{value:settings}});
