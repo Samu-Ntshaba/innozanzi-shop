@@ -23,7 +23,8 @@ export function OrderProgress({ status, compact = false, details }: { status: st
     { label: "Order confirmed", done: rank >= 1, current: rank === 1, date: eventDate(details?.events, ["PAYMENT_VERIFIED", "PAID"]) ?? details?.placedAt },
     { label: "Processing", done: rank >= 2, current: rank >= 2 && rank < 6, date: eventDate(details?.events, ["PROCESSING"]) },
     { label: "Shipped", done: rank >= 6, current: rank === 6, date: eventDate(details?.events, ["DISPATCHED", "IN_TRANSIT", "SHIPPED"]) },
-    { label: "Delivered", done: rank >= 7, current: rank >= 7, date: details?.deliveredAt ?? eventDate(details?.events, ["DELIVERED"]) },
+    { label: "Out for delivery", done: rank >= 7, current: rank === 7, date: eventDate(details?.events, ["OUT_FOR_DELIVERY"]) },
+    { label: "Delivered", done: rank >= 8, current: rank >= 8, date: details?.deliveredAt ?? eventDate(details?.events, ["DELIVERED"]) },
   ];
   if (compact) return <div><div className="h-2 overflow-hidden rounded-full bg-slate-200"><div className="h-full rounded-full bg-sky-600 transition-all" style={{ width: `${Math.max(8, ((stages.filter(stage => stage.done).length - 1) / (stages.length - 1)) * 100)}%` }}/></div><p className="mt-2 text-xs font-semibold text-slate-600">{orderStageContext(status).customer}</p></div>;
   const current = Math.max(0, stages.findIndex(stage => stage.current));

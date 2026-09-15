@@ -1,0 +1,36 @@
+import { readFileSync } from "node:fs";
+import { describe,expect,it } from "vitest";
+
+const source=(path:string)=>readFileSync(new URL(`../${path}`,import.meta.url),"utf8");
+
+describe("distributor-direct order operations readiness",()=>{
+  it("keeps dispatch and delivery actions inside desktop Orders",()=>{
+    const page=source("src/app/admin/orders/[id]/page.tsx");
+    expect(page).toContain("OrderSupplierShipments");
+    expect(page).toContain("OrderAddressChange");
+    expect(page).not.toContain(`/admin/orders/\${order.id}/delivery`);
+  });
+
+  it("provides the same supplier and shipment actions in Mobile Admin",()=>{
+    const page=source("src/app/mobile-admin/orders/[id]/page.tsx");
+    expect(page).toContain("OrderSupplierSetup");
+    expect(page).toContain("OrderSupplierShipments");
+    expect(page).toContain("setOrderStatus");
+  });
+
+  it("uses additive supplier-group shipment persistence",()=>{
+    const schema=source("prisma/schema.prisma"),migration=source("prisma/migrations/20260916090000_distributor_order_operations/migration.sql");
+    expect(schema).toContain("procurementId");
+    expect(schema).toContain("expectedDispatchAt");
+    expect(migration).toContain("ADD COLUMN \"procurementId\"");
+    expect(migration).not.toMatch(/DROP (TABLE|COLUMN)/);
+  });
+
+  it("advances the Prisma runtime cache-buster with the latest migration",()=>{
+    expect(source("src/lib/prisma.ts")).toContain('PRISMA_SCHEMA_VERSION = "2026-09-16-distributor-order-operations"');
+  });
+
+  it("retires the standalone order delivery page to the Order workspace",()=>{
+    expect(source("src/app/admin/orders/[id]/delivery/page.tsx")).toContain("redirect(`/admin/orders/");
+  });
+});

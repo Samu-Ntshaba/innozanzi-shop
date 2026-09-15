@@ -70,7 +70,7 @@ export default async function Page() {
       <Panel>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div><h2 className="font-bold">Transport payment queue</h2><p className="mt-1 text-sm text-slate-600">Approved transport expenses remain separate from logistics completion and require finance confirmation.</p></div>
-          <Link className="rounded bg-sky-700 px-4 py-2 text-sm font-bold text-white" href="/admin/logistics">Open logistics payments</Link>
+          <Link className="rounded bg-sky-700 px-4 py-2 text-sm font-bold text-white" href="/admin/orders">Open related orders</Link>
         </div>
       </Panel>
       <Panel className="p-0">

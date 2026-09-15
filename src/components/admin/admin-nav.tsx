@@ -12,14 +12,11 @@ export const adminNavGroups: readonly NavGroup[] = [
   { label: "Daily work", icon: Building2, sections: [
     { links: [["Overview", "/admin"], ["AI", "/admin/ai"], ["Orders", "/admin/orders"], ["Payments", "/admin/payments"], ["Customers", "/admin/customers"], ["Customer support", "/admin/help-desk"]] },
   ] },
-  { label: "Fulfilment", icon: Boxes, sections: [
-    { links: [["Delivery", "/admin/delivery-notes"], ["Logistics", "/admin/logistics"], ["Returns", "/admin/returns"], ["Inventory", "/admin/inventory"]] },
-  ] },
   { label: "Catalogue", icon: Boxes, sections: [
-    { links: [["Products", "/admin/products"], ["Reviews", "/admin/reviews"], ["Suppliers & feeds", "/admin/syntech"], ["Suppliers", "/admin/suppliers"]] },
+    { links: [["Products", "/admin/products"], ["Inventory", "/admin/inventory"], ["Reviews", "/admin/reviews"], ["Suppliers & feeds", "/admin/syntech"], ["Suppliers", "/admin/suppliers"]] },
   ] },
   { label: "Business", icon: BriefcaseBusiness, sections: [
-    { links: [["Invoices", "/admin/invoices"], ["Reports", "/admin/reports"], ["Partnerships", "/admin/partnerships"]] },
+    { links: [["Invoices", "/admin/invoices"], ["Returns", "/admin/returns"], ["Reports", "/admin/reports"], ["Partnerships", "/admin/partnerships"]] },
   ] },
   { label: "Marketing", icon: Megaphone, sections: [
     { links: [["Pricing", "/admin/pricing"], ["Feed health", "/admin/feed-health"], ["Promotions", "/admin/promotions"], ["Overview", "/admin/marketing"], ["Blog & insights", "/admin/marketing/blog"], ["Social media", "/admin/marketing/social"], ["Settings", "/admin/marketing/settings"]] },

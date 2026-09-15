@@ -213,6 +213,7 @@ enum ShipmentStatus {
   READY
   SHIPPED
   IN_TRANSIT
+  OUT_FOR_DELIVERY
   DELIVERED
   RETURNED
   CANCELLED
@@ -1104,26 +1105,26 @@ model UserInvitation {
 }
 
 model Address {
-  id          String      @id @default(uuid()) @db.Uuid
-  userId      String      @db.Uuid
-  type        AddressType @default(BOTH)
-  label       String?
-  recipient   String
-  companyName String?
-  phone       String?
-  line1       String
-  line2       String?
-  suburb      String?
-  city        String
-  province    String
-  postalCode  String
-  countryCode String      @default("ZA") @db.Char(2)
+  id            String      @id @default(uuid()) @db.Uuid
+  userId        String      @db.Uuid
+  type          AddressType @default(BOTH)
+  label         String?
+  recipient     String
+  companyName   String?
+  phone         String?
+  line1         String
+  line2         String?
+  suburb        String?
+  city          String
+  province      String
+  postalCode    String
+  countryCode   String      @default("ZA") @db.Char(2)
   googlePlaceId String?
-  isDefault   Boolean     @default(false)
-  deletedAt   DateTime?
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  isDefault     Boolean     @default(false)
+  deletedAt     DateTime?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, type, isDefault])
   @@index([deletedAt])
@@ -1346,8 +1347,8 @@ model ProductDocument {
 }
 
 model Supplier {
-  approvalStatus String @default("PENDING")
-  purchasingEnabled Boolean @default(false)
+  approvalStatus    String                     @default("PENDING")
+  purchasingEnabled Boolean                    @default(false)
   id                String                     @id @default(uuid()) @db.Uuid
   companyName       String
   registrationNo    String?
@@ -1409,8 +1410,8 @@ model SupplierFeed {
 }
 
 model SupplierCatalogueProduct {
-  identityKey String?
-  displayPreferred Boolean @default(true)
+  identityKey       String?
+  displayPreferred  Boolean             @default(true)
   id                String              @id @default(uuid()) @db.Uuid
   feedId            String              @db.Uuid
   supplierId        String              @db.Uuid
@@ -1561,21 +1562,21 @@ model InventoryMovement {
 }
 
 model Cart {
-  id            String             @id @default(uuid()) @db.Uuid
-  userId        String?            @db.Uuid
-  pcProjectId   String?            @db.Uuid
-  token         String?            @unique
-  origin        String?
+  id                 String             @id @default(uuid()) @db.Uuid
+  userId             String?            @db.Uuid
+  pcProjectId        String?            @db.Uuid
+  token              String?            @unique
+  origin             String?
   aiRecommendationId String?
-  aiSummary     Json?
-  status        CartStatus         @default(ACTIVE)
-  expiresAt     DateTime?
-  createdAt     DateTime           @default(now())
-  updatedAt     DateTime           @updatedAt
-  user          User?              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  pcProject     PcProject?         @relation(fields: [pcProjectId], references: [id], onDelete: SetNull)
-  items         CartItem[]
-  supplierItems SupplierCartItem[]
+  aiSummary          Json?
+  status             CartStatus         @default(ACTIVE)
+  expiresAt          DateTime?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  user               User?              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  pcProject          PcProject?         @relation(fields: [pcProjectId], references: [id], onDelete: SetNull)
+  items              CartItem[]
+  supplierItems      SupplierCartItem[]
 
   @@index([userId, status])
   @@index([status, expiresAt])
@@ -1643,7 +1644,7 @@ model Order {
   userId               String?                 @db.Uuid
   pcProjectId          String?                 @db.Uuid
   origin               String?
-  aiRecommendationId  String?
+  aiRecommendationId   String?
   email                String
   phone                String?
   companyName          String?
@@ -1691,23 +1692,27 @@ model Order {
 }
 
 model OrderProcurement {
-  id                    String    @id @default(uuid()) @db.Uuid
-  orderId               String    @db.Uuid
-  supplierId            String    @db.Uuid
-  status                String    @default("DRAFT")
-  requestNumber         String    @unique
+  id                    String     @id @default(uuid()) @db.Uuid
+  orderId               String     @db.Uuid
+  supplierId            String     @db.Uuid
+  status                String     @default("DRAFT")
+  requestNumber         String     @unique
   supplierReference     String?
   supplierInvoiceNumber String?
-  supplierInvoiceTotal  Decimal?  @db.Decimal(19, 4)
+  supplierInvoiceTotal  Decimal?   @db.Decimal(19, 4)
   expectedArrivalAt     DateTime?
+  expectedDispatchAt    DateTime?
+  expectedDeliveryAt    DateTime?
+  deliveryWindow        String?
   orderedAt             DateTime?
   confirmedAt           DateTime?
   receivedAt            DateTime?
-  internalNote          String?   @db.Text
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
-  order                 Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  supplier              Supplier  @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  internalNote          String?    @db.Text
+  createdAt             DateTime   @default(now())
+  updatedAt             DateTime   @updatedAt
+  order                 Order      @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  supplier              Supplier   @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  shipments             Shipment[]
 
   @@unique([orderId, supplierId])
   @@index([status, expectedArrivalAt])
@@ -1829,7 +1834,7 @@ model OrderStatusHistory {
 }
 
 model Payment {
-  fundsAvailableAt DateTime?
+  fundsAvailableAt  DateTime?
   id                String            @id @default(uuid()) @db.Uuid
   orderId           String            @db.Uuid
   provider          PaymentProvider
@@ -1877,8 +1882,9 @@ model PaymentProof {
 }
 
 model Shipment {
-  id                   String         @id @default(uuid()) @db.Uuid
-  orderId              String         @db.Uuid
+  id                   String            @id @default(uuid()) @db.Uuid
+  orderId              String            @db.Uuid
+  procurementId        String?           @db.Uuid
   carrier              String?
   trackingNumber       String?
   trackingUrl          String?
@@ -1886,22 +1892,24 @@ model Shipment {
   contactName          String?
   contactPhone         String?
   estimatedDeliveryAt  DateTime?
-  deliveryNoteNumber   String?        @unique
-  deliveryInstructions String?        @db.Text
-  status               ShipmentStatus @default(PENDING)
+  deliveryNoteNumber   String?           @unique
+  deliveryInstructions String?           @db.Text
+  status               ShipmentStatus    @default(PENDING)
   shippedAt            DateTime?
   deliveredAt          DateTime?
-  createdAt            DateTime       @default(now())
-  updatedAt            DateTime       @updatedAt
-  order                Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
+  order                Order             @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  procurement          OrderProcurement? @relation(fields: [procurementId], references: [id], onDelete: SetNull)
 
   @@index([orderId, status])
+  @@index([procurementId, status])
   @@index([trackingNumber])
 }
 
 model Coupon {
-  advertised Boolean @default(false)
-  automatic Boolean @default(false)
+  advertised        Boolean            @default(false)
+  automatic         Boolean            @default(false)
   id                String             @id @default(uuid()) @db.Uuid
   code              String             @unique
   description       String?
@@ -3033,24 +3041,24 @@ model SocialDelivery {
 }
 
 model SocialContent {
-  id            String   @id @default(uuid()) @db.Uuid
-  contentDate   DateTime @db.Date
-  contentType   String
-  title         String
-  caption       String   @db.Text
-  imageUrl      String
-  imageAlt      String
+  id             String    @id @default(uuid()) @db.Uuid
+  contentDate    DateTime  @db.Date
+  contentType    String
+  title          String
+  caption        String    @db.Text
+  imageUrl       String
+  imageAlt       String
   destinationUrl String?
-  sourceType    String
-  sourceId      String?
-  fingerprint   String   @unique
-  generationKey String   @unique
-  emailStatus   String   @default("PENDING")
-  emailedAt     DateTime?
-  error         String?  @db.Text
-  createdById   String?  @db.Uuid
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  sourceType     String
+  sourceId       String?
+  fingerprint    String    @unique
+  generationKey  String    @unique
+  emailStatus    String    @default("PENDING")
+  emailedAt      DateTime?
+  error          String?   @db.Text
+  createdById    String?   @db.Uuid
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   @@index([contentDate, contentType])
   @@index([sourceType, sourceId])
@@ -4526,22 +4534,22 @@ model TransportEvent {
 }
 
 model RecommendationEvent {
-  id             String   @id @default(uuid()) @db.Uuid
-  userId         String?  @db.Uuid
-  sessionId      String
-  eventType      String
-  entityType     String
-  entityId       String?
-  category       String?
-  brand          String?
-  searchTerm     String?
-  price          Decimal? @db.Decimal(19, 4)
-  specification  Json?
+  id               String   @id @default(uuid()) @db.Uuid
+  userId           String?  @db.Uuid
+  sessionId        String
+  eventType        String
+  entityType       String
+  entityId         String?
+  category         String?
+  brand            String?
+  searchTerm       String?
+  price            Decimal? @db.Decimal(19, 4)
+  specification    Json?
   recommendationId String?
-  context        String?
-  metadata       Json?
-  createdAt      DateTime @default(now())
-  user           User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  context          String?
+  metadata         Json?
+  createdAt        DateTime @default(now())
+  user             User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([userId, createdAt])
   @@index([sessionId, createdAt])
@@ -4567,11 +4575,11 @@ model AIUsage {
   cartCreated        Boolean  @default(false)
   pcBuildGenerated   Boolean  @default(false)
   orderId            String?  @db.Uuid
-  errorCode           String?
-  metadata            Json?
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
-  user                User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  errorCode          String?
+  metadata           Json?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  user               User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([createdAt, requestStatus])
   @@index([userId, createdAt])
@@ -4580,17 +4588,19 @@ model AIUsage {
 }
 
 model SecurityRateLimit {
-  key String @id
-  count Int
+  key     String   @id
+  count   Int
   resetAt DateTime @db.Timestamptz
+
   @@index([resetAt])
 }
 
 model GatewayEvent {
- id String @id @default(uuid()) @db.Uuid
- provider String
- eventId String
- paymentId String @db.Uuid
- receivedAt DateTime @default(now())
- @@unique([provider,eventId])
+  id         String   @id @default(uuid()) @db.Uuid
+  provider   String
+  eventId    String
+  paymentId  String   @db.Uuid
+  receivedAt DateTime @default(now())
+
+  @@unique([provider, eventId])
 }

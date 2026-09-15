@@ -12,13 +12,14 @@ describe("customer order workflow", () => {
 
   it("emails only meaningful customer order milestones", () => {
     for (const status of ["DISPATCHED", "OUT_FOR_DELIVERY", "DELIVERED", "CANCELLED", "REFUNDED", "PARTIALLY_REFUNDED"]) expect(shouldEmailCustomerForOrderStatus(status)).toBe(true);
-    for (const status of ["AWAITING_PAYMENT", "PAYMENT_VERIFIED", "PROCESSING", "SOURCING_ITEMS", "ITEMS_RECEIVED", "PACKING", "READY_FOR_DELIVERY", "IN_TRANSIT", "COMPLETED"]) expect(shouldEmailCustomerForOrderStatus(status)).toBe(false);
+    for (const status of ["AWAITING_PAYMENT", "PAYMENT_VERIFIED", "SOURCING_ITEMS", "ITEMS_RECEIVED", "PACKING", "READY_FOR_DELIVERY", "IN_TRANSIT", "COMPLETED"]) expect(shouldEmailCustomerForOrderStatus(status)).toBe(false);
+    expect(shouldEmailCustomerForOrderStatus("PROCESSING")).toBe(true);
   });
   it("provides a complete normal route from paid verification to completion", () => {
-    const route = ["PAYMENT_VERIFIED", "PROCESSING", "SOURCING_ITEMS", "ITEMS_RECEIVED", "PACKING", "READY_FOR_DELIVERY", "DISPATCHED", "IN_TRANSIT", "OUT_FOR_DELIVERY", "DELIVERED", "COMPLETED"];
+    const route = ["PAYMENT_VERIFIED", "PROCESSING", "SOURCING_ITEMS", "DISPATCHED", "IN_TRANSIT", "OUT_FOR_DELIVERY", "DELIVERED", "COMPLETED"];
     for (let index = 0; index < route.length - 1; index++) expect(allowedOrderTransitions(route[index])).toContain(route[index + 1]);
     expect(allowedOrderTransitions("PROCESSING")).toContain("SOURCING_ITEMS");
-    expect(allowedOrderTransitions("PROCESSING")).toContain("ITEMS_RECEIVED");
+    expect(allowedOrderTransitions("PROCESSING")).not.toContain("ITEMS_RECEIVED");
     expect(() => assertOrderTransition("PROCESSING", "DELIVERED")).toThrow(/cannot move/i);
   });
   it("does not require improvised customer text for routine milestones", () => {

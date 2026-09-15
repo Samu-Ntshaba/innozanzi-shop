@@ -38,20 +38,27 @@ required to-dos, keep supplier/private context in internal notes, and use
 customer messages for updates that must be emailed and shown in the account
 timeline. Customers can reply inside the existing account ticket.
 Admin → Operations calendar combines ticket and task deadlines with quotation
-expiry, invoice due dates, planned deliveries, RFQ closings and partnership commitments.
+expiry, invoice due dates, expected distributor deliveries, RFQ closings and
+partnership commitments.
 
-Admin → Orders is the paid-order control point. Open an order and publish only
-the next permitted status. The visual lifecycle and event timeline are shared
-with the ownership-protected customer tracking page; each major update sends a
-customer email. Record the delivery company and planned date before dispatch.
+Admin → Orders is the single paid-order operations workspace. Innozanzi does
+not receive, warehouse, pack or deliver products. Open an order, assign each
+item to its distributor shipment group, record the supplier SKU/reference,
+supplier order/reference, cost, confirmation and expected dates, and then
+record the distributor's courier and tracking details. Publish only the next
+permitted distributor-direct status. The visual lifecycle and event timeline
+are shared with the ownership-protected customer tracking page; meaningful
+customer milestones are sent once. Historical warehouse statuses remain
+readable but are not part of the active workflow.
 
 Procurement officers use Admin → Quotations → Create manual quotation for
 off-platform enquiries. Save the quotation before review so it receives a
 number and audit trail. Use the origin filter to separate customer requests
 from staff-created quotations. After acceptance or verified payment, generate
-the invoice under Admin → Invoices. Operations records the delivery company,
-planned date and tracking details from the order’s Plan delivery action; this
-also emails the customer and places the commitment on the calendar.
+the invoice under Admin → Invoices. Order Operations records distributor
+confirmation, expected delivery, courier and tracking details inside the order;
+this sends the appropriate customer milestone and places the commitment on the
+calendar.
 
 All email types—not only campaigns—appear under Admin → Email marketing → System email delivery. A retry reuses the same idempotency key. Investigate Mailtrap sending-domain, suppression and bounce status before repeated retries.
 

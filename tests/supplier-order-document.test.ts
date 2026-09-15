@@ -6,6 +6,10 @@ describe("supplier order document",()=>{
     const pdf=await supplierOrderRequestPdf({
       orderNumber:"ORD-100",
       createdAt:new Date("2026-08-31T08:00:00Z"),
+      recipient:"Jane Customer",
+      phone:"0820000000",
+      deliveryAddress:"1 Main Road, Sandton, Gauteng, 2196",
+      deliveryInstructions:"Call on arrival",
       items:[
         {name:"Known-cost notebook",sku:"SYN-100",quantity:2,costPrice:"1000",supplierName:"Syntech"},
         {name:"Price-to-confirm memory",sku:"SYN-200",quantity:1,costPrice:null,supplierName:"Syntech"},
@@ -16,5 +20,9 @@ describe("supplier order document",()=>{
     expect(content).toContain("SYN-100");
     expect(content).toContain("SYN-200");
     expect(content).toContain("TO CONFIRM");
+    expect(content).toContain("DELIVER DIRECTLY TO CUSTOMER");
+    expect(content).toContain("Jane Customer");
+    expect(content).toContain("0820000000");
+    expect(content).toContain("Call on arrival");
   });
 });

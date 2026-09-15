@@ -88,13 +88,13 @@ export default async function AdminDashboard() {
     { label: "New requests", value: dashboard.openRequests, href: "/admin/quotations" },
     { label: "Review", value: dashboard.quotesToApprove, href: "/admin/quotations" },
     { label: "Payment", value: dashboard.awaitingPayment, href: "/admin/payments" },
-    { label: "Delivery", value: dashboard.deliveriesInProgress, href: "/admin/logistics" },
+    { label: "Distributor delivery", value: dashboard.deliveriesInProgress, href: "/admin/orders" },
   ];
 
   const workloads = [
     { label: "Sales & quotations", value: dashboard.openRequests + dashboard.quotesToApprove, href: "/admin/quotations" },
     { label: "Finance", value: dashboard.pendingPayments + dashboard.awaitingPayment, href: "/admin/payments" },
-    { label: "Fulfilment", value: dashboard.activeOrders + dashboard.deliveriesInProgress, href: "/admin/orders" },
+    { label: "Order operations", value: dashboard.activeOrders + dashboard.deliveriesInProgress, href: "/admin/orders" },
     { label: "Partnerships", value: dashboard.partnershipApplications + dashboard.unassignedPartnerRequests, href: "/admin/partnerships" },
     { label: "Customer support", value: dashboard.openHelpDesk, href: "/admin/help-desk" },
   ];
@@ -103,7 +103,7 @@ export default async function AdminDashboard() {
     { label: "Paid orders to accept", value: dashboard.paidOrdersToAccept, href: "/admin/orders" },
     { label: "Supplier procurement", value: dashboard.procurementOrders, href: "/admin/orders" },
     { label: "Ready for delivery", value: dashboard.readyForDelivery, href: "/admin/orders" },
-    { label: "Overdue fulfilment", value: dashboard.overdueOrders, href: "/admin/orders" },
+    { label: "Overdue orders", value: dashboard.overdueOrders, href: "/admin/orders" },
     { label: "Open returns & complaints", value: dashboard.openReturns, href: "/admin/returns" },
     { label: "Quotation approvals", value: dashboard.quotesToApprove, href: "/admin/quotations" },
     { label: "Payment verification", value: dashboard.pendingPayments, href: "/admin/payments" },
