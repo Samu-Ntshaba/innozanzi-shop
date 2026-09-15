@@ -1,0 +1,16 @@
+import {beforeEach,expect,it,vi} from "vitest";
+const mocks=vi.hoisted(()=>({verify:vi.fn(),accept:vi.fn(),audit:vi.fn(),find:vi.fn()}));
+vi.mock("@/lib/prisma",()=>({prisma:{payment:{findUnique:mocks.find}}}));
+vi.mock("@/integrations/payments/approved-gateways",()=>({verifyApprovedNotification:mocks.verify}));
+vi.mock("@/domain/payments/recovery",()=>({acceptVerifiedPayment:mocks.accept}));
+vi.mock("@/domain/payments/webhooks",()=>({processPaymentEvent:vi.fn()}));
+vi.mock("@/domain/payments/orchestration",()=>({verifyHostedPaymentWebhook:vi.fn()}));
+vi.mock("@/domain/payments/diagnostics",async importOriginal=>({...await importOriginal<object>(),recordPaymentDiagnostic:mocks.audit}));
+import {POST} from "@/app/api/webhooks/[provider]/route";
+const request=()=>new Request("https://shop.example/api/webhooks/payfast",{method:"POST",body:"m_payment_id=payment"});
+const context={params:Promise.resolve({provider:"payfast"})};
+beforeEach(()=>{vi.clearAllMocks();mocks.find.mockResolvedValue({id:"payment"});mocks.verify.mockResolvedValue({eventId:"tx",externalReference:"payment",status:"PAID",amount:"5",currency:"ZAR"});mocks.accept.mockResolvedValue({paymentId:"payment",duplicate:false});mocks.audit.mockResolvedValue({});});
+it("accepts verified payment even if ancillary diagnostic storage is unavailable",async()=>{mocks.audit.mockRejectedValue(new Error("audit unavailable"));expect((await POST(request(),context)).status).toBe(200);expect(mocks.accept).toHaveBeenCalledTimes(1);});
+it("returns a retryable response when verified financial processing fails",async()=>{mocks.accept.mockRejectedValue(new Error("db timeout"));expect((await POST(request(),context)).status).toBe(503);});
+it("rejects invalid signatures without entering the trusted recovery queue",async()=>{mocks.verify.mockRejectedValue(new Error("Invalid payment signature"));expect((await POST(request(),context)).status).toBe(400);expect(mocks.accept).not.toHaveBeenCalled();});
+it("returns a retryable response for a provider verification outage",async()=>{mocks.verify.mockRejectedValue(new Error("fetch unavailable"));expect((await POST(request(),context)).status).toBe(503);expect(mocks.accept).not.toHaveBeenCalled();});

@@ -1,7 +1,17 @@
 import { afterEach,beforeEach,expect,it,vi } from "vitest";
+import { createHash } from "node:crypto";
 import { gatewayConfigured,hostedFields,ozowHash,payfastSignature,verifyApprovedNotification } from "@/integrations/payments/approved-gateways";
 beforeEach(()=>{for(const[k,v]of Object.entries({OZOW_ENABLED:"true",OZOW_SITE_CODE:"site",OZOW_PRIVATE_KEY:"private-secret",OZOW_API_KEY:"api-secret",OZOW_TEST_MODE:"true",PAYFAST_ENABLED:"true",PAYFAST_MERCHANT_ID:"10000100",PAYFAST_MERCHANT_KEY:"merchant-secret",PAYFAST_PASSPHRASE:"pass phrase",PAYFAST_SANDBOX:"true"}))vi.stubEnv(k,v);});
 afterEach(()=>{vi.unstubAllEnvs();vi.unstubAllGlobals();});
+it("accepts an ITN signed over empty posted fields, without changing checkout signing",async()=>{
+ const parameters="m_payment_id=payment&pf_payment_id=event&payment_status=COMPLETE&item_description=&amount_gross=5.00&custom_str1=&merchant_id=10000100";
+ const signature=createHash("md5").update(parameters+"&passphrase=pass+phrase").digest("hex");
+ vi.stubGlobal("fetch",async (_url:unknown,options:RequestInit)=>{
+  expect(options.body).toBe(parameters);
+  return new Response("VALID");
+ });
+ await expect(verifyApprovedNotification("PAYFAST",parameters+"&signature="+signature)).resolves.toMatchObject({status:"PAID",amount:"5.00",externalReference:"payment"});
+});
 it("does not enable missing credentials or sandbox money in production",()=>{vi.stubEnv("PAYFAST_MERCHANT_KEY","");expect(gatewayConfigured("PAYFAST")).toBe(false);vi.stubEnv("NODE_ENV","production");expect(gatewayConfigured("OZOW")).toBe(false);});
 it("creates signed provider forms with exact amount, owned reference and no private keys",()=>{for(const gateway of["OZOW","PAYFAST"] as const){const result=hostedFields(gateway,{id:"11111111-1111-4111-8111-111111111111",amount:"123.45",email:"test@example.com",orderId:"order"},"https://shop.example");expect(JSON.stringify(result)).not.toContain("private-secret");expect(JSON.stringify(result)).not.toContain("pass phrase");expect(Object.values(result.fields)).toContain("123.45");expect(result.url).toMatch(/^https:\/\/(sandbox.payfast.co.za|pay.ozow.com)/);}});
 it("includes the customer's name in PayFast's signed payment form",()=>{const result=hostedFields("PAYFAST",{id:"payment",amount:"123.45",email:"test@example.com",orderId:"order",name:"Nomsa Dlamini"},"https://shop.example");expect(result.fields).toMatchObject({name_first:"Nomsa",name_last:"Dlamini"});expect(result.fields.signature).toBeTruthy();});

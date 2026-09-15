@@ -21,6 +21,7 @@ export async function retryOrderPayment(formData: FormData) {
     await tx.$queryRaw`SELECT id FROM "Order" WHERE id = ${input.orderId}::uuid FOR UPDATE`;
     const order = await tx.order.findUniqueOrThrow({ where: { id: input.orderId }, include:{items:true} });
     if (order.userId !== ctx.user.id || order.status !== "AWAITING_PAYMENT" || !["PENDING", "FAILED", "CANCELLED"].includes(order.paymentStatus)) throw new Error("This order is not available for another payment attempt.");
+    if(order.paymentStatus==="PENDING"&&["PAYFAST","OZOW"].includes(order.paymentMethod))throw new Error("Your payment is still being confirmed. Please do not pay again. Our team can reconcile this payment.");
     if(!order.isTestData)await validateQuotationPrices(order.items);
     const amountError=paymentAmountError(input.paymentMethod,order.grandTotal);if(amountError)throw new Error(amountError);
     await tx.payment.updateMany({ where: { orderId: order.id, status: "PENDING" }, data: { status: "CANCELLED", failureReason: "Replaced by a new customer payment attempt." } });

@@ -2,8 +2,13 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { MobilePushControl } from "@/components/mobile-admin/mobile-push-control";
 import { Row, Section, Stat, card, money } from "@/components/mobile-admin/ui";
+import { PaymentAttention } from "@/components/admin/payment-attention";
 
 export default async function MobileAdminHome() {
+  return <><MobileAdminOverview/><PaymentAttention compact/></>;
+}
+
+async function MobileAdminOverview() {
   const now=new Date(),today=new Date(now);today.setHours(0,0,0,0);const activeSince=new Date(now.getTime()-15*60_000);
   const [orders,paidAction,pendingProof,openSupport,openReturns,openQuotes,activeUsers,socialToday,inventory,feedProblems]=await Promise.all([
     prisma.order.findMany({where:{isTestData:false,paymentStatus:{in:["PAID","REFUNDED","PARTIALLY_REFUNDED"]}},orderBy:{placedAt:"desc"},take:6,select:{id:true,orderNumber:true,email:true,grandTotal:true,status:true,createdAt:true}}),

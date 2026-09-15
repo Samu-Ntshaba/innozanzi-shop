@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { publicSiteUrl } from "@/lib/public-site-url";
+import { recordPaymentDiagnostic } from "@/domain/payments/diagnostics";
 
 const resultSchema = z.enum(["success", "cancelled", "error"]).catch("error");
 
@@ -12,7 +13,8 @@ async function handle(request: Request, context: { params: Promise<{ paymentId: 
   const payment = await prisma.payment.findUnique({ where: { id: paymentId.data }, select: { id: true, orderId: true, status: true, order: { select: { orderNumber: true, status: true, paymentStatus: true } } } });
   if (!payment) return NextResponse.redirect(new URL("/account/orders", publicSiteUrl()), 303);
   // Browser returns are navigation hints, never authoritative payment evidence.
-  // Keep success, error and cancellation returns read-only.
+  // Record an untrusted navigation observation without changing payment/order state.
+  try{await recordPaymentDiagnostic(payment.id,"browser-return",{result,verified:false,orderId:payment.orderId});}catch{console.warn("Payment browser return could not be recorded",{paymentId:payment.id});}
   const notice = result === "success" ? "processing" : result;
   return NextResponse.redirect(new URL("/account/orders/" + encodeURIComponent(payment.order.orderNumber) + "?payment=" + notice, publicSiteUrl()), 303);
 }

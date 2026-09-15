@@ -18,16 +18,16 @@ import { PaystackPaymentAdapter } from "@/integrations/payments/adapters";
 import { beginHostedOrderPayment } from "@/domain/payments/orchestration";
 import { publicSiteUrl } from "@/lib/public-site-url";
 import { notifyStaffOfPaidOrder } from "@/domain/notifications/order-alerts";
-import { processPaymentEvent } from "@/domain/payments/webhooks";
+import { acceptVerifiedPayment } from "@/domain/payments/recovery";
 
 export async function reconcileHostedPayment(formData:FormData){
   const ctx=await requirePermission("payments.approve");
   const data=z.object({paymentId:z.string().uuid(),providerTransactionId:z.string().trim().min(3).max(200),note:z.string().trim().min(10).max(1000),confirmed:z.literal("on")}).parse(Object.fromEntries(formData));
-  const payment=await prisma.payment.findFirst({where:{id:data.paymentId,provider:{in:["PAYFAST","OZOW"]},status:{in:["PENDING","FAILED","CANCELLED"]}},include:{order:{select:{orderNumber:true}}}});
+  const payment=await prisma.payment.findFirst({where:{id:data.paymentId,provider:{in:["PAYFAST","OZOW"]},OR:[{status:{in:["PENDING","FAILED","CANCELLED"]}},{status:"PAID",order:{paymentStatus:"PENDING",status:"AWAITING_PAYMENT"}}]},include:{order:{select:{orderNumber:true}}}});
   if(!payment||!payment.externalReference||payment.currency!=="ZAR")throw new Error("This hosted payment is not available for reconciliation.");
   const event=await reconcileApprovedPayment(payment.provider as "PAYFAST"|"OZOW",data.providerTransactionId,payment.externalReference,String(formData.get("signedNotification")??"").slice(0,100000));
-  await processPaymentEvent(payment.provider as "PAYFAST"|"OZOW",event);
-  await prisma.auditLog.create({data:{actorId:ctx.user.id,action:"payment.hosted-provider-reconciliation",entityType:"Payment",entityId:payment.id,before:{status:"PENDING"},after:{status:"PAID",provider:payment.provider,providerTransactionId:data.providerTransactionId,note:data.note,orderNumber:payment.order.orderNumber}}});
+  await acceptVerifiedPayment(payment.provider as "PAYFAST"|"OZOW",event);
+  await prisma.auditLog.create({data:{actorId:ctx.user.id,action:"payment.hosted-provider-reconciliation",entityType:"Payment",entityId:payment.id,before:{status:payment.status},after:{status:"PAID",provider:payment.provider,providerTransactionId:data.providerTransactionId,verificationMethod:payment.provider==="PAYFAST"?"SIGNED_ITN_AND_SERVER_VALIDATION":"PROVIDER_TRANSACTION_API",note:data.note,orderNumber:payment.order.orderNumber}}});
   revalidatePath("/admin/payments");revalidatePath("/admin/orders");revalidatePath(`/account/orders/${payment.order.orderNumber}`);
 }
 

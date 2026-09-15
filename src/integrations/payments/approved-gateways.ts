@@ -26,9 +26,14 @@ export async function verifyApprovedNotification(gateway:ApprovedGateway,body:st
  if(!gatewayConfigured(gateway))throw new Error("Gateway disabled");
  const params=new URLSearchParams(body);const data:Record<string,string>={};for(const[k,v]of params){if(k in data)throw new Error("Duplicate notification field");data[k]=v;}
  if(gateway==="PAYFAST"){
- if(data.merchant_id!==secret("PAYFAST_MERCHANT_ID")||!same(payfastSignature(data,secret("PAYFAST_PASSPHRASE")),data.signature??""))throw new Error("Invalid payment signature");
+ // ITNs include empty fields in their signed parameter string; checkout forms do not.
+ const notificationEncode=(value:string)=>encodeURIComponent(value).replace(/[!'()*~]/g,c=>`%${c.charCodeAt(0).toString(16).toUpperCase()}`).replace(/%20/g,"+");
+ const notificationParameters=Object.entries(data).filter(([key])=>key!=="signature").map(([key,value])=>`${key}=${notificationEncode(value)}`).join("&");
+ const notificationSignature=createHash("md5").update(`${notificationParameters}&passphrase=${encode(secret("PAYFAST_PASSPHRASE"))}`).digest("hex");
+ if(data.merchant_id!==secret("PAYFAST_MERCHANT_ID"))throw new Error("Payment merchant mismatch");
+ if(!same(notificationSignature,data.signature??""))throw new Error("Invalid payment signature");
  const host=process.env.PAYFAST_SANDBOX==="true"?"sandbox.payfast.co.za":"www.payfast.co.za";
- const validation=await fetch(`https://${host}/eng/query/validate`,{method:"POST",headers:{"content-type":"application/x-www-form-urlencoded"},body:Object.entries(data).filter(([k])=>k!=="signature").map(([k,v])=>`${k}=${encode(v)}`).join("&"),signal:AbortSignal.timeout(15000),cache:"no-store"});
+ const validation=await fetch(`https://${host}/eng/query/validate`,{method:"POST",headers:{"content-type":"application/x-www-form-urlencoded"},body:notificationParameters,signal:AbortSignal.timeout(15000),cache:"no-store"});
  if(!validation.ok||(await validation.text()).trim()!=="VALID")throw new Error("Payment notification could not be verified");
  if(!data.pf_payment_id||!data.m_payment_id||!data.amount_gross||data.payment_status!=="COMPLETE")throw new Error("Payment is not complete");
  return {eventId:data.pf_payment_id,externalReference:data.m_payment_id,status:"PAID",amount:data.amount_gross,currency:"ZAR",raw:{providerId:data.pf_payment_id,fee:data.amount_fee,status:data.payment_status}};

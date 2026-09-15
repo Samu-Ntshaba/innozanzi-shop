@@ -13,6 +13,7 @@ import { createPaystackRefund, reconcileHostedPayment, verifyPaymentSubmission }
 import { getRetailPaymentSettings } from "@/domain/payments/settings";
 import { saveRetailPaymentSettings } from "@/domain/payments/settings-actions";
 import { reviewPaymentProof } from "@/domain/admin/actions";
+import { PaymentAttention } from "@/components/admin/payment-attention";
 export default async function Page() {
   await requirePermission("payments.approve");
   const [rows,onlinePayments,pendingHostedPayments,retailPaymentSettings,retailProofs] = await Promise.all([prisma.paymentSubmission.findMany({
@@ -26,12 +27,13 @@ export default async function Page() {
     },
     orderBy: { submittedAt: "desc" },
     take: 100,
-  }),prisma.payment.findMany({where:{provider:"PAYSTACK",status:{in:["PAID","PARTIALLY_REFUNDED"]}},include:{order:true},orderBy:{paidAt:"desc"},take:100}),prisma.payment.findMany({where:{provider:{in:["PAYFAST","OZOW"]},status:{in:["PENDING","FAILED","CANCELLED"]}},include:{order:{select:{orderNumber:true,email:true,grandTotal:true}}},orderBy:{createdAt:"desc"},take:50}),getRetailPaymentSettings(),prisma.paymentProof.findMany({include:{payment:{include:{order:{select:{orderNumber:true,email:true}}}},uploadedBy:{select:{name:true,email:true}}},orderBy:{createdAt:"desc"},take:100})]);
+  }),prisma.payment.findMany({where:{provider:"PAYSTACK",status:{in:["PAID","PARTIALLY_REFUNDED"]}},include:{order:true},orderBy:{paidAt:"desc"},take:100}),prisma.payment.findMany({where:{provider:{in:["PAYFAST","OZOW"]},OR:[{status:{in:["PENDING","FAILED","CANCELLED"]}},{status:"PAID",order:{paymentStatus:"PENDING",status:"AWAITING_PAYMENT"}}]},include:{order:{select:{orderNumber:true,email:true,grandTotal:true}}},orderBy:{createdAt:"desc"},take:50}),getRetailPaymentSettings(),prisma.paymentProof.findMany({include:{payment:{include:{order:{select:{orderNumber:true,email:true}}}},uploadedBy:{select:{name:true,email:true}}},orderBy:{createdAt:"desc"},take:100})]);
   return (
     <AdminPage
       title="Payment verification"
       description="Proof review controls order activation. Uploading evidence never verifies payment automatically."
     >
+      <PaymentAttention/>
       <Panel title="Customer payment methods" description="PayFast is the default when configured, followed by Ozow. Live PayFast requires merchant credentials, a matching security passphrase and PAYFAST_SANDBOX=false. Manual EFT is unavailable for new payments. Banking details below support existing EFT orders.">
         <form action={saveRetailPaymentSettings} className="grid gap-4 sm:grid-cols-2">
           <label className="flex items-center gap-3 rounded-lg border p-3 text-sm font-bold sm:col-span-2"><input type="checkbox" name="eftEnabled" defaultChecked={retailPaymentSettings.eftEnabled}/>Allow proof uploads for existing EFT orders</label>
