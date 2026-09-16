@@ -24,7 +24,7 @@ export function OrderSupplierShipments({orderId,groups}:{orderId:string;groups:G
       <input type="hidden" name="orderId" value={orderId}/><input type="hidden" name="procurementId" value={group.id}/>
       <div className="flex items-center justify-between md:col-span-2"><p className="text-xs font-bold uppercase tracking-wide text-slate-500">Delivery source: distributor</p><StatusBadge value={shipment?.status??"PENDING"}/></div>
       <label>Delivery status<select className={`${inputClass} mt-1 w-full`} name="status" defaultValue={shipment?.status??"PENDING"}>{["PENDING","SHIPPED","IN_TRANSIT","OUT_FOR_DELIVERY","DELIVERED"].map(status=><option value={status} key={status}>{status.replaceAll("_"," ")}</option>)}</select></label>
-      <label>Courier / delivery company<input className={`${inputClass} mt-1 w-full`} name="deliveryCompany" defaultValue={shipment?.deliveryCompany??""} required/></label>
+      <label>Courier / delivery company<input className={`${inputClass} mt-1 w-full`} name="deliveryCompany" defaultValue={shipment?.deliveryCompany??""} placeholder={`${group.supplier.companyName} if not yet assigned`}/></label>
       <label>Tracking number<input className={`${inputClass} mt-1 w-full`} name="trackingNumber" defaultValue={shipment?.trackingNumber??""}/></label>
       <label>Tracking URL<input className={`${inputClass} mt-1 w-full`} type="url" name="trackingUrl" defaultValue={shipment?.trackingUrl??""}/></label>
       <label>Expected delivery<input className={`${inputClass} mt-1 w-full`} type="datetime-local" name="estimatedDeliveryAt" defaultValue={dateTimeInput(shipment?.estimatedDeliveryAt)}/></label>

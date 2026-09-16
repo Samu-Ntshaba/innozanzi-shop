@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { activeOrderJourney, allowedOrderTransitions, assertOrderTransition, cancellationRequiresFinanceConfirmation, deriveOrderStatusFromSupplierGroups, reservationAfterRelease } from "../../src/domain/orders/lifecycle";
+import { activeOrderJourney, allowedOrderTransitions, assertOrderTransition, cancellationRequiresFinanceConfirmation, deriveOrderStatusFromSupplierGroups, reservationAfterRelease, resolveOrderOperation } from "../../src/domain/orders/lifecycle";
 
 describe("paid order fulfilment lifecycle", () => {
   it("allows only controlled forward transitions", () => {
@@ -17,6 +17,28 @@ describe("paid order fulfilment lifecycle", () => {
     expect(allowedOrderTransitions("ITEMS_RECEIVED")).toContain("DISPATCHED");
     expect(allowedOrderTransitions("PACKING")).toContain("DISPATCHED");
     expect(allowedOrderTransitions("READY_FOR_DELIVERY")).toContain("DISPATCHED");
+  });
+
+  it("maps a legacy ready order to an actionable distributor dispatch without changing history",()=>{
+    const action=resolveOrderOperation({status:"READY_FOR_DELIVERY",paymentStatus:"PAID",hasSupplierItems:true,groups:[{status:"CONFIRMED",shipmentStatus:"PENDING"}]});
+    expect(action).toMatchObject({operationalStatus:"PROCESSING",kind:"RECORD_DISPATCH",label:"Record distributor dispatch"});
+    expect(action.normalTransitions).not.toContain("CANCELLED");
+  });
+
+  it("gives every healthy paid non-terminal state a successful action",()=>{
+    const cases=[
+      {status:"PAYMENT_VERIFIED",groups:[]},
+      {status:"PROCESSING",groups:[]},
+      {status:"SOURCING_ITEMS",groups:[{status:"SUBMITTED",shipmentStatus:null}]},
+      {status:"DISPATCHED",groups:[{status:"CONFIRMED",shipmentStatus:"SHIPPED"}]},
+      {status:"OUT_FOR_DELIVERY",groups:[{status:"CONFIRMED",shipmentStatus:"OUT_FOR_DELIVERY"}]},
+      {status:"DELIVERED",groups:[{status:"CONFIRMED",shipmentStatus:"DELIVERED"}]},
+    ];
+    for(const value of cases){const result=resolveOrderOperation({paymentStatus:"PAID",hasSupplierItems:true,...value});expect(result.kind,value.status).not.toBe("BLOCKED");expect(result.label,value.status).not.toMatch(/cancel/i);}
+  });
+
+  it("identifies an actionable blocker instead of silently dead-ending",()=>{
+    expect(resolveOrderOperation({status:"PROCESSING",paymentStatus:"PAID",hasSupplierItems:false,groups:[]})).toMatchObject({kind:"BLOCKED",blocker:"Assign an approved distributor to the order products."});
   });
 
   it("makes completed and cancelled orders terminal", () => {

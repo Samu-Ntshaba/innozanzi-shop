@@ -16,6 +16,14 @@ describe("distributor-direct order operations readiness",()=>{
     expect(page).toContain("OrderSupplierSetup");
     expect(page).toContain("OrderSupplierShipments");
     expect(page).toContain("setOrderStatus");
+    expect(page).toContain("resolveOrderOperation");
+  });
+
+  it("uses the shared action resolver in desktop Orders and never presents a dead-end message",()=>{
+    const page=source("src/app/admin/orders/[id]/page.tsx");
+    expect(page).toContain("resolveOrderOperation");
+    expect(page).not.toContain("no further normal fulfilment transitions");
+    expect(page).toContain("five simple milestones");
   });
 
   it("uses additive supplier-group shipment persistence",()=>{
