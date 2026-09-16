@@ -78,7 +78,7 @@ export async function resolveQuotationCart(cart: CurrentCart, markup: Decimal, p
         if (item.quantity > product.stock)
             throw new Error(`${product.name} only has ${product.stock} supplier units currently available.`);
         const cost = positiveCost(product.costPrice, product.name);
-        const retail = await supplierRetailPrice({ costPrice: cost, recommendedRetail: product.recommendedRetail, promotionalPrice: product.promotionalPrice, promotionStartsAt: product.promotionStartsAt, promotionEndsAt: product.promotionEndsAt, special: isDailySpecial(product.id) },settings);
+        const retail = await supplierRetailPrice({ costPrice: cost, recommendedRetail: product.recommendedRetail, promotionalPrice: product.promotionalPrice, promotionStartsAt: product.promotionStartsAt, promotionEndsAt: product.promotionEndsAt, special: isDailySpecial(product.id), productKey:`SUPPLIER:${product.id}` },settings);
         const grossUnit = retail.salePrice ?? retail.regularPrice;
         const netUnit=settings.vatRegistered?grossUnit.div(new Decimal(1).plus(settings.vatPercent/100)):grossUnit;
         const price = { netUnit, vatUnit: grossUnit.minus(netUnit), grossUnit };

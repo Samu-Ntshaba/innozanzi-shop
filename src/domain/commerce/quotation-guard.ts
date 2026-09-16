@@ -10,7 +10,7 @@ export async function validateQuotationPrices(items:Array<{id:string;sourceType:
   if(item.sourceType==="SUPPLIER"){
    const offer=await prisma.supplierCatalogueProduct.findFirst({where:{id:item.sourceId??"",active:true,...await sellableSupplierWhere()}});
    if(!offer?.costPrice||offer.stock<item.quantity)throw new Error("A quotation item needs refreshed supplier pricing or stock. Please ask for an updated quotation.");
-   const price=await supplierRetailPrice({costPrice:offer.costPrice,promotionalPrice:offer.promotionalPrice,promotionStartsAt:offer.promotionStartsAt,promotionEndsAt:offer.promotionEndsAt});
+   const price=await supplierRetailPrice({costPrice:offer.costPrice,promotionalPrice:offer.promotionalPrice,promotionStartsAt:offer.promotionStartsAt,promotionEndsAt:offer.promotionEndsAt,productKey:`SUPPLIER:${offer.id}`});
    cost=price.promotionActive?new Decimal(offer.promotionalPrice!):new Decimal(offer.costPrice);floor=price.minimumPrice;offerTimestamp=offer.lastSeenAt.toISOString();
   }else{
    const product=item.productId?await prisma.product.findUnique({where:{id:item.productId},select:{costPrice:true}}):null;

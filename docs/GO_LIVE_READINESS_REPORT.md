@@ -17,7 +17,7 @@ The distributor-direct Order Operations correction is implemented and passes the
 | Suppliers | PASS | Active Syntech/Pinnacle feeds healthy; supplier-order workflow is inside Orders |
 | Pricing | PASS | Deterministic floor/margin tests pass; production eligible offers show no missing cost/floor exception |
 | Trading | PARTIAL | Evidence-backed sales analytics exist; reconciliation UAT remains |
-| Market intelligence | FAIL | Requested persistent matching/confidence/resumable scan system is not implemented |
+| Market intelligence | PARTIAL | Persistent exact-match evidence, confidence, resumable sessions and governed recommendations are implemented; deployment and controlled live scan acceptance remain |
 | Risk | PARTIAL | Automated risk rules pass; full live trigger/false-positive UAT not run |
 | OpenAI / AI | PARTIAL | Safety/failure/rate tests pass; controlled live-provider UAT excluded |
 | Cart | PASS | Authoritative cart and quantity tests pass |
@@ -69,11 +69,6 @@ The distributor-direct Order Operations correction is implemented and passes the
 
 - Impact: gateway callbacks, concurrency capacity, browser/device behaviour and recovery have not been proven in the environment that will carry customer money.
 - Remaining action: run both enabled gateway sandbox journeys; authenticated customer/Admin UAT; controlled load/concurrency/soak; worker restart; and an isolated backup restore.
-
-### P2 — Market intelligence scope gap
-
-- Impact: the requested confidence-rated, resumable market scan cannot be operated or certified.
-- Remaining action: treat this as explicitly out of launch scope or implement and test it before advertising the capability.
 
 ## Production evidence
 

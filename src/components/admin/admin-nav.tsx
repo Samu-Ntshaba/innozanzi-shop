@@ -10,7 +10,7 @@ type NavGroup = { label: string; icon: typeof Building2; sections: readonly NavS
 
 export const adminNavGroups: readonly NavGroup[] = [
   { label: "Daily work", icon: Building2, sections: [
-    { links: [["Overview", "/admin"], ["AI", "/admin/ai"], ["Orders", "/admin/orders"], ["Payments", "/admin/payments"], ["Customers", "/admin/customers"], ["Customer support", "/admin/help-desk"]] },
+    { links: [["Overview", "/admin"], ["AI", "/admin/ai"], ["Orders", "/admin/orders"], ["Payments", "/admin/payments"], ["Risk", "/admin/risk"], ["Customers", "/admin/customers"], ["Customer support", "/admin/help-desk"]] },
   ] },
   { label: "Catalogue", icon: Boxes, sections: [
     { links: [["Products", "/admin/products"], ["Inventory", "/admin/inventory"], ["Reviews", "/admin/reviews"], ["Suppliers & feeds", "/admin/syntech"], ["Suppliers", "/admin/suppliers"]] },
@@ -18,8 +18,12 @@ export const adminNavGroups: readonly NavGroup[] = [
   { label: "Business", icon: BriefcaseBusiness, sections: [
     { links: [["Invoices", "/admin/invoices"], ["Returns", "/admin/returns"], ["Reports", "/admin/reports"], ["Partnerships", "/admin/partnerships"]] },
   ] },
+  { label: "Pricing & Trading", icon: BriefcaseBusiness, sections: [
+    { links: [["Overview", "/admin/pricing-trading"], ["Recommended pricing", "/admin/pricing"], ["Trading desk", "/admin/trading"], ["Market review", "/admin/trading/market"], ["Promotions", "/admin/promotions"]] },
+    { label: "Control", links: [["Trading sessions", "/admin/trading/sessions"], ["Automation & rules", "/admin/trading/rules"], ["Price history & audit", "/admin/trading/history"]] },
+  ] },
   { label: "Marketing", icon: Megaphone, sections: [
-    { links: [["Pricing", "/admin/pricing"], ["Feed health", "/admin/feed-health"], ["Promotions", "/admin/promotions"], ["Overview", "/admin/marketing"], ["Blog & insights", "/admin/marketing/blog"], ["Social media", "/admin/marketing/social"], ["Settings", "/admin/marketing/settings"]] },
+    { links: [["Feed health", "/admin/feed-health"], ["Overview", "/admin/marketing"], ["Blog & insights", "/admin/marketing/blog"], ["Social media", "/admin/marketing/social"], ["Settings", "/admin/marketing/settings"]] },
     { label: "SEO", links: [["Global SEO", "/admin/marketing/seo"], ["Page SEO", "/admin/marketing/page-seo"], ["SEO audit", "/admin/marketing/audit"]] },
   ] },
   { label: "Settings", icon: Settings2, sections: [
@@ -35,6 +39,7 @@ type AdminNavProps = {
 export const adminRoutePermissions: Record<string, string> = {
   "/admin": "reports.view",
   "/admin/ai": "marketing.analytics.view",
+  "/admin/risk": "trading.view",
   "/admin/customers": "customers.manage",
   "/admin/help-desk": "customers.manage",
   "/admin/calendar": "customers.manage",
@@ -76,6 +81,12 @@ export const adminRoutePermissions: Record<string, string> = {
   "/admin/categories": "products.update",
   "/admin/brands": "products.update",
   "/admin/pricing": "settings.manage",
+  "/admin/pricing-trading": "trading.view",
+  "/admin/trading": "trading.view",
+  "/admin/trading/market": "trading.market.manage",
+  "/admin/trading/sessions": "trading.market.manage",
+  "/admin/trading/rules": "trading.rules.manage",
+  "/admin/trading/history": "trading.audit.view",
   "/admin/feed-health": "settings.manage",
   "/admin/promotions": "settings.manage",
   "/admin/reports": "reports.view",

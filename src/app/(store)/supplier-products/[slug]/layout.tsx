@@ -16,7 +16,7 @@ export default async function SupplierProductLayout({ children, params }: {
         return children;
     const seo = await globalSeoSettings();
     const url = `${seo.siteUrl}/supplier-products/${product.slug}`;
-    const retail = product.costPrice ? await supplierRetailPrice({ costPrice: product.costPrice, recommendedRetail: product.recommendedRetail, promotionalPrice: product.promotionalPrice, promotionStartsAt: product.promotionStartsAt, promotionEndsAt: product.promotionEndsAt, special: isDailySpecial(product.id) }) : null;
+    const retail = product.costPrice ? await supplierRetailPrice({ costPrice: product.costPrice, recommendedRetail: product.recommendedRetail, promotionalPrice: product.promotionalPrice, promotionStartsAt: product.promotionStartsAt, promotionEndsAt: product.promotionEndsAt, special: isDailySpecial(product.id), productKey:`SUPPLIER:${product.id}` }) : null;
     const price = retail?.salePrice ?? retail?.regularPrice;
     const description = (product.shortDescription ?? product.description ?? "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim() || undefined;
     const data = [

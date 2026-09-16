@@ -4604,3 +4604,143 @@ model GatewayEvent {
 
   @@unique([provider, eventId])
 }
+
+model MarketProduct {
+  key          String                 @id
+  sourceType   String
+  sourceId     String                 @db.Uuid
+  name         String
+  brand        String?
+  mpn          String?
+  gtin         String?
+  category     String?
+  variant      Json
+  createdAt    DateTime               @default(now())
+  updatedAt    DateTime               @updatedAt
+  jobs         MarketScanJob[]
+  observations MarketObservation[]
+  benchmarks   MarketBenchmark[]
+  decisions    TradingDecision[]
+  override     TradingPriceOverride?
+
+  @@unique([sourceType, sourceId])
+}
+
+model TradingSession {
+  id            String            @id @default(uuid()) @db.Uuid
+  periodKey     String            @unique
+  name          String
+  scanType      String
+  status        String            @default("SCANNING")
+  rulesSnapshot Json
+  createdById   String?           @db.Uuid
+  startedAt     DateTime          @default(now())
+  completedAt   DateTime?
+  closedAt      DateTime?
+  jobs          MarketScanJob[]
+  decisions     TradingDecision[]
+
+  @@index([startedAt])
+}
+
+model MarketScanJob {
+  id            String              @id @default(uuid()) @db.Uuid
+  sessionId     String              @db.Uuid
+  productKey    String
+  status        String              @default("PENDING")
+  attempts      Int                 @default(0)
+  nextAttemptAt DateTime            @default(now())
+  leaseToken    String?             @db.Uuid
+  leaseUntil    DateTime?
+  errorCode     String?
+  snapshot      Json
+  analysis      Json?
+  createdAt     DateTime            @default(now())
+  completedAt   DateTime?
+  session       TradingSession      @relation(fields: [sessionId], references: [id], onDelete: Restrict)
+  product       MarketProduct       @relation(fields: [productKey], references: [key], onDelete: Restrict)
+  observations  MarketObservation[]
+  benchmark     MarketBenchmark?
+
+  @@unique([sessionId, productKey])
+  @@index([status, nextAttemptAt, leaseUntil])
+}
+
+model MarketObservation {
+  id                String        @id @default(uuid()) @db.Uuid
+  productKey        String
+  jobId             String        @db.Uuid
+  retailer          String
+  sourceUrl         String
+  retailerDomain    String
+  advertisedPrice   Decimal       @db.Decimal(19, 4)
+  regularPrice      Decimal?      @db.Decimal(19, 4)
+  promotionPrice    Decimal?      @db.Decimal(19, 4)
+  promotionDetected Boolean
+  promotionType     String?
+  stockState        String
+  condition         String
+  matchEvidence     Json
+  observedAt        DateTime      @default(now())
+  product           MarketProduct @relation(fields: [productKey], references: [key], onDelete: Restrict)
+  job               MarketScanJob @relation(fields: [jobId], references: [id], onDelete: Restrict)
+
+  @@unique([jobId, sourceUrl])
+  @@index([productKey, observedAt])
+}
+
+model MarketBenchmark {
+  id            String        @id @default(uuid()) @db.Uuid
+  productKey    String
+  jobId         String        @unique @db.Uuid
+  normalLow     Decimal?      @db.Decimal(19, 4)
+  normalMedian  Decimal?      @db.Decimal(19, 4)
+  normalAverage Decimal?      @db.Decimal(19, 4)
+  normalHigh    Decimal?      @db.Decimal(19, 4)
+  promotionLow  Decimal?      @db.Decimal(19, 4)
+  sampleSize    Int
+  confidence    String
+  explanation   String
+  observedAt    DateTime      @default(now())
+  product       MarketProduct @relation(fields: [productKey], references: [key], onDelete: Restrict)
+  job           MarketScanJob @relation(fields: [jobId], references: [id], onDelete: Restrict)
+
+  @@index([productKey, observedAt])
+}
+
+model TradingDecision {
+  id            String          @id @default(uuid()) @db.Uuid
+  productKey    String
+  sessionId     String?         @db.Uuid
+  action        String
+  source        String
+  status        String          @default("PROPOSED")
+  proposedPrice Decimal?        @db.Decimal(19, 4)
+  beforePrice   Decimal         @db.Decimal(19, 4)
+  snapshot      Json
+  reason        String
+  createdById   String          @db.Uuid
+  approvedById  String?         @db.Uuid
+  approvedAt    DateTime?
+  appliedAt     DateTime?
+  expiresAt     DateTime?
+  createdAt     DateTime        @default(now())
+  product       MarketProduct   @relation(fields: [productKey], references: [key], onDelete: Restrict)
+  session       TradingSession? @relation(fields: [sessionId], references: [id], onDelete: Restrict)
+
+  @@index([status, sessionId])
+  @@index([productKey, createdAt])
+}
+
+model TradingPriceOverride {
+  productKey  String        @id
+  price       Decimal       @db.Decimal(19, 4)
+  source      String
+  reason      String
+  version     String        @default(uuid()) @db.Uuid
+  createdById String        @db.Uuid
+  expiresAt   DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  product     MarketProduct @relation(fields: [productKey], references: [key], onDelete: Restrict)
+}

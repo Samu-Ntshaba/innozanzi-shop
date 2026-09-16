@@ -65,3 +65,20 @@ All email types—not only campaigns—appear under Admin → Email marketing �
 Order cancellation is permitted only before dispatch. The operator must confirm the refund; the transaction then marks paid records refunded, releases each inventory reservation, writes movements/history/audit and cancels the converted quotation. If inventory consistency blocks cancellation, reconcile the ledger instead of bypassing the guard.
 
 Run `POST /api/cron/expire-quotations` daily with `Authorization: Bearer <CRON_SECRET>`. Finance must compare proof amount/reference with the final quotation and bank records before verification. A stock exception blocks verification and order creation; resolve availability or regenerate the quotation rather than bypassing the transaction.
+
+## Pricing and Trading operations
+
+Admin → Pricing & Trading is the commercial control centre. Recommended
+prices are evidence-backed proposals, never automatic publications. Review the
+exact identifiers, cited South African retailer sources, confidence, current
+supplier cost and protected floor before approval. Rejected, stale,
+low-confidence or below-floor proposals cannot alter the customer price.
+
+Monthly scanning is disabled by default under Automation & Rules. When enabled,
+the `railway.trading-cron.json` worker calls `POST /api/cron/trading-scan` every
+ten minutes with `CRON_SECRET`; each call leases a bounded batch and resumes the
+current monthly session. Monitor Trading Sessions and Risk for retries, failed
+jobs, weak evidence and stale feeds. Pause scanning by clearing “Enable monthly
+scanning”; completed observations and decisions remain immutable. Smart mode is
+limited to OFF or SUGGEST_ONLY. Do not add automatic application without a
+separate production validation and explicit approval.

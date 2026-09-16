@@ -53,7 +53,7 @@ export default async function SupplierProductPage({ params, searchParams }: {
             }, include: { supplier: { select: { companyName: true } }, reviews: { where: { status: { in: ["APPROVED", "PENDING"] } }, orderBy: { createdAt: "desc" }, take: 20, include: { user: { select: { name: true } } } } } }), getAuthContext(), searchParams]);
     if (!product)
         notFound();
-    const price = product.costPrice ? await supplierRetailPrice({ costPrice: product.costPrice, recommendedRetail: product.recommendedRetail, promotionalPrice: product.promotionalPrice, promotionStartsAt: product.promotionStartsAt, promotionEndsAt: product.promotionEndsAt, special: isDailySpecial(product.id) }) : null;
+    const price = product.costPrice ? await supplierRetailPrice({ costPrice: product.costPrice, recommendedRetail: product.recommendedRetail, promotionalPrice: product.promotionalPrice, promotionStartsAt: product.promotionStartsAt, promotionEndsAt: product.promotionEndsAt, special: isDailySpecial(product.id), productKey:`SUPPLIER:${product.id}` }) : null;
     const recommendations = await getRecommendations({ limit: 4, category: product.category ?? undefined, brand: product.brand ?? undefined, excludeIds: [product.id], context: "product" });
     const current = price?.salePrice ?? price?.regularPrice;
     const saving = price?.salePrice ? price.regularPrice.minus(price.salePrice) : null;

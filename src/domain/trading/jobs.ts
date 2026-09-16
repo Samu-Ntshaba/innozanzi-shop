@@ -1,0 +1,10 @@
+import {prisma} from "@/lib/prisma";
+
+export async function claimMarketScanJobs(limit:number,leaseMs=120000){
+  const now=new Date(),candidates=await prisma.marketScanJob.findMany({where:{nextAttemptAt:{lte:now},OR:[{status:"PENDING"},{status:"RETRY"},{status:"RUNNING",leaseUntil:{lt:now}}]},orderBy:{createdAt:"asc"},take:Math.max(1,Math.min(50,limit)),select:{id:true}}),claimed=[];
+  for(const candidate of candidates){const leaseToken=crypto.randomUUID(),leaseUntil=new Date(now.getTime()+leaseMs),result=await prisma.marketScanJob.updateMany({where:{id:candidate.id,OR:[{status:{in:["PENDING","RETRY"]}},{status:"RUNNING",leaseUntil:{lt:now}}]},data:{status:"RUNNING",leaseToken,leaseUntil,attempts:{increment:1}}});if(result.count)claimed.push(await prisma.marketScanJob.findUniqueOrThrow({where:{id:candidate.id},include:{product:true,session:true}}));}
+  return claimed;
+}
+export async function completeMarketScanJob(id:string,leaseToken:string,analysis:object){const row=await prisma.marketScanJob.updateMany({where:{id,leaseToken,status:"RUNNING"},data:{status:"COMPLETED",analysis,completedAt:new Date(),leaseToken:null,leaseUntil:null,errorCode:null}});if(!row.count)throw new Error("Market scan lease is no longer valid.");}
+export async function failMarketScanJob(id:string,leaseToken:string,errorCode:string,maxAttempts:number){const row=await prisma.marketScanJob.findFirst({where:{id,leaseToken,status:"RUNNING"},select:{attempts:true}});if(!row)throw new Error("Market scan lease is no longer valid.");const terminal=row.attempts>=maxAttempts;await prisma.marketScanJob.update({where:{id},data:{status:terminal?"FAILED":"RETRY",errorCode:errorCode.slice(0,80),nextAttemptAt:new Date(Date.now()+Math.min(60,row.attempts*5)*60000),leaseToken:null,leaseUntil:null,completedAt:terminal?new Date():null}});}
+export async function finaliseTradingSession(sessionId:string){const pending=await prisma.marketScanJob.count({where:{sessionId,status:{in:["PENDING","RETRY","RUNNING"]}}});if(!pending)await prisma.tradingSession.update({where:{id:sessionId},data:{status:"COMPLETED",completedAt:new Date()}});}

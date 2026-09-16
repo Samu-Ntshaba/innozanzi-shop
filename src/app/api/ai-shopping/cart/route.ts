@@ -42,7 +42,7 @@ export async function POST(request: Request) {
                 return NextResponse.json({ error: "A component compatibility check changed. Please request a fresh build." }, { status: 409 });
         }
     }
-    const summary = await Promise.all(products.map(async (product) => { const price = await supplierRetailPrice({ costPrice: product.costPrice!, recommendedRetail: product.recommendedRetail, promotionalPrice: product.promotionalPrice, promotionStartsAt: product.promotionStartsAt, promotionEndsAt: product.promotionEndsAt, special: isDailySpecial(product.id) }); return { id: product.id, name: product.name, price: Number(price.salePrice ?? price.regularPrice) }; })), cart = await getOrCreateCart();
+    const summary = await Promise.all(products.map(async (product) => { const price = await supplierRetailPrice({ costPrice: product.costPrice!, recommendedRetail: product.recommendedRetail, promotionalPrice: product.promotionalPrice, promotionStartsAt: product.promotionStartsAt, promotionEndsAt: product.promotionEndsAt, special: isDailySpecial(product.id), productKey:`SUPPLIER:${product.id}` }); return { id: product.id, name: product.name, price: Number(price.salePrice ?? price.regularPrice) }; })), cart = await getOrCreateCart();
     await prisma.$transaction(async (tx) => {
         await tx.cart.update({ where: { id: cart.id }, data: { origin: AI_ORIGIN, aiRecommendationId: parsed.data.recommendationId, aiSummary: { kind: parsed.data.kind, products: summary } } });
         for (const product of products)
