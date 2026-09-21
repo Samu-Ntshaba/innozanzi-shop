@@ -40,26 +40,49 @@ export async function addToCartAction(formData: FormData) {
 export async function updateCartItemAction(formData: FormData) {
   await requireUser();
   const parsed = z.object({ itemId: z.string().uuid(), quantity: z.coerce.number().int().min(1).max(99) }).safeParse({ itemId: formData.get("itemId"), quantity: formData.get("quantity") });
-  if (!parsed.success) return;
+  if (!parsed.success) redirect("/cart?error=invalid-quantity");
   const cart = await getCurrentCart();
   const item = cart?.items.find((entry) => entry.id === parsed.data.itemId);
-  if (!item) return;
+  if (!item) redirect("/cart?error=unavailable");
   const inventory = item.variant?.inventory ?? item.product.inventory[0];
   if (!inventory || inventory.onHand - inventory.reserved < parsed.data.quantity) redirect("/cart?error=stock");
   await prisma.cartItem.update({ where: { id: item.id }, data: { quantity: parsed.data.quantity } });
   revalidatePath("/cart");
+  redirect("/cart?status=updated");
 }
 
 export async function removeCartItemAction(formData: FormData) {
   await requireUser();
   const itemId = formData.get("itemId");
-  if (typeof itemId !== "string") return;
+  if (typeof itemId !== "string") redirect("/cart?error=invalid-item");
   const cart = await getCurrentCart();
-  if (!cart?.items.some((item) => item.id === itemId)) return;
+  if (!cart?.items.some((item) => item.id === itemId)) redirect("/cart?error=unavailable");
   await prisma.cartItem.delete({ where: { id: itemId } });
   revalidatePath("/cart");
+  redirect("/cart?status=removed");
 }
 
 export async function addSupplierCartItemAction(formData:FormData){const context=await requireUser();const parsed=z.object({productId:z.string().uuid(),quantity:z.coerce.number().int().min(1).max(999)}).parse(Object.fromEntries(formData));const product=await prisma.supplierCatalogueProduct.findFirstOrThrow({where:{id:parsed.productId,...await sellableSupplierWhere()}});const cart=await getOrCreateCart();const existing=await prisma.supplierCartItem.findUnique({where:{cartId_supplierId_supplierProductId:{cartId:cart.id,supplierId:product.supplierId,supplierProductId:product.supplierProductId}}});const quantity=(existing?.quantity??0)+parsed.quantity;if(quantity>product.stock)throw new Error(`${product.name} only has ${product.stock} supplier units currently available.`);if(existing)await prisma.supplierCartItem.update({where:{id:existing.id},data:{quantity}});else await prisma.supplierCartItem.create({data:{cartId:cart.id,supplierId:product.supplierId,supplierProductId:product.supplierProductId,supplierSku:product.supplierSku,quantity}});await prisma.recommendationEvent.create({data:{userId:context.user.id,sessionId:`user:${context.user.id}`,eventType:"CART_ADD",entityType:"SUPPLIER_PRODUCT",entityId:product.id,category:product.category,brand:product.brand,context:"cart"}});revalidatePath("/cart");redirect("/cart?status=added")}
-export async function updateSupplierCartItemAction(formData:FormData){await requireUser();const parsed=z.object({itemId:z.string().uuid(),quantity:z.coerce.number().int().min(1).max(999)}).parse(Object.fromEntries(formData));const cart=await getCurrentCart();if(!cart?.supplierItems.some(x=>x.id===parsed.itemId))return;await prisma.supplierCartItem.update({where:{id:parsed.itemId},data:{quantity:parsed.quantity}});revalidatePath("/cart")}
-export async function removeSupplierCartItemAction(formData:FormData){await requireUser();const id=z.string().uuid().parse(formData.get("itemId"));const cart=await getCurrentCart();if(!cart?.supplierItems.some(x=>x.id===id))return;await prisma.supplierCartItem.delete({where:{id}});revalidatePath("/cart")}
+export async function updateSupplierCartItemAction(formData:FormData){
+  await requireUser();
+  const parsed=z.object({itemId:z.string().uuid(),quantity:z.coerce.number().int().min(1).max(999)}).safeParse(Object.fromEntries(formData));
+  if(!parsed.success)redirect("/cart?error=invalid-quantity");
+  const cart=await getCurrentCart(),item=cart?.supplierItems.find(entry=>entry.id===parsed.data.itemId);
+  if(!item)redirect("/cart?error=unavailable");
+  const product=await prisma.supplierCatalogueProduct.findFirst({where:{supplierId:item.supplierId,supplierProductId:item.supplierProductId,...await sellableSupplierWhere()},select:{stock:true}});
+  if(!product)redirect("/cart?error=unavailable");
+  if(parsed.data.quantity>product.stock)redirect("/cart?error=stock");
+  await prisma.supplierCartItem.update({where:{id:item.id},data:{quantity:parsed.data.quantity}});
+  revalidatePath("/cart");
+  redirect("/cart?status=updated");
+}
+export async function removeSupplierCartItemAction(formData:FormData){
+  await requireUser();
+  const parsed=z.string().uuid().safeParse(formData.get("itemId"));
+  if(!parsed.success)redirect("/cart?error=invalid-item");
+  const cart=await getCurrentCart();
+  if(!cart?.supplierItems.some(item=>item.id===parsed.data))redirect("/cart?error=unavailable");
+  await prisma.supplierCartItem.delete({where:{id:parsed.data}});
+  revalidatePath("/cart");
+  redirect("/cart?status=removed");
+}
