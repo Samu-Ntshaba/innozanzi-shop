@@ -49,6 +49,14 @@ describe("distributor-direct order operations readiness",()=>{
     expect(migration).not.toMatch(/DROP (TABLE|COLUMN)/);
   });
 
+  it("does not offer supplier status jumps that the server action rejects",()=>{
+    const desktop=source("src/app/admin/orders/[id]/page.tsx"),shipments=source("src/components/admin/order-supplier-shipments.tsx"),actions=source("src/domain/orders/procurement-actions.ts");
+    expect(desktop).toContain("allowedSupplierProgressStatuses(record?.status)");
+    expect(desktop).toContain('defaultValue={record?.status??"SUBMITTED"}');
+    expect(shipments).toContain("allowedSupplierProgressStatuses(group.status)");
+    expect(actions).toContain("allowedSupplierProgressStatuses(previous)");
+  });
+
   it("advances the Prisma runtime cache-buster with the latest migration",()=>{
     expect(source("src/lib/prisma.ts")).toContain('PRISMA_SCHEMA_VERSION = "2026-09-16-pricing-trading-platform"');
   });

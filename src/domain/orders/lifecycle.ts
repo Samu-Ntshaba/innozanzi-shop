@@ -55,6 +55,11 @@ export function deriveOrderStatusFromSupplierGroups(statuses: readonly string[])
   return "PROCESSING";
 }
 
+const SUPPLIER_PROGRESS_TRANSITIONS:Record<string,readonly string[]>={DRAFT:["SUBMITTED","CANCELLED"],SUBMITTED:["CONFIRMED","CANCELLED"],CONFIRMED:["RECEIVED","CANCELLED"],RECEIVED:[],CANCELLED:[]};
+export function allowedSupplierProgressStatuses(current="DRAFT"){
+  return [current,...(SUPPLIER_PROGRESS_TRANSITIONS[current]??[])] as string[];
+}
+
 const STAGE_COPY: Record<string, { phase: string; reason: string; next: string; owner: string; customer: string }> = {
   PAYMENT_VERIFIED: { phase: "Payment confirmed", reason: "Funds have been verified and the order is ready for review.", next: "Accept the order for processing", owner: "Order operations", customer: "Payment confirmed" },
   PROCESSING: { phase: "Order processing", reason: "The order snapshot, commercial checks and distributor selection are being confirmed.", next: "Place the order with the distributor", owner: "Order operations", customer: "Order processing" },

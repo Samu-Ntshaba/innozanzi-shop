@@ -5,7 +5,7 @@ import { z } from "zod";
 import { requirePermission } from "@/domain/auth/session";
 import { reviewOrderEconomics } from "@/domain/commerce/order-review";
 import { prisma } from "@/lib/prisma";
-import { deriveOrderStatusFromSupplierGroups, shouldEmailCustomerForOrderStatus } from "@/domain/orders/lifecycle";
+import { allowedSupplierProgressStatuses, deriveOrderStatusFromSupplierGroups, shouldEmailCustomerForOrderStatus } from "@/domain/orders/lifecycle";
 import { enqueueEmail, stageEmail } from "@/integrations/email/outbox";
 import { emailTemplates } from "@/integrations/email/templates";
 
@@ -38,9 +38,8 @@ export async function saveOrderProcurement(formData:FormData){
     const current=await tx.order.findUniqueOrThrow({where:{id:data.orderId},include:{items:true}});
     const order=current;
     const before=await tx.orderProcurement.findUnique({where:{orderId_supplierId:{orderId:data.orderId,supplierId:data.supplierId}}});
-    const allowed:Record<string,string[]>={DRAFT:["SUBMITTED","CANCELLED"],SUBMITTED:["CONFIRMED","CANCELLED"],CONFIRMED:["RECEIVED","CANCELLED"],RECEIVED:[],CANCELLED:[]};
     const previous=before?.status??"DRAFT";
-    if(data.status!==previous&&!allowed[previous].includes(data.status))throw new Error("Supplier progress must follow placement, confirmation and receipt in order.");
+    if(!allowedSupplierProgressStatuses(previous).includes(data.status))throw new Error("Supplier progress must follow placement, confirmation and receipt in order.");
     const changed=data.status!==previous;
     const timestamps={orderedAt:changed&&data.status==="SUBMITTED"?new Date():undefined,confirmedAt:changed&&data.status==="CONFIRMED"?new Date():undefined,receivedAt:changed&&data.status==="RECEIVED"?new Date():undefined};
     if(data.status!=="DRAFT"&&data.status!=="CANCELLED"){

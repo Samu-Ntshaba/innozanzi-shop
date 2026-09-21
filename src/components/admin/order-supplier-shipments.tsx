@@ -1,5 +1,6 @@
 import { Panel, StatusBadge, inputClass } from "@/components/admin/admin-ui";
 import { saveDistributorShipment, saveOrderProcurement } from "@/domain/orders/procurement-actions";
+import { allowedSupplierProgressStatuses } from "@/domain/orders/lifecycle";
 
 type Shipment = {id:string;status:string;deliveryCompany:string|null;trackingNumber:string|null;trackingUrl:string|null;estimatedDeliveryAt:Date|null;deliveryInstructions:string|null};
 type Group = {id:string;status:string;supplierId:string;supplierReference:string|null;supplierInvoiceNumber:string|null;supplierInvoiceTotal:unknown;expectedDispatchAt:Date|null;internalNote:string|null;supplier:{companyName:string};shipments:Shipment[]};
@@ -12,7 +13,7 @@ export function OrderSupplierShipments({orderId,groups}:{orderId:string;groups:G
       <form action={saveOrderProcurement} className="grid gap-3 md:grid-cols-2">
         <input type="hidden" name="orderId" value={orderId}/><input type="hidden" name="supplierId" value={group.supplierId}/>
         <div className="flex items-center justify-between md:col-span-2"><div><h3 className="font-bold">{group.supplier.companyName}</h3><p className="text-xs text-slate-500">Supplier order and confirmation</p></div><StatusBadge value={group.status}/></div>
-        <label>Supplier status<select className={`${inputClass} mt-1 w-full`} name="status" defaultValue={group.status}>{["DRAFT","SUBMITTED","CONFIRMED","CANCELLED"].map(status=><option value={status} key={status}>{status.replaceAll("_"," ")}</option>)}</select></label>
+        <label>Supplier status<select className={`${inputClass} mt-1 w-full`} name="status" defaultValue={group.status}>{allowedSupplierProgressStatuses(group.status).map(status=><option value={status} key={status}>{status.replaceAll("_"," ")}</option>)}</select></label>
         <label>Supplier reference<input className={`${inputClass} mt-1 w-full`} name="supplierReference" defaultValue={group.supplierReference??""}/></label>
         <label>Expected dispatch<input className={`${inputClass} mt-1 w-full`} type="datetime-local" name="expectedDispatchAt" defaultValue={dateTimeInput(group.expectedDispatchAt)}/></label>
         <label>Supplier invoice/reference<input className={`${inputClass} mt-1 w-full`} name="supplierInvoiceNumber" defaultValue={group.supplierInvoiceNumber??""}/></label>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { activeOrderJourney, allowedOrderTransitions, assertOrderTransition, cancellationRequiresFinanceConfirmation, deriveOrderStatusFromSupplierGroups, orderStageContext, reservationAfterRelease, resolveOrderOperation } from "../../src/domain/orders/lifecycle";
+import { activeOrderJourney, allowedOrderTransitions, allowedSupplierProgressStatuses, assertOrderTransition, cancellationRequiresFinanceConfirmation, deriveOrderStatusFromSupplierGroups, orderStageContext, reservationAfterRelease, resolveOrderOperation } from "../../src/domain/orders/lifecycle";
 
 describe("paid order fulfilment lifecycle", () => {
   it("allows only controlled forward transitions", () => {
@@ -70,5 +70,14 @@ describe("paid order fulfilment lifecycle", () => {
   it("keeps distributor delivery owned by Order operations",()=>{
     expect(orderStageContext("IN_TRANSIT").owner).toBe("Order operations");
     expect(orderStageContext("OUT_FOR_DELIVERY").owner).toBe("Order operations");
+  });
+
+  it("only offers the current and valid next supplier stages",()=>{
+    expect(allowedSupplierProgressStatuses()).toEqual(["DRAFT","SUBMITTED","CANCELLED"]);
+    expect(allowedSupplierProgressStatuses("DRAFT")).toEqual(["DRAFT","SUBMITTED","CANCELLED"]);
+    expect(allowedSupplierProgressStatuses("SUBMITTED")).toEqual(["SUBMITTED","CONFIRMED","CANCELLED"]);
+    expect(allowedSupplierProgressStatuses("CONFIRMED")).toEqual(["CONFIRMED","RECEIVED","CANCELLED"]);
+    expect(allowedSupplierProgressStatuses("RECEIVED")).toEqual(["RECEIVED"]);
+    expect(allowedSupplierProgressStatuses("CANCELLED")).toEqual(["CANCELLED"]);
   });
 });
