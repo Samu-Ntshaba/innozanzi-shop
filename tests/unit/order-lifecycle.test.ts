@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { activeOrderJourney, allowedOrderTransitions, assertOrderTransition, cancellationRequiresFinanceConfirmation, deriveOrderStatusFromSupplierGroups, reservationAfterRelease, resolveOrderOperation } from "../../src/domain/orders/lifecycle";
+import { activeOrderJourney, allowedOrderTransitions, assertOrderTransition, cancellationRequiresFinanceConfirmation, deriveOrderStatusFromSupplierGroups, orderStageContext, reservationAfterRelease, resolveOrderOperation } from "../../src/domain/orders/lifecycle";
 
 describe("paid order fulfilment lifecycle", () => {
   it("allows only controlled forward transitions", () => {
@@ -65,5 +65,10 @@ describe("paid order fulfilment lifecycle", () => {
     expect(reservationAfterRelease(10, 4)).toBe(6);
     expect(() => reservationAfterRelease(2, 3)).toThrow("cannot be released safely");
     expect(() => reservationAfterRelease(2, 0)).toThrow();
+  });
+
+  it("keeps distributor delivery owned by Order operations",()=>{
+    expect(orderStageContext("IN_TRANSIT").owner).toBe("Order operations");
+    expect(orderStageContext("OUT_FOR_DELIVERY").owner).toBe("Order operations");
   });
 });
