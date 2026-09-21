@@ -64,6 +64,23 @@ describe("distributor-direct order operations readiness",()=>{
     expect(config).toContain("process.env.RAILWAY_GIT_COMMIT_SHA");
   });
 
+  it("submits supplier progress through a stable authenticated POST route",()=>{
+    const endpoint='/api/admin/orders/${orderId}/supplier-progress';
+    const desktop=source("src/app/admin/orders/[id]/page.tsx"),setup=source("src/components/admin/order-supplier-setup.tsx"),shipments=source("src/components/admin/order-supplier-shipments.tsx"),route=source("src/app/api/admin/orders/[id]/supplier-progress/route.ts");
+    expect(desktop).toContain('/api/admin/orders/${order.id}/supplier-progress');
+    expect(setup).toContain(endpoint);
+    expect(shipments).toContain(endpoint);
+    expect(desktop).not.toContain("action={saveOrderProcurement}");
+    expect(desktop).toContain('supplierProgress==="saved"');
+    expect(desktop).toContain('supplierProgress==="error"');
+    expect(setup).not.toContain("action={saveOrderProcurement}");
+    expect(shipments).not.toContain("action={saveOrderProcurement}");
+    expect(route).toContain('browserMutationGuard(request,"application/x-www-form-urlencoded")');
+    expect(route).toContain("boundedFormData(request,32_768)");
+    expect(route).toContain("saveOrderProcurement(formData)");
+    expect(route).toContain('formData.get("orderId")!==id');
+  });
+
   it("advances the Prisma runtime cache-buster with the latest migration",()=>{
     expect(source("src/lib/prisma.ts")).toContain('PRISMA_SCHEMA_VERSION = "2026-09-16-pricing-trading-platform"');
   });
