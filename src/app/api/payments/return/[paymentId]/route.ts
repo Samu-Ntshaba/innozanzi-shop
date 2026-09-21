@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { publicSiteUrl } from "@/lib/public-site-url";
 import { recordPaymentDiagnostic } from "@/domain/payments/diagnostics";
+import { recoverPaymentAfterReturn } from "@/domain/payments/return-recovery";
 
 const resultSchema = z.enum(["success", "cancelled", "error"]).catch("error");
 
@@ -15,7 +16,8 @@ async function handle(request: Request, context: { params: Promise<{ paymentId: 
   // Browser returns are navigation hints, never authoritative payment evidence.
   // Record an untrusted navigation observation without changing payment/order state.
   try{await recordPaymentDiagnostic(payment.id,"browser-return",{result,verified:false,orderId:payment.orderId});}catch{console.warn("Payment browser return could not be recorded",{paymentId:payment.id});}
-  const notice = result === "success" ? "processing" : result;
+  const recovery=result==="success"?await recoverPaymentAfterReturn(payment.id):null;
+  const notice = recovery==="paid"?"success":recovery==="failed"?"error":result === "success" ? "processing" : result;
   return NextResponse.redirect(new URL("/account/orders/" + encodeURIComponent(payment.order.orderNumber) + "?payment=" + notice, publicSiteUrl()), 303);
 }
 
