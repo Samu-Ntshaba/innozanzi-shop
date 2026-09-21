@@ -10,7 +10,7 @@ describe("order notification timing", () => {
   });
 
   it("notifies customers and staff after a verified paid event", () => {
-    const webhook = readFileSync("src/domain/payments/webhooks.ts", "utf8");
+    const webhook = readFileSync("src/domain/payments/finalize.ts", "utf8");
     const alert = readFileSync("src/domain/notifications/order-alerts.ts", "utf8");
     expect(webhook).toContain('event.status === "PAID"');
     expect(webhook).toContain("notifyStaffOfPaidOrder(result.order.id)");
