@@ -11,6 +11,22 @@ import { emailTemplates } from "@/integrations/email/templates";
 
 const optional=(value:FormDataEntryValue|null)=>typeof value==="string"&&value.trim()?value.trim():undefined;
 
+export async function assignOrderItemDistributor(formData:FormData){
+  const context=await requirePermission("orders.update");
+  const data=z.object({orderId:z.string().uuid(),itemId:z.string().uuid(),supplierId:z.string().uuid(),supplierSku:z.string().trim().min(1).max(160),costPrice:z.coerce.number().nonnegative().optional(),internalNote:z.string().trim().max(1000).optional()}).parse({orderId:formData.get("orderId"),itemId:formData.get("itemId"),supplierId:formData.get("supplierId"),supplierSku:formData.get("supplierSku"),costPrice:optional(formData.get("costPrice")),internalNote:optional(formData.get("internalNote"))});
+  await prisma.$transaction(async tx=>{
+    await tx.$queryRaw`SELECT id FROM "Order" WHERE id = ${data.orderId}::uuid FOR UPDATE`;
+    const order=await tx.order.findUniqueOrThrow({where:{id:data.orderId},select:{paymentStatus:true,status:true}});
+    if(order.paymentStatus!=="PAID"||["CANCELLED","REFUNDED","COMPLETED"].includes(order.status))throw new Error("A paid, active order is required before assigning a distributor.");
+    const [item,supplier]=await Promise.all([tx.orderItem.findFirstOrThrow({where:{id:data.itemId,orderId:data.orderId}}),tx.supplier.findFirst({where:{id:data.supplierId,isActive:true,deletedAt:null,approvalStatus:"APPROVED",purchasingEnabled:true},select:{id:true,companyName:true}})]);
+    if(!supplier)throw new Error("Select an approved distributor that is enabled for purchasing.");
+    if(item.supplierId)throw new Error("This order item already has a distributor. Review the existing supplier order instead.");
+    const saved=await tx.orderItem.update({where:{id:item.id},data:{supplierId:supplier.id,supplierSku:data.supplierSku,costPrice:data.costPrice,sourceType:"SUPPLIER"}});
+    await tx.auditLog.create({data:{actorId:context.user.id,action:"order.item-distributor.assign",entityType:"OrderItem",entityId:item.id,before:{supplierId:item.supplierId,supplierSku:item.supplierSku,costPrice:item.costPrice?.toString()},after:{orderId:data.orderId,supplierId:supplier.id,supplier:supplier.companyName,supplierSku:saved.supplierSku,costPrice:saved.costPrice?.toString(),internalNote:data.internalNote}}});
+  },{isolationLevel:"Serializable"});
+  revalidatePath(`/admin/orders/${data.orderId}`);revalidatePath(`/mobile-admin/orders/${data.orderId}`);
+}
+
 export async function saveOrderProcurement(formData:FormData){
   const context=await requirePermission("orders.update");
   const data=z.object({orderId:z.string().uuid(),supplierId:z.string().uuid(),status:z.enum(["DRAFT","SUBMITTED","CONFIRMED","RECEIVED","CANCELLED"]),supplierReference:z.string().max(160).optional(),supplierInvoiceNumber:z.string().max(160).optional(),supplierInvoiceTotal:z.coerce.number().nonnegative().optional(),expectedDispatchAt:z.coerce.date().optional(),expectedDeliveryAt:z.coerce.date().optional(),deliveryWindow:z.string().max(120).optional(),internalNote:z.string().max(2000).optional()}).parse({orderId:formData.get("orderId"),supplierId:formData.get("supplierId"),status:formData.get("status"),supplierReference:optional(formData.get("supplierReference")),supplierInvoiceNumber:optional(formData.get("supplierInvoiceNumber")),supplierInvoiceTotal:optional(formData.get("supplierInvoiceTotal")),expectedDispatchAt:optional(formData.get("expectedDispatchAt")),expectedDeliveryAt:optional(formData.get("expectedDeliveryAt")),deliveryWindow:optional(formData.get("deliveryWindow")),internalNote:optional(formData.get("internalNote"))});

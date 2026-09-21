@@ -26,6 +26,21 @@ describe("distributor-direct order operations readiness",()=>{
     expect(page).toContain("five simple milestones");
   });
 
+  it("renders a real distributor assignment control in both order workspaces",()=>{
+    const desktop=source("src/app/admin/orders/[id]/page.tsx"),mobile=source("src/app/mobile-admin/orders/[id]/page.tsx");
+    expect(desktop).toContain("OrderDistributorAssignment");
+    expect(mobile).toContain("OrderDistributorAssignment");
+    expect(source("src/components/admin/order-distributor-assignment.tsx")).toContain("Assign distributor and continue");
+  });
+
+  it("assigns only approved purchasing distributors and records an audit trail",()=>{
+    const actions=source("src/domain/orders/procurement-actions.ts");
+    expect(actions).toContain("assignOrderItemDistributor");
+    expect(actions).toContain('approvalStatus:"APPROVED"');
+    expect(actions).toContain("purchasingEnabled:true");
+    expect(actions).toContain('action:"order.item-distributor.assign"');
+  });
+
   it("uses additive supplier-group shipment persistence",()=>{
     const schema=source("prisma/schema.prisma"),migration=source("prisma/migrations/20260916090000_distributor_order_operations/migration.sql");
     expect(schema).toContain("procurementId");
