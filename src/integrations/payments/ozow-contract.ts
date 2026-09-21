@@ -25,7 +25,9 @@ export function ozowTransactionRows(value:unknown):OzowTransaction[]{
 
 export function selectVerifiedOzowTransaction(rows:OzowTransaction[],expected:{siteCode:string;reference:string;currencyCode:string;isTest:"true"|"false"}){
   const matching=rows.filter(row=>row.siteCode===expected.siteCode&&row.transactionReference===expected.reference&&row.currencyCode===expected.currencyCode&&(row.isTest===undefined||normalizeOzowBoolean(row.isTest)===expected.isTest));
-  if(matching.length>1)throw new Error("Multiple provider transactions match this payment reference");
+  const completed=matching.filter(row=>row.status==="Complete");
+  if(completed.length===1)return completed[0];
+  if(completed.length>1||matching.length>1)throw new Error("Multiple provider transactions match this payment reference");
   return matching[0];
 }
 

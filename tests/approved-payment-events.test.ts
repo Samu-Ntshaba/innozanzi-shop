@@ -49,3 +49,8 @@ it("refuses to choose between multiple matching Ozow transactions",()=>{
  const row={transactionId:"tx",siteCode:"SITE",transactionReference:"payment",currencyCode:"ZAR",amount:"5",status:"Complete",isTest:undefined};
  expect(()=>selectVerifiedOzowTransaction([row,{...row,transactionId:"tx-2"}],{siteCode:"SITE",reference:"payment",currencyCode:"ZAR",isTest:"false"})).toThrow(/multiple/i);
 });
+
+it("selects the only completed Ozow transaction when an earlier attempt was cancelled",()=>{
+ const row={transactionId:"paid",siteCode:"SITE",transactionReference:"payment",currencyCode:"ZAR",amount:"5",status:"Complete",isTest:undefined};
+ expect(selectVerifiedOzowTransaction([{...row,transactionId:"cancelled",status:"Cancelled"},row],{siteCode:"SITE",reference:"payment",currencyCode:"ZAR",isTest:"false"})).toEqual(row);
+});
