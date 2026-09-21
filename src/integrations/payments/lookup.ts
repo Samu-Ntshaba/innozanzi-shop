@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { gatewayConfigured, type ApprovedGateway } from "./approved-gateways";
 import type { PaymentEvent } from "./provider";
+import { ozowTransactionRows, selectVerifiedOzowTransaction } from "./ozow-contract";
 
 type Lookup={event?:PaymentEvent;reason:string;providerTransactionId?:string};
 const encode=(value:string)=>encodeURIComponent(value).replace(/[!'()*~]/g,c=>`%${c.charCodeAt(0).toString(16).toUpperCase()}`).replace(/%20/g,"+");
@@ -28,18 +29,13 @@ export async function lookupPendingPayment(provider:ApprovedGateway,reference:st
     const query=new URLSearchParams({siteCode:process.env.OZOW_SITE_CODE!,transactionReference:reference,isTest:process.env.OZOW_TEST_MODE==="true"?"true":"false"});
     const response=await fetch(`https://api.ozow.com/GetTransactionByReference?${query}`,{headers:{ApiKey:process.env.OZOW_API_KEY!,Accept:"application/json"},cache:"no-store",signal:AbortSignal.timeout(15000)});
     if(!response.ok)throw new Error("Provider lookup unavailable");
-    const rows:unknown=await response.json();
-    if(!Array.isArray(rows))throw new Error("Invalid provider lookup response");
-    // Ozow selects the environment via the authenticated IsTest query parameter;
-    // the documented response omits IsTest. Reject contradictory values if supplied.
-    const matching=rows.filter(r=>r&&r.SiteCode===process.env.OZOW_SITE_CODE&&r.TransactionReference===reference&&r.CurrencyCode==="ZAR"&&(r.IsTest===undefined||String(r.IsTest).toLowerCase()===(process.env.OZOW_TEST_MODE==="true"?"true":"false")));
-    if(matching.length>1)return {reason:"MULTIPLE_PROVIDER_TRANSACTIONS"};
-    const row=matching[0];
+    const rows=ozowTransactionRows(await response.json());
+    let row;try{row=selectVerifiedOzowTransaction(rows,{siteCode:process.env.OZOW_SITE_CODE!,reference,currencyCode:"ZAR",isTest:process.env.OZOW_TEST_MODE==="true"?"true":"false"});}catch(error){if(error instanceof Error&&/multiple/i.test(error.message))return {reason:"MULTIPLE_PROVIDER_TRANSACTIONS"};throw error;}
     if(!row)return {reason:"NO_PROVIDER_CONFIRMATION"};
-    const status=row.Status==="Complete"?"PAID":row.Status==="Cancelled"?"CANCELLED":row.Status==="Error"?"FAILED":undefined;
+    const status=row.status==="Complete"?"PAID":row.status==="Cancelled"?"CANCELLED":row.status==="Error"?"FAILED":undefined;
     if(!status)return {reason:"PROVIDER_PROCESSING"};
-    if(typeof row.TransactionId!=="string"||!row.TransactionId||row.Amount==null)throw new Error("Incomplete provider evidence");
-    return {reason:"PROVIDER_VERIFIED",event:{eventId:row.TransactionId,externalReference:reference,status,amount:String(row.Amount),currency:"ZAR",raw:{providerId:row.TransactionId,verification:"OZOW_REFERENCE_API"}}};
+    if(!row.transactionId||row.amount==null)throw new Error("Incomplete provider evidence");
+    return {reason:"PROVIDER_VERIFIED",event:{eventId:row.transactionId,externalReference:reference,status,amount:row.amount,currency:"ZAR",raw:{providerId:row.transactionId,verification:"OZOW_REFERENCE_API"}}};
   }
   // History identifies a transaction for escalation. Its ledger rows do not carry
   // the signed COMPLETE notification, so they must never alone authorise fulfilment.

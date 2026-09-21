@@ -2,6 +2,7 @@ import { paymentAmountError } from "@/domain/payments/limits";
 import { createHash, timingSafeEqual } from "node:crypto";
 import Decimal from "decimal.js";
 import type { PaymentEvent } from "./provider";
+import { normalizeOzowBoolean, ozowNotificationHash, ozowTransactionRows, selectVerifiedOzowTransaction } from "./ozow-contract";
 export type ApprovedGateway="OZOW"|"PAYFAST";
 const required={OZOW:["OZOW_SITE_CODE","OZOW_PRIVATE_KEY","OZOW_API_KEY"],PAYFAST:["PAYFAST_MERCHANT_ID","PAYFAST_MERCHANT_KEY","PAYFAST_PASSPHRASE"]};
 export function gatewayConfigured(gateway:ApprovedGateway){return !(process.env.NODE_ENV==="production"&&process.env.TEST_MODE_ENVIRONMENT!=="true"&&(gateway==="OZOW"?process.env.OZOW_TEST_MODE==="true":process.env.PAYFAST_SANDBOX==="true"))&&process.env[`${gateway}_ENABLED`]==="true"&&required[gateway].every(k=>Boolean(process.env[k])&&!/replace|placeholder|your[_-]/i.test(process.env[k]!));}
@@ -39,13 +40,13 @@ export async function verifyApprovedNotification(gateway:ApprovedGateway,body:st
  return {eventId:data.pf_payment_id,externalReference:data.m_payment_id,status:"PAID",amount:data.amount_gross,currency:"ZAR",raw:{providerId:data.pf_payment_id,fee:data.amount_fee,status:data.payment_status}};
  }
  const fields=["SiteCode","TransactionId","TransactionReference","Amount","Status","Optional1","Optional2","Optional3","Optional4","Optional5","CurrencyCode","IsTest","StatusMessage"];
- if(data.SiteCode!==secret("OZOW_SITE_CODE")||data.CurrencyCode!=="ZAR"||data.IsTest!==(process.env.OZOW_TEST_MODE==="true"?"true":"false")||!same(ozowHash(fields.map(k=>data[k]??""),secret("OZOW_PRIVATE_KEY")),data.Hash??""))throw new Error("Invalid payment signature");
+ if(data.SiteCode!==secret("OZOW_SITE_CODE")||data.CurrencyCode!=="ZAR"||normalizeOzowBoolean(data.IsTest??"")!==(process.env.OZOW_TEST_MODE==="true"?"true":"false")||!same(ozowNotificationHash(Object.fromEntries(fields.map(k=>[k,data[k]??""])) as Parameters<typeof ozowNotificationHash>[0],secret("OZOW_PRIVATE_KEY")).toLowerCase(),(data.Hash??"").toLowerCase()))throw new Error("Invalid payment signature");
  const query=new URLSearchParams({siteCode:secret("OZOW_SITE_CODE"),transactionId:data.TransactionId,isTest:data.IsTest});
  const response=await fetch(`https://api.ozow.com/GetTransaction?${query}`,{headers:{ApiKey:secret("OZOW_API_KEY"),Accept:"application/json"},cache:"no-store",signal:AbortSignal.timeout(15000)});
  if(!response.ok)throw new Error("Payment verification unavailable");
- const rows=await response.json() as Array<Record<string,unknown>>;
- const row=Array.isArray(rows)?rows.find(r=>r.TransactionId===data.TransactionId):undefined;
- if(!row||row.SiteCode!==data.SiteCode||row.TransactionReference!==data.TransactionReference||row.CurrencyCode!=="ZAR"||row.Status!=="Complete"||data.Status!=="Complete"||!new Decimal(String(row.Amount)).equals(data.Amount))throw new Error("Payment verification mismatch");
+ const rows=ozowTransactionRows(await response.json());
+ const row=selectVerifiedOzowTransaction(rows,{siteCode:data.SiteCode,reference:data.TransactionReference,currencyCode:"ZAR",isTest:normalizeOzowBoolean(data.IsTest)});
+ if(!row||row.transactionId!==data.TransactionId||row.status!=="Complete"||data.Status!=="Complete"||!new Decimal(row.amount).equals(data.Amount))throw new Error("Payment verification mismatch");
  return {eventId:data.TransactionId,externalReference:data.TransactionReference,status:"PAID",amount:data.Amount,currency:"ZAR",raw:{providerId:data.TransactionId,status:data.Status}};
 }
 
@@ -61,8 +62,8 @@ export async function reconcileApprovedPayment(gateway:ApprovedGateway,transacti
  const query=new URLSearchParams({siteCode:secret("OZOW_SITE_CODE"),transactionId,isTest:process.env.OZOW_TEST_MODE==="true"?"true":"false"});
  const response=await fetch(`https://api.ozow.com/GetTransaction?${query}`,{headers:{ApiKey:secret("OZOW_API_KEY"),Accept:"application/json"},cache:"no-store",signal:AbortSignal.timeout(15000)});
  if(!response.ok)throw new Error("Payment verification unavailable");
- const rows=await response.json() as Array<Record<string,unknown>>;
- const row=Array.isArray(rows)?rows.find(r=>r.TransactionId===transactionId):undefined;
- if(!row||row.SiteCode!==secret("OZOW_SITE_CODE")||row.TransactionReference!==reference||row.CurrencyCode!=="ZAR"||row.Status!=="Complete")throw new Error("Payment verification mismatch");
- return {eventId:transactionId,externalReference:reference,status:"PAID",amount:String(row.Amount),currency:"ZAR",raw:{providerId:transactionId,status:row.Status,reconciliation:"PROVIDER_VERIFIED"}};
+ const rows=ozowTransactionRows(await response.json());
+ const row=selectVerifiedOzowTransaction(rows,{siteCode:secret("OZOW_SITE_CODE"),reference,currencyCode:"ZAR",isTest:process.env.OZOW_TEST_MODE==="true"?"true":"false"});
+ if(!row||row.transactionId!==transactionId||row.status!=="Complete")throw new Error("Payment verification mismatch");
+ return {eventId:transactionId,externalReference:reference,status:"PAID",amount:row.amount,currency:"ZAR",raw:{providerId:transactionId,status:row.status,reconciliation:"PROVIDER_VERIFIED"}};
 }
