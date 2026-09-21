@@ -10,7 +10,10 @@ const securityHeaders = [
   { key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains" },
 ];
 
+const railwayDeploymentId = process.env.RAILWAY_DEPLOYMENT_ID ?? process.env.RAILWAY_GIT_COMMIT_SHA;
+
 const nextConfig: NextConfig = {
+  deploymentId: railwayDeploymentId,
   poweredByHeader: false,
   images: { remotePatterns: [{ protocol: "https", hostname: "*.supabase.co" }, { protocol: "https", hostname: "images.unsplash.com" }, { protocol: "https", hostname: "www.syntech.co.za" }, { protocol: "https", hostname: "syntech.co.za" }, { protocol: "https", hostname: "www.pinnacle.co.za", port: "", pathname: "/media/catalog/product/**", search: "" }] },
   async headers() { return [{ source: "/(.*)", headers: securityHeaders }]; },

@@ -57,6 +57,13 @@ describe("distributor-direct order operations readiness",()=>{
     expect(actions).toContain("allowedSupplierProgressStatuses(previous)");
   });
 
+  it("detects deployment skew before an admin submits an obsolete Server Action",()=>{
+    const config=source("next.config.ts");
+    expect(config).toContain("deploymentId: railwayDeploymentId");
+    expect(config).toContain("process.env.RAILWAY_DEPLOYMENT_ID");
+    expect(config).toContain("process.env.RAILWAY_GIT_COMMIT_SHA");
+  });
+
   it("advances the Prisma runtime cache-buster with the latest migration",()=>{
     expect(source("src/lib/prisma.ts")).toContain('PRISMA_SCHEMA_VERSION = "2026-09-16-pricing-trading-platform"');
   });
