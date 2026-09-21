@@ -7,15 +7,20 @@ import { sendPaidOrderConfirmation } from "@/domain/notifications/customer-order
 
 export async function notifyStaffOfPaidOrder(orderId:string) {
   // Serialize deliveries for this order without holding a payment transaction open.
-  await prisma.$transaction(async tx=>{
-    const lock=await tx.$queryRaw<Array<{locked:boolean}>>`SELECT pg_try_advisory_xact_lock(hashtextextended(${`paid-order:${orderId}`},0)) AS locked`;
-    if(!lock[0]?.locked)return;
-    const job=await tx.notification.findUnique({where:{id:orderId}});
-    if(job?.type==="PAID_ORDER_COMMUNICATION"&&job.status==="SENT")return;
-    await deliverPaidOrderMessages(orderId);
-    await ensurePaidOrderInvoice(orderId);
-    if(job?.type==="PAID_ORDER_COMMUNICATION")await tx.notification.update({where:{id:orderId},data:{status:"SENT",sentAt:new Date(),error:null}});
-  },{timeout:120000});
+  try{
+    await prisma.$transaction(async tx=>{
+      const lock=await tx.$queryRaw<Array<{locked:boolean}>>`SELECT pg_try_advisory_xact_lock(hashtextextended(${`paid-order:${orderId}`},0)) AS locked`;
+      if(!lock[0]?.locked)return;
+      const job=await tx.notification.findUnique({where:{id:orderId}});
+      if(job?.type==="PAID_ORDER_COMMUNICATION"&&job.status==="SENT")return;
+      await deliverPaidOrderMessages(orderId);
+      await ensurePaidOrderInvoice(orderId);
+      if(job?.type==="PAID_ORDER_COMMUNICATION")await tx.notification.update({where:{id:orderId},data:{status:"SENT",sentAt:new Date(),error:null}});
+    },{timeout:120000});
+  }catch(error){
+    try{await prisma.notification.update({where:{id:orderId},data:{status:"FAILED",sentAt:null,error:"Paid order communication failed; the scheduled worker will retry."}});}catch{console.error("Paid order communication failure state could not be persisted",{orderId});}
+    throw error;
+  }
 }
 
 export async function retryPaidOrderNotifications(limit=50){

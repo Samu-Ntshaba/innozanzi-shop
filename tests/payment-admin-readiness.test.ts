@@ -30,4 +30,10 @@ describe("hosted payment visibility in Orders",()=>{
     expect(detail).toContain("canOperateOrder");
     expect(detail).toContain("/admin/payments");
   });
+
+  it("shows the durable paid-order communication state",()=>{
+    const detail=source("src/app/admin/orders/[id]/page.tsx");
+    expect(detail).toContain("PAID_ORDER_COMMUNICATION");
+    expect(detail).toContain("Paid-order communication:");
+  });
 });

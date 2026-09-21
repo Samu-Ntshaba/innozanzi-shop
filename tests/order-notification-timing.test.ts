@@ -15,6 +15,8 @@ describe("order notification timing", () => {
     expect(webhook).toContain('event.status === "PAID"');
     expect(webhook).toContain("notifyStaffOfPaidOrder(result.order.id)");
     expect(alert).toContain("sendPaidOrderConfirmation(orderId)");
+    expect(readFileSync("src/domain/notifications/customer-order.ts","utf8")).toContain('order.status === "PROCESSING"');
+    expect(readFileSync("src/domain/notifications/customer-order.ts","utf8")).toContain("emailTemplates.orderStatus");
     expect(alert).toContain('sendStaffEmail("ORDER_PAID"');
     expect(webhook).toContain('status: "CONVERTED"');
   });
