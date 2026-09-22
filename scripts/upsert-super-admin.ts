@@ -2,7 +2,8 @@ import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { hashPassword } from "../src/domain/auth/password";
-import { isAutomaticallyGrantedPermission, PERMISSIONS, shouldRemoveAutoManagedPartnerSalesGrant } from "../src/domain/auth/permissions";
+import { cleanupUpsertSuperAdministratorPartnerSalesGrant } from "../src/domain/auth/partner-sales-permission-cleanup";
+import { isAutomaticallyGrantedPermission, PERMISSIONS } from "../src/domain/auth/permissions";
 
 async function main() {
   const connectionString = process.env.DATABASE_PUBLIC_URL ?? process.env.DATABASE_URL;
@@ -15,9 +16,8 @@ async function main() {
     const role = await prisma.role.upsert({ where: { slug: "super-administrator" }, update: { name: "Super Administrator", isSystem: true }, create: { name: "Super Administrator", slug: "super-administrator", isSystem: true } });
     for (const key of PERMISSIONS) {
       const permission = await prisma.permission.upsert({ where: { key }, update: {}, create: { key } });
-      if (shouldRemoveAutoManagedPartnerSalesGrant(role.slug, key)) {
-        await prisma.rolePermission.deleteMany({ where: { roleId: role.id, permissionId: permission.id } });
-      } else if (isAutomaticallyGrantedPermission(key)) {
+      await cleanupUpsertSuperAdministratorPartnerSalesGrant(prisma, role, permission);
+      if (isAutomaticallyGrantedPermission(key)) {
         await prisma.rolePermission.upsert({ where: { roleId_permissionId: { roleId: role.id, permissionId: permission.id } }, update: { effect: "ALLOW" }, create: { roleId: role.id, permissionId: permission.id, effect: "ALLOW" } });
       }
     }

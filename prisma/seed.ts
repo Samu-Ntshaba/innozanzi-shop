@@ -1,7 +1,8 @@
 import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
-import { isAutomaticallyGrantedPermission, PERMISSIONS, shouldRemoveAutoManagedPartnerSalesGrant } from "../src/domain/auth/permissions";
+import { cleanupSeedAutoManagedPartnerSalesGrants } from "../src/domain/auth/partner-sales-permission-cleanup";
+import { isAutomaticallyGrantedPermission, PERMISSIONS } from "../src/domain/auth/permissions";
 import { hashPassword } from "../src/domain/auth/password";
 import { testDatabaseUrl } from "../src/lib/test-mode";
 
@@ -71,16 +72,9 @@ async function main() {
 
   const storedRoles = await prisma.role.findMany({ select: { id: true, slug: true } });
   const permissions = await prisma.permission.findMany({ select: { id: true, key: true } });
+  await cleanupSeedAutoManagedPartnerSalesGrants(prisma, storedRoles, permissions);
   for (const role of storedRoles) {
     const allowed = new Set(rolePermissions[role.slug] ?? []);
-    const stalePartnerPermissionIds = permissions
-      .filter(({ key }) => shouldRemoveAutoManagedPartnerSalesGrant(role.slug, key))
-      .map(({ id }) => id);
-    if (stalePartnerPermissionIds.length) {
-      await prisma.rolePermission.deleteMany({
-        where: { roleId: role.id, permissionId: { in: stalePartnerPermissionIds } },
-      });
-    }
     await prisma.rolePermission.createMany({
       data: permissions
         .filter(({ key }) => allowed.has(key as (typeof PERMISSIONS)[number]))
