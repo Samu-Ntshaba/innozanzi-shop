@@ -756,6 +756,102 @@ enum ReturnedUnitStatus {
   DISPOSED
 }
 
+enum PartnerSalesProfileStatus {
+  INVITED
+  PROFILE_INCOMPLETE
+  ADMIN_REVIEW
+  ACTIVE
+  CHANGES_REQUIRED
+  SUSPENDED
+  CLOSED
+}
+
+enum PartnerCommissionMethod {
+  PERCENTAGE
+  FIXED_AMOUNT
+}
+
+enum PartnerCatalogueSourceType {
+  PRODUCT
+  SUPPLIER_CATALOGUE_PRODUCT
+  COMBO
+  CAMPAIGN
+}
+
+enum PartnerCatalogueAssignmentStatus {
+  ACTIVE
+  WITHDRAWN
+}
+
+enum PartnerShowcaseStatus {
+  DRAFT
+  ACTIVE
+  EXPIRED
+  REVOKED
+}
+
+enum PartnerShowcaseVisibility {
+  PUBLIC
+  CLIENT_SPECIFIC
+}
+
+enum PartnerQuoteCaseStatus {
+  NEW_ENQUIRY
+  QUALIFIED
+  PRICING_REQUESTED
+  INNOZANZI_REVIEW
+  PARTNER_REVIEW
+  SENT_TO_CLIENT
+  ACCEPTED
+  PAYMENT_PENDING
+  PAID
+  ORDER_IN_PROGRESS
+  COMPLETED
+  REVISION_REQUESTED
+  DECLINED
+  EXPIRED
+  CANCELLED
+  REFUNDED
+  DISPUTED
+}
+
+enum PartnerCommissionStatus {
+  ESTIMATED
+  LOCKED_ON_PAYMENT
+  PENDING_COMPLETION
+  PAYABLE
+  HELD
+  ADJUSTED
+  REVERSED
+  INCLUDED_IN_BATCH
+  PAID
+}
+
+enum PartnerCommissionEntryType {
+  ESTIMATE
+  LOCK
+  HOLD
+  RELEASE
+  ADJUSTMENT
+  REVERSAL
+  BATCHED
+  PAYMENT
+  CORRECTION
+}
+
+enum PartnerPayoutBatchStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  PAID
+  CANCELLED
+}
+
+enum PartnerPayoutItemStatus {
+  ACTIVE
+  CANCELLED
+}
+
 model User {
   id                              String                           @id @default(uuid()) @db.Uuid
   email                           String                           @unique
@@ -871,6 +967,14 @@ model User {
   partnershipChangesRequested     PartnershipChange[]              @relation("PartnershipChangeRequester")
   partnershipChangesApproved      PartnershipChange[]              @relation("PartnershipChangeApprover")
   customerNotesAuthored           CustomerNote[]                   @relation("CustomerNoteAuthor")
+  approvedPartnerSalesProfiles    PartnerSalesProfile[]            @relation("PartnerSalesProfileApprover")
+  approvedCatalogueAssignments    PartnerCatalogueAssignment[]     @relation("PartnerCatalogueAssignmentApprover")
+  createdPartnerShowcases         PartnerShowcase[]                @relation("PartnerShowcaseCreator")
+  assignedPartnerQuoteCases       PartnerQuoteCase[]               @relation("PartnerQuoteCasePartnerAssignee")
+  ownedPartnerQuoteCases          PartnerQuoteCase[]               @relation("PartnerQuoteCaseInnozanziOwner")
+  partnerCommissionEntries        PartnerCommissionEntry[]         @relation("PartnerCommissionEntryActor")
+  preparedPartnerPayoutBatches    PartnerPayoutBatch[]             @relation("PartnerPayoutBatchPreparer")
+  approvedPartnerPayoutBatches    PartnerPayoutBatch[]             @relation("PartnerPayoutBatchApprover")
   recommendationEvents            RecommendationEvent[]
   aiUsage                         AIUsage[]
 
@@ -1643,6 +1747,7 @@ model Order {
   orderNumber          String                  @unique
   userId               String?                 @db.Uuid
   pcProjectId          String?                 @db.Uuid
+  partnerQuoteCaseId   String?                 @unique @db.Uuid
   origin               String?
   aiRecommendationId   String?
   email                String
@@ -1670,6 +1775,7 @@ model Order {
   updatedAt            DateTime                @updatedAt
   user                 User?                   @relation(fields: [userId], references: [id], onDelete: SetNull)
   pcProject            PcProject?              @relation(fields: [pcProjectId], references: [id], onDelete: SetNull)
+  partnerQuoteCase     PartnerQuoteCase?       @relation(fields: [partnerQuoteCaseId], references: [id], onDelete: SetNull)
   items                OrderItem[]
   addresses            OrderAddress[]
   payments             Payment[]
@@ -1684,11 +1790,13 @@ model Order {
   returnCases          ReturnCase[]
   transports           TransportRecord[]
   procurements         OrderProcurement[]
+  partnerCommission    PartnerCommission?
 
   @@index([userId, createdAt])
   @@index([status, createdAt])
   @@index([paymentStatus, createdAt])
   @@index([email, createdAt])
+  @@index([partnerQuoteCaseId, createdAt])
 }
 
 model OrderProcurement {
@@ -1834,29 +1942,32 @@ model OrderStatusHistory {
 }
 
 model Payment {
-  fundsAvailableAt  DateTime?
-  id                String            @id @default(uuid()) @db.Uuid
-  orderId           String            @db.Uuid
-  provider          PaymentProvider
-  status            PaymentStatus     @default(PENDING)
-  amount            Decimal           @db.Decimal(19, 4)
-  currency          String            @default("ZAR") @db.Char(3)
-  externalReference String?
-  idempotencyKey    String            @unique
-  providerMetadata  Json?
-  failureReason     String?
-  paidAt            DateTime?
-  isTestData        Boolean           @default(false)
-  createdAt         DateTime          @default(now())
-  updatedAt         DateTime          @updatedAt
-  order             Order             @relation(fields: [orderId], references: [id], onDelete: Restrict)
-  proofs            PaymentProof[]
-  returnRefunds     ReturnRefund[]
-  transportRecords  TransportRecord[]
+  fundsAvailableAt   DateTime?
+  id                 String            @id @default(uuid()) @db.Uuid
+  orderId            String            @db.Uuid
+  partnerQuoteCaseId String?           @db.Uuid
+  provider           PaymentProvider
+  status             PaymentStatus     @default(PENDING)
+  amount             Decimal           @db.Decimal(19, 4)
+  currency           String            @default("ZAR") @db.Char(3)
+  externalReference  String?
+  idempotencyKey     String            @unique
+  providerMetadata   Json?
+  failureReason      String?
+  paidAt             DateTime?
+  isTestData         Boolean           @default(false)
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+  order              Order             @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  partnerQuoteCase   PartnerQuoteCase? @relation(fields: [partnerQuoteCaseId], references: [id], onDelete: SetNull)
+  proofs             PaymentProof[]
+  returnRefunds      ReturnRefund[]
+  transportRecords   TransportRecord[]
 
   @@unique([provider, externalReference])
   @@index([orderId, status])
   @@index([status, createdAt])
+  @@index([partnerQuoteCaseId, status])
 }
 
 model PaymentProof {
@@ -1979,32 +2090,37 @@ model CouponRedemption {
 }
 
 model QuotationRequest {
-  id                 String                       @id @default(uuid()) @db.Uuid
-  requestNumber      String                       @unique
-  userId             String?                      @db.Uuid
-  status             QuotationRequestStatus       @default(OPEN)
-  contactName        String
-  email              String
-  phone              String?
-  companyName        String?
-  vatNumber          String?
-  targetDeliveryDate DateTime?
-  deliveryAddress    Json?
-  requirements       String?                      @db.Text
-  customerNotes      String?                      @db.Text
-  markupPercent      Decimal                      @default(0) @db.Decimal(7, 4)
-  isTestData         Boolean                      @default(false)
-  createdAt          DateTime                     @default(now())
-  updatedAt          DateTime                     @updatedAt
-  user               User?                        @relation(fields: [userId], references: [id], onDelete: SetNull)
-  items              QuotationRequestItem[]
-  attachments        QuotationRequestAttachment[]
-  quotations         Quotation[]
-  comboSnapshot      ComboQuotationSnapshot?
+  id                    String                       @id @default(uuid()) @db.Uuid
+  requestNumber         String                       @unique
+  userId                String?                      @db.Uuid
+  partnerQuoteCaseId    String?                      @unique @db.Uuid
+  partnerSalesProfileId String?                      @db.Uuid
+  status                QuotationRequestStatus       @default(OPEN)
+  contactName           String
+  email                 String
+  phone                 String?
+  companyName           String?
+  vatNumber             String?
+  targetDeliveryDate    DateTime?
+  deliveryAddress       Json?
+  requirements          String?                      @db.Text
+  customerNotes         String?                      @db.Text
+  markupPercent         Decimal                      @default(0) @db.Decimal(7, 4)
+  isTestData            Boolean                      @default(false)
+  createdAt             DateTime                     @default(now())
+  updatedAt             DateTime                     @updatedAt
+  user                  User?                        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  partnerQuoteCase      PartnerQuoteCase?            @relation(fields: [partnerQuoteCaseId], references: [id], onDelete: SetNull)
+  partnerSalesProfile   PartnerSalesProfile?         @relation(fields: [partnerSalesProfileId], references: [id], onDelete: SetNull)
+  items                 QuotationRequestItem[]
+  attachments           QuotationRequestAttachment[]
+  quotations            Quotation[]
+  comboSnapshot         ComboQuotationSnapshot?
 
   @@index([status, createdAt])
   @@index([userId, createdAt])
   @@index([email, createdAt])
+  @@index([partnerSalesProfileId, status, createdAt])
 }
 
 model ComboCampaign {
@@ -2173,59 +2289,68 @@ model QuotationRequestAttachment {
 }
 
 model Quotation {
-  id                 String                   @id @default(uuid()) @db.Uuid
-  quotationNumber    String                   @unique
-  quotationRequestId String?                  @db.Uuid
-  customerId         String?                  @db.Uuid
-  convertedOrderId   String?                  @unique @db.Uuid
-  status             QuotationStatus          @default(DRAFT)
-  kind               QuotationKind            @default(PROVISIONAL)
-  origin             QuotationOrigin          @default(CUSTOMER_REQUEST)
-  createdById        String?                  @db.Uuid
-  version            Int                      @default(1)
-  markupPercent      Decimal                  @default(5) @db.Decimal(7, 4)
-  currency           String                   @default("ZAR") @db.Char(3)
-  subtotal           Decimal                  @db.Decimal(19, 4)
-  discountTotal      Decimal                  @default(0) @db.Decimal(19, 4)
-  deliveryTotal      Decimal                  @default(0) @db.Decimal(19, 4)
-  vatTotal           Decimal                  @default(0) @db.Decimal(19, 4)
-  grandTotal         Decimal                  @db.Decimal(19, 4)
-  validUntil         DateTime
-  terms              String?                  @db.Text
-  notes              String?                  @db.Text
-  aiGenerated        Boolean                  @default(false)
-  aiRationale        String?                  @db.Text
-  internalReviewNote String?                  @db.Text
-  reviewedAt         DateTime?
-  reviewedByEmail    String?
-  pdfPath            String?
-  issuedAt           DateTime?
-  acceptedAt         DateTime?
-  acceptedVersion    Int?
-  acceptedAmount     Decimal?                 @db.Decimal(19, 4)
-  acceptedById       String?                  @db.Uuid
-  acceptanceMetadata Json?
-  finalApprovedAt    DateTime?
-  paymentReference   String?
-  bankDetails        String?                  @db.Text
-  isTestData         Boolean                  @default(false)
-  createdAt          DateTime                 @default(now())
-  updatedAt          DateTime                 @updatedAt
-  quotationRequest   QuotationRequest?        @relation(fields: [quotationRequestId], references: [id], onDelete: SetNull)
-  customer           User?                    @relation("CustomerQuotations", fields: [customerId], references: [id], onDelete: SetNull)
-  createdBy          User?                    @relation("QuotationCreator", fields: [createdById], references: [id], onDelete: SetNull)
-  convertedOrder     Order?                   @relation("ConvertedOrder", fields: [convertedOrderId], references: [id], onDelete: SetNull)
-  items              QuotationItem[]
-  statusHistory      QuotationStatusHistory[]
-  invoices           Invoice[]
-  versions           QuotationVersion[]
-  paymentSubmissions PaymentSubmission[]
-  deliveryNotes      DeliveryNote[]
+  id                     String                   @id @default(uuid()) @db.Uuid
+  quotationNumber        String                   @unique
+  quotationRequestId     String?                  @db.Uuid
+  partnerQuoteCaseId     String?                  @db.Uuid
+  partnerSalesProfileId  String?                  @db.Uuid
+  customerId             String?                  @db.Uuid
+  convertedOrderId       String?                  @unique @db.Uuid
+  status                 QuotationStatus          @default(DRAFT)
+  kind                   QuotationKind            @default(PROVISIONAL)
+  origin                 QuotationOrigin          @default(CUSTOMER_REQUEST)
+  createdById            String?                  @db.Uuid
+  version                Int                      @default(1)
+  markupPercent          Decimal                  @default(5) @db.Decimal(7, 4)
+  currency               String                   @default("ZAR") @db.Char(3)
+  subtotal               Decimal                  @db.Decimal(19, 4)
+  discountTotal          Decimal                  @default(0) @db.Decimal(19, 4)
+  deliveryTotal          Decimal                  @default(0) @db.Decimal(19, 4)
+  vatTotal               Decimal                  @default(0) @db.Decimal(19, 4)
+  grandTotal             Decimal                  @db.Decimal(19, 4)
+  validUntil             DateTime
+  terms                  String?                  @db.Text
+  notes                  String?                  @db.Text
+  aiGenerated            Boolean                  @default(false)
+  aiRationale            String?                  @db.Text
+  internalReviewNote     String?                  @db.Text
+  reviewedAt             DateTime?
+  reviewedByEmail        String?
+  pdfPath                String?
+  issuedAt               DateTime?
+  acceptedAt             DateTime?
+  acceptedVersion        Int?
+  acceptedAmount         Decimal?                 @db.Decimal(19, 4)
+  acceptedById           String?                  @db.Uuid
+  acceptanceMetadata     Json?
+  finalApprovedAt        DateTime?
+  paymentReference       String?
+  bankDetails            String?                  @db.Text
+  isTestData             Boolean                  @default(false)
+  createdAt              DateTime                 @default(now())
+  updatedAt              DateTime                 @updatedAt
+  quotationRequest       QuotationRequest?        @relation(fields: [quotationRequestId], references: [id], onDelete: SetNull)
+  partnerQuoteCase       PartnerQuoteCase?        @relation("PartnerCaseQuotations", fields: [partnerQuoteCaseId], references: [id], onDelete: SetNull)
+  partnerSalesProfile    PartnerSalesProfile?     @relation(fields: [partnerSalesProfileId], references: [id], onDelete: SetNull)
+  activeForPartnerCase   PartnerQuoteCase?        @relation("PartnerCaseActiveQuotation")
+  acceptedForPartnerCase PartnerQuoteCase?        @relation("PartnerCaseAcceptedQuotation")
+  customer               User?                    @relation("CustomerQuotations", fields: [customerId], references: [id], onDelete: SetNull)
+  createdBy              User?                    @relation("QuotationCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  convertedOrder         Order?                   @relation("ConvertedOrder", fields: [convertedOrderId], references: [id], onDelete: SetNull)
+  items                  QuotationItem[]
+  statusHistory          QuotationStatusHistory[]
+  invoices               Invoice[]
+  versions               QuotationVersion[]
+  paymentSubmissions     PaymentSubmission[]
+  deliveryNotes          DeliveryNote[]
+  partnerCommissions     PartnerCommission[]
 
   @@unique([quotationRequestId, version])
   @@index([status, createdAt])
   @@index([customerId, createdAt])
   @@index([origin, status, createdAt])
+  @@index([partnerQuoteCaseId, status, createdAt])
+  @@index([partnerSalesProfileId, status, createdAt])
 }
 
 model Invoice {
@@ -2434,14 +2559,16 @@ model QuotationItem {
 }
 
 model QuotationVersion {
-  id          String        @id @default(uuid()) @db.Uuid
-  quotationId String        @db.Uuid
-  version     Int
-  kind        QuotationKind
-  snapshot    Json
-  createdById String?       @db.Uuid
-  createdAt   DateTime      @default(now())
-  quotation   Quotation     @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  id                  String              @id @default(uuid()) @db.Uuid
+  quotationId         String              @db.Uuid
+  version             Int
+  kind                QuotationKind
+  snapshot            Json
+  createdById         String?             @db.Uuid
+  createdAt           DateTime            @default(now())
+  quotation           Quotation           @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  acceptedPartnerCase PartnerQuoteCase?   @relation("PartnerCaseAcceptedQuotationVersion")
+  partnerCommissions  PartnerCommission[]
 
   @@unique([quotationId, version])
   @@index([quotationId, createdAt])
@@ -2476,6 +2603,9 @@ model UploadedDocument {
   transportProviderDocument TransportProviderDocument?
   partnershipOfflineChange  PartnershipChange?
   supplierDocument          SupplierDocument?
+  partnerSalesProfileLogo   PartnerSalesProfile?
+  partnerPayoutProof        PartnerPayoutBatch?             @relation("PartnerPayoutProof")
+  partnerPayoutStatement    PartnerPayoutBatch?             @relation("PartnerPayoutStatement")
 }
 
 model BusinessDocument {
@@ -3331,6 +3461,11 @@ model Partnership {
   transportRecords      TransportRecord[]
   agreement             PartnershipAgreement?
   changes               PartnershipChange[]
+  salesProfile          PartnerSalesProfile?
+  partnerClients        PartnerClient[]
+  partnerQuoteCases     PartnerQuoteCase[]
+  partnerCommissions    PartnerCommission[]
+  partnerPayoutBatches  PartnerPayoutBatch[]
 
   @@index([userId, status])
   @@index([status, renewalDate])
@@ -4606,17 +4741,17 @@ model GatewayEvent {
 }
 
 model MarketProduct {
-  key          String                 @id
+  key          String                @id
   sourceType   String
-  sourceId     String                 @db.Uuid
+  sourceId     String                @db.Uuid
   name         String
   brand        String?
   mpn          String?
   gtin         String?
   category     String?
   variant      Json
-  createdAt    DateTime               @default(now())
-  updatedAt    DateTime               @updatedAt
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
   jobs         MarketScanJob[]
   observations MarketObservation[]
   benchmarks   MarketBenchmark[]
@@ -4743,4 +4878,301 @@ model TradingPriceOverride {
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
   product     MarketProduct @relation(fields: [productKey], references: [key], onDelete: Restrict)
+}
+
+model PartnerSalesProfile {
+  id                      String                       @id @default(uuid()) @db.Uuid
+  partnershipId           String                       @unique @db.Uuid
+  publicSlug              String                       @unique
+  status                  PartnerSalesProfileStatus    @default(INVITED)
+  displayName             String
+  legalName               String?
+  registrationNumber      String?
+  vatNumber               String?
+  logoDocumentId          String?                      @unique @db.Uuid
+  contactName             String?
+  contactEmail            String?
+  contactPhone            String?
+  footerText              String?                      @db.Text
+  themePreset             String                       @default("DEFAULT")
+  defaultCommissionMethod PartnerCommissionMethod
+  defaultCommissionValue  Decimal                      @db.Decimal(19, 4)
+  approvedAt              DateTime?
+  approvedById            String?                      @db.Uuid
+  publicCatalogueEnabled  Boolean                      @default(false)
+  suspendedAt             DateTime?
+  revokedAt               DateTime?
+  createdAt               DateTime                     @default(now())
+  updatedAt               DateTime                     @updatedAt
+  partnership             Partnership                  @relation(fields: [partnershipId], references: [id], onDelete: Restrict)
+  logoDocument            UploadedDocument?            @relation(fields: [logoDocumentId], references: [id], onDelete: SetNull)
+  approvedBy              User?                        @relation("PartnerSalesProfileApprover", fields: [approvedById], references: [id], onDelete: SetNull)
+  catalogueAssignments    PartnerCatalogueAssignment[]
+  showcases               PartnerShowcase[]
+  quoteCases              PartnerQuoteCase[]
+  quotationRequests       QuotationRequest[]
+  quotations              Quotation[]
+
+  @@index([status, publicCatalogueEnabled])
+  @@index([approvedById, approvedAt])
+}
+
+model PartnerCatalogueAssignment {
+  id                      String                           @id @default(uuid()) @db.Uuid
+  profileId               String                           @db.Uuid
+  sourceType              PartnerCatalogueSourceType
+  sourceId                String                           @db.Uuid
+  status                  PartnerCatalogueAssignmentStatus @default(ACTIVE)
+  visibleFrom             DateTime?
+  visibleUntil            DateTime?
+  presentationTitle       String?
+  presentationCopy        String?                          @db.Text
+  mediaSnapshot           Json?
+  availabilityFingerprint String
+  approvedById            String?                          @db.Uuid
+  approvedAt              DateTime?
+  withdrawnAt             DateTime?
+  createdAt               DateTime                         @default(now())
+  updatedAt               DateTime                         @updatedAt
+  profile                 PartnerSalesProfile              @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  approvedBy              User?                            @relation("PartnerCatalogueAssignmentApprover", fields: [approvedById], references: [id], onDelete: SetNull)
+  showcaseItems           PartnerShowcaseItem[]
+
+  @@unique([profileId, sourceType, sourceId])
+  @@index([profileId, status, visibleFrom, visibleUntil])
+  @@index([status, visibleUntil])
+  @@index([approvedById, approvedAt])
+}
+
+model PartnerClient {
+  id                   String             @id @default(uuid()) @db.Uuid
+  partnershipId        String             @db.Uuid
+  companyName          String
+  contactName          String
+  email                String
+  phone                String?
+  vatNumber            String?
+  registrationNumber   String?
+  billingAddress       Json?
+  deliveryAddress      Json?
+  communicationConsent Boolean            @default(false)
+  consentAt            DateTime?
+  source               String
+  partnerNotes         String?            @db.Text
+  internalNotes        String?            @db.Text
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+  partnership          Partnership        @relation(fields: [partnershipId], references: [id], onDelete: Restrict)
+  showcases            PartnerShowcase[]
+  quoteCases           PartnerQuoteCase[]
+
+  @@unique([partnershipId, email])
+  @@index([partnershipId, updatedAt])
+  @@index([partnershipId, companyName])
+}
+
+model PartnerShowcase {
+  id              String                    @id @default(uuid()) @db.Uuid
+  publicId        String                    @unique
+  profileId       String                    @db.Uuid
+  clientId        String?                   @db.Uuid
+  createdById     String?                   @db.Uuid
+  title           String
+  introduction    String?                   @db.Text
+  status          PartnerShowcaseStatus     @default(DRAFT)
+  visibility      PartnerShowcaseVisibility @default(PUBLIC)
+  accessTokenHash String?                   @unique
+  activatedAt     DateTime?
+  expiresAt       DateTime?
+  revokedAt       DateTime?
+  createdAt       DateTime                  @default(now())
+  updatedAt       DateTime                  @updatedAt
+  profile         PartnerSalesProfile       @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  client          PartnerClient?            @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  createdBy       User?                     @relation("PartnerShowcaseCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  items           PartnerShowcaseItem[]
+  quoteCases      PartnerQuoteCase[]
+
+  @@index([profileId, status, updatedAt])
+  @@index([clientId, status])
+  @@index([status, expiresAt])
+  @@index([createdById, updatedAt])
+}
+
+model PartnerShowcaseItem {
+  id                       String                      @id @default(uuid()) @db.Uuid
+  showcaseId               String                      @db.Uuid
+  catalogueAssignmentId    String?                     @db.Uuid
+  sortOrder                Int                         @default(0)
+  sourceType               PartnerCatalogueSourceType
+  sourceId                 String                      @db.Uuid
+  titleSnapshot            String
+  mediaSnapshot            Json?
+  presentationCopySnapshot String?                     @db.Text
+  availabilityFingerprint  String
+  createdAt                DateTime                    @default(now())
+  showcase                 PartnerShowcase             @relation(fields: [showcaseId], references: [id], onDelete: Cascade)
+  catalogueAssignment      PartnerCatalogueAssignment? @relation(fields: [catalogueAssignmentId], references: [id], onDelete: SetNull)
+
+  @@unique([showcaseId, sourceType, sourceId])
+  @@index([showcaseId, sortOrder])
+  @@index([catalogueAssignmentId])
+}
+
+model PartnerQuoteCase {
+  id                         String                 @id @default(uuid()) @db.Uuid
+  caseNumber                 String                 @unique
+  partnershipId              String                 @db.Uuid
+  profileId                  String                 @db.Uuid
+  partnerClientId            String                 @db.Uuid
+  originatingShowcaseId      String?                @db.Uuid
+  assignedPartnerUserId      String?                @db.Uuid
+  innozanziOwnerId           String?                @db.Uuid
+  status                     PartnerQuoteCaseStatus @default(NEW_ENQUIRY)
+  activeQuotationId          String?                @unique @db.Uuid
+  acceptedQuotationId        String?                @unique @db.Uuid
+  acceptedQuotationVersionId String?                @unique @db.Uuid
+  clientVisibleNotes         String?                @db.Text
+  partnerNotes               String?                @db.Text
+  internalNotes              String?                @db.Text
+  enquiredAt                 DateTime               @default(now())
+  qualifiedAt                DateTime?
+  pricingRequestedAt         DateTime?
+  sentAt                     DateTime?
+  acceptedAt                 DateTime?
+  paidAt                     DateTime?
+  completedAt                DateTime?
+  lostAt                     DateTime?
+  closedAt                   DateTime?
+  createdAt                  DateTime               @default(now())
+  updatedAt                  DateTime               @updatedAt
+  partnership                Partnership            @relation(fields: [partnershipId], references: [id], onDelete: Restrict)
+  profile                    PartnerSalesProfile    @relation(fields: [profileId], references: [id], onDelete: Restrict)
+  partnerClient              PartnerClient          @relation(fields: [partnerClientId], references: [id], onDelete: Restrict)
+  originatingShowcase        PartnerShowcase?       @relation(fields: [originatingShowcaseId], references: [id], onDelete: SetNull)
+  assignedPartnerUser        User?                  @relation("PartnerQuoteCasePartnerAssignee", fields: [assignedPartnerUserId], references: [id], onDelete: SetNull)
+  innozanziOwner             User?                  @relation("PartnerQuoteCaseInnozanziOwner", fields: [innozanziOwnerId], references: [id], onDelete: SetNull)
+  activeQuotation            Quotation?             @relation("PartnerCaseActiveQuotation", fields: [activeQuotationId], references: [id], onDelete: SetNull)
+  acceptedQuotation          Quotation?             @relation("PartnerCaseAcceptedQuotation", fields: [acceptedQuotationId], references: [id], onDelete: SetNull)
+  acceptedQuotationVersion   QuotationVersion?      @relation("PartnerCaseAcceptedQuotationVersion", fields: [acceptedQuotationVersionId], references: [id], onDelete: SetNull)
+  quotationRequest           QuotationRequest?
+  quotations                 Quotation[]            @relation("PartnerCaseQuotations")
+  order                      Order?
+  payments                   Payment[]
+  commission                 PartnerCommission?
+
+  @@index([partnershipId, status, updatedAt])
+  @@index([profileId, status, updatedAt])
+  @@index([partnerClientId, createdAt])
+  @@index([assignedPartnerUserId, status])
+  @@index([innozanziOwnerId, status])
+  @@index([status, createdAt])
+}
+
+model PartnerCommission {
+  id                  String                   @id @default(uuid()) @db.Uuid
+  partnershipId       String                   @db.Uuid
+  caseId              String                   @unique @db.Uuid
+  quotationId         String                   @db.Uuid
+  quotationVersionId  String                   @db.Uuid
+  orderId             String?                  @unique @db.Uuid
+  method              PartnerCommissionMethod
+  approvedBasis       Decimal                  @db.Decimal(19, 4)
+  approvedValue       Decimal                  @db.Decimal(19, 4)
+  quotedAmount        Decimal                  @db.Decimal(19, 4)
+  currentAmount       Decimal                  @db.Decimal(19, 4)
+  heldAmount          Decimal                  @default(0) @db.Decimal(19, 4)
+  adjustedAmount      Decimal                  @default(0) @db.Decimal(19, 4)
+  reversedAmount      Decimal                  @default(0) @db.Decimal(19, 4)
+  currency            String                   @default("ZAR") @db.Char(3)
+  status              PartnerCommissionStatus  @default(ESTIMATED)
+  calculationSnapshot Json
+  eligibilityAt       DateTime?
+  reconciledAt        DateTime?
+  payableAt           DateTime?
+  heldAt              DateTime?
+  reversedAt          DateTime?
+  paidAt              DateTime?
+  adjustmentReason    String?                  @db.Text
+  createdAt           DateTime                 @default(now())
+  updatedAt           DateTime                 @updatedAt
+  partnership         Partnership              @relation(fields: [partnershipId], references: [id], onDelete: Restrict)
+  quoteCase           PartnerQuoteCase         @relation(fields: [caseId], references: [id], onDelete: Restrict)
+  quotation           Quotation                @relation(fields: [quotationId], references: [id], onDelete: Restrict)
+  quotationVersion    QuotationVersion         @relation(fields: [quotationVersionId], references: [id], onDelete: Restrict)
+  order               Order?                   @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  entries             PartnerCommissionEntry[]
+  payoutItems         PartnerPayoutItem[]
+
+  @@index([partnershipId, status, updatedAt])
+  @@index([status, eligibilityAt])
+  @@index([quotationId, quotationVersionId])
+}
+
+model PartnerCommissionEntry {
+  id           String                     @id @default(uuid()) @db.Uuid
+  commissionId String                     @db.Uuid
+  type         PartnerCommissionEntryType
+  amount       Decimal                    @db.Decimal(19, 4)
+  balanceAfter Decimal                    @db.Decimal(19, 4)
+  reason       String                     @db.Text
+  metadata     Json?
+  actorId      String?                    @db.Uuid
+  createdAt    DateTime                   @default(now())
+  commission   PartnerCommission          @relation(fields: [commissionId], references: [id], onDelete: Restrict)
+  actor        User?                      @relation("PartnerCommissionEntryActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([commissionId, createdAt])
+  @@index([type, createdAt])
+  @@index([actorId, createdAt])
+}
+
+model PartnerPayoutBatch {
+  id                  String                   @id @default(uuid()) @db.Uuid
+  batchNumber         String                   @unique
+  partnershipId       String                   @db.Uuid
+  periodStart         DateTime
+  periodEnd           DateTime
+  status              PartnerPayoutBatchStatus @default(DRAFT)
+  total               Decimal                  @db.Decimal(19, 4)
+  currency            String                   @default("ZAR") @db.Char(3)
+  paymentReference    String?
+  paymentDate         DateTime?
+  proofDocumentId     String?                  @unique @db.Uuid
+  statementDocumentId String?                  @unique @db.Uuid
+  preparedById        String                   @db.Uuid
+  approvedById        String?                  @db.Uuid
+  approvedAt          DateTime?
+  paidAt              DateTime?
+  exceptionNotes      String?                  @db.Text
+  createdAt           DateTime                 @default(now())
+  updatedAt           DateTime                 @updatedAt
+  partnership         Partnership              @relation(fields: [partnershipId], references: [id], onDelete: Restrict)
+  proofDocument       UploadedDocument?        @relation("PartnerPayoutProof", fields: [proofDocumentId], references: [id], onDelete: SetNull)
+  statementDocument   UploadedDocument?        @relation("PartnerPayoutStatement", fields: [statementDocumentId], references: [id], onDelete: SetNull)
+  preparedBy          User                     @relation("PartnerPayoutBatchPreparer", fields: [preparedById], references: [id], onDelete: Restrict)
+  approvedBy          User?                    @relation("PartnerPayoutBatchApprover", fields: [approvedById], references: [id], onDelete: SetNull)
+  items               PartnerPayoutItem[]
+
+  @@index([partnershipId, status, periodStart, periodEnd])
+  @@index([status, periodEnd])
+  @@index([preparedById, createdAt])
+  @@index([approvedById, approvedAt])
+}
+
+model PartnerPayoutItem {
+  id                 String                  @id @default(uuid()) @db.Uuid
+  batchId            String                  @db.Uuid
+  commissionId       String                  @db.Uuid
+  amount             Decimal                 @db.Decimal(19, 4)
+  status             PartnerPayoutItemStatus @default(ACTIVE)
+  cancelledAt        DateTime?
+  cancellationReason String?                 @db.Text
+  createdAt          DateTime                @default(now())
+  batch              PartnerPayoutBatch      @relation(fields: [batchId], references: [id], onDelete: Restrict)
+  commission         PartnerCommission       @relation(fields: [commissionId], references: [id], onDelete: Restrict)
+
+  @@unique([batchId, commissionId])
+  @@index([batchId, status])
+  @@index([commissionId, status])
 }

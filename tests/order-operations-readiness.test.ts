@@ -84,7 +84,7 @@ describe("distributor-direct order operations readiness",()=>{
   });
 
   it("advances the Prisma runtime cache-buster with the latest migration",()=>{
-    expect(source("src/lib/prisma.ts")).toContain('PRISMA_SCHEMA_VERSION = "2026-09-16-pricing-trading-platform"');
+    expect(source("src/lib/prisma.ts")).toContain('PRISMA_SCHEMA_VERSION = "2026-09-22-partner-sales-channel"');
   });
 
   it("retires the standalone order delivery page to the Order workspace",()=>{
