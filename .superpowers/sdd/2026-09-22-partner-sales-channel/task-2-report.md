@@ -90,3 +90,67 @@ Result: `104 passed`, `404 passed`.
 
 - Vitest emits the repository's existing Vite `configLoader: 'native'` future-compatibility warning. It does not fail the focused or full test suites and is outside Task 2 scope.
 - The DTO field selections intentionally remain narrow. Future route/service work should add only audience-approved fields to these serializers rather than returning persistence records directly.
+
+## Fix Round 1
+
+### Root cause
+
+The original DTO input names were convenience names rather than fields selected from the persisted models. In particular, `PartnerSalesProfile` persists `contactEmail`, `contactPhone`, and `themePreset`; `PartnerShowcaseItem` persists snapshot fields; and tracking belongs to `Shipment`, while line records belong to `Order.items`. The previous array casts also allowed `null` entries to be dereferenced. Decimal sign checks do not reject Decimal `NaN` or infinity values.
+
+### RED evidence
+
+After adding the regression tests, the focused command failed as expected:
+
+```text
+npx vitest run tests/unit/partner-sales-lifecycle.test.ts tests/unit/partner-sales-commission.test.ts tests/unit/partner-sales-security.test.ts
+```
+
+Result: `5 failed | 13 passed`.
+
+- Non-finite commission values and negative refunds did not throw.
+- Realistic profile/showcase fixture fields were omitted from DTOs.
+- Shipment-level tracking was omitted from the order DTO.
+- A null showcase item threw `TypeError: Cannot read properties of null (reading 'id')`.
+
+The initial lifecycle-test edit had a TypeScript parse error in a test-only cast; it was corrected before this RED run. The corrected RED run executed all lifecycle tests successfully and failed only on the five intended behavior gaps above.
+
+### Fixes and exact added/strengthened tests
+
+- `rejects non-finite commission calculation inputs`
+- `rejects non-finite and negative refund amounts`
+- `serializes realistic persisted profile and showcase selections from explicit safe fields`
+- `serializes realistic Order items and shipment tracking without internal economics or payment evidence`
+- `drops null and non-record media, showcase item, order item, and shipment entries`
+- `checks every declared case edge and pins cancellation, dispute, and refund exceptions`
+- `checks every declared profile edge`
+- `checks every declared commission edge and pins batch reversal`
+
+The serializer now exposes projection types for actual `PartnerSalesProfile`, `PartnerShowcase`/`PartnerShowcaseItem`, `Order`/`OrderItem`, and `Shipment` selections, while its implementation accepts unknown inputs defensively and emits only explicit safe fields. It filters non-record array entries. The commission policy now normalizes Decimal construction through finite-value validation and validates refund amounts as finite and nonnegative.
+
+Lifecycle tests compare every declared transition map against independent literals, run every declared allowed edge through its assertion, and run every target state against each terminal source.
+
+### GREEN evidence
+
+```text
+npx vitest run tests/unit/partner-sales-lifecycle.test.ts tests/unit/partner-sales-commission.test.ts tests/unit/partner-sales-security.test.ts
+```
+
+Result: `3 passed`, `18 passed`.
+
+```text
+npx tsc --noEmit
+```
+
+Result: exit code `0` with no diagnostics.
+
+```text
+npm test
+```
+
+Result: `104 passed`, `410 passed`.
+
+### Round 1 self-review and concern
+
+- DTOs keep semantic output names but only accept/model actual persisted selection names as their projection contract.
+- No serializer spreads an input object. Media, items, and shipments are filtered to records before fields are read.
+- The existing Vite config-loader warning remains the only test-output warning and is outside Task 2 scope.

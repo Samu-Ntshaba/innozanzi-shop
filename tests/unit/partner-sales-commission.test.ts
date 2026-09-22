@@ -26,6 +26,12 @@ describe("partner commission policies", () => {
     expect(() => calculatePartnerCommission({ method: "PERCENTAGE", value: "100.01", netSale: "800" })).toThrow(/100/i);
   });
 
+  it("rejects non-finite commission calculation inputs", () => {
+    expect(() => calculatePartnerCommission({ method: "PERCENTAGE", value: Number.NaN, netSale: "800" })).toThrow(/finite/i);
+    expect(() => calculatePartnerCommission({ method: "PERCENTAGE", value: "10", netSale: Number.POSITIVE_INFINITY })).toThrow(/finite/i);
+    expect(() => calculatePartnerCommission({ method: "FIXED_AMOUNT", value: "Infinity", netSale: "800" })).toThrow(/finite/i);
+  });
+
   it("holds eligibility when any refund, cancellation, chargeback, dispute, or return remains unresolved", () => {
     const result = commissionEligibility({
       orderCompleted: true,
@@ -52,5 +58,10 @@ describe("partner commission policies", () => {
       eligible: true,
       reasons: [],
     });
+  });
+
+  it("rejects non-finite and negative refund amounts", () => {
+    expect(() => commissionEligibility({ orderCompleted: true, financiallyReconciled: true, refundAmount: "-0.01" })).toThrow(/negative/i);
+    expect(() => commissionEligibility({ orderCompleted: true, financiallyReconciled: true, refundAmount: Number.NaN })).toThrow(/finite/i);
   });
 });

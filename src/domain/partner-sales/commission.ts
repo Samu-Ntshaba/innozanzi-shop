@@ -28,13 +28,24 @@ export type CommissionEligibilityReason =
   | "RETURN_HOLD"
   | "COMMISSION_HOLD";
 
+function finiteDecimal(value: Decimal.Value, label: string) {
+  let decimal: Decimal;
+  try {
+    decimal = new Decimal(value);
+  } catch {
+    throw new Error(`${label} must be finite.`);
+  }
+  if (!decimal.isFinite()) throw new Error(`${label} must be finite.`);
+  return decimal;
+}
+
 function requireNonNegative(value: Decimal, label: string) {
   if (value.isNegative()) throw new Error(`${label} cannot be negative.`);
 }
 
 export function calculatePartnerCommission({ method, value, netSale }: CalculatePartnerCommissionInput): Decimal {
-  const approvedValue = new Decimal(value);
-  const sale = new Decimal(netSale);
+  const approvedValue = finiteDecimal(value, "Commission value");
+  const sale = finiteDecimal(netSale, "Net sale");
   requireNonNegative(approvedValue, "Commission value");
   requireNonNegative(sale, "Net sale");
 
@@ -53,7 +64,11 @@ export function commissionEligibility(input: CommissionEligibilityInput): { elig
   const reasons: CommissionEligibilityReason[] = [];
   if (!input.orderCompleted) reasons.push("ORDER_NOT_COMPLETED");
   if (!input.financiallyReconciled) reasons.push("FINANCIAL_RECONCILIATION_PENDING");
-  if (input.refundAmount !== undefined && new Decimal(input.refundAmount).greaterThan(0)) reasons.push("REFUND");
+  if (input.refundAmount !== undefined) {
+    const refundAmount = finiteDecimal(input.refundAmount, "Refund amount");
+    requireNonNegative(refundAmount, "Refund amount");
+    if (refundAmount.greaterThan(0)) reasons.push("REFUND");
+  }
   if (input.hasCancellation) reasons.push("CANCELLATION");
   if (input.hasChargeback) reasons.push("CHARGEBACK");
   if (input.hasDispute) reasons.push("DISPUTE");
