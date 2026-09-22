@@ -345,3 +345,29 @@ ALTER TABLE "Quotation" ADD CONSTRAINT "Quotation_partnerQuoteCaseId_fkey" FOREI
 ALTER TABLE "Quotation" ADD CONSTRAINT "Quotation_partnerSalesProfileId_fkey" FOREIGN KEY ("partnerSalesProfileId") REFERENCES "PartnerSalesProfile"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 ALTER TABLE "Order" ADD CONSTRAINT "Order_partnerQuoteCaseId_fkey" FOREIGN KEY ("partnerQuoteCaseId") REFERENCES "PartnerQuoteCase"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 ALTER TABLE "Payment" ADD CONSTRAINT "Payment_partnerQuoteCaseId_fkey" FOREIGN KEY ("partnerQuoteCaseId") REFERENCES "PartnerQuoteCase"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- Register partner-channel capabilities without granting them to any role.
+INSERT INTO "Permission" ("id", "key", "description", "createdAt", "updatedAt")
+SELECT gen_random_uuid(), permission_key, 'Partner sales channel permission', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+FROM unnest(ARRAY[
+  'partner_sales.profile.approve',
+  'partner_sales.catalogue.manage',
+  'partner_sales.pricing.approve',
+  'partner_sales.commission.manage',
+  'partner_sales.payout.prepare',
+  'partner_sales.payout.approve'
+]) AS permission_key
+ON CONFLICT ("key") DO NOTHING;
+
+-- The channel remains unavailable until an explicit controlled-rollout update.
+INSERT INTO "SiteSetting" ("id", "key", "value", "description", "isSensitive", "createdAt", "updatedAt")
+VALUES (
+  gen_random_uuid(),
+  'partner_sales.channel.v1',
+  '{"enabled":false}'::jsonb,
+  'Global partner sales channel rollout control',
+  false,
+  CURRENT_TIMESTAMP,
+  CURRENT_TIMESTAMP
+)
+ON CONFLICT ("key") DO NOTHING;
