@@ -143,28 +143,76 @@ describe("partner sales persistence contract", () => {
       ],
       PartnerPayoutItem: ["@@index([commissionId, status])"],
     };
+    const expectedRelations: Record<string, RegExp[]> = {
+      PartnerSalesProfile: [
+        /partnership\s+Partnership\s+@relation\([^\n]+onDelete: Restrict\)/,
+      ],
+      PartnerCatalogueAssignment: [
+        /profile\s+PartnerSalesProfile\s+@relation\([^\n]+onDelete: Cascade\)/,
+      ],
+      PartnerClient: [
+        /partnership\s+Partnership\s+@relation\([^\n]+onDelete: Restrict\)/,
+      ],
+      PartnerShowcase: [
+        /profile\s+PartnerSalesProfile\s+@relation\([^\n]+onDelete: Cascade\)/,
+      ],
+      PartnerShowcaseItem: [
+        /showcase\s+PartnerShowcase\s+@relation\([^\n]+onDelete: Cascade\)/,
+      ],
+      PartnerQuoteCase: [
+        /partnership\s+Partnership\s+@relation\([^\n]+onDelete: Restrict\)/,
+        /partnerClient\s+PartnerClient\s+@relation\([^\n]+onDelete: Restrict\)/,
+      ],
+      PartnerCommission: [
+        /quoteCase\s+PartnerQuoteCase\s+@relation\([^\n]+onDelete: Restrict\)/,
+        /order\s+Order\?\s+@relation\([^\n]+onDelete: SetNull\)/,
+      ],
+      PartnerCommissionEntry: [
+        /commission\s+PartnerCommission\s+@relation\([^\n]+onDelete: Restrict\)/,
+      ],
+      PartnerPayoutBatch: [
+        /partnership\s+Partnership\s+@relation\([^\n]+onDelete: Restrict\)/,
+      ],
+      PartnerPayoutItem: [
+        /batch\s+PartnerPayoutBatch\s+@relation\([^\n]+onDelete: Restrict\)/,
+        /commission\s+PartnerCommission\s+@relation\([^\n]+onDelete: Restrict\)/,
+      ],
+    };
 
     for (const [name, indexes] of Object.entries(expectedIndexes)) {
       const block = modelBlock(name);
       expect(block, `${name} UUID ownership`).toMatch(/\w+Id\s+String\??\s+.*@db\.Uuid/);
-      expect(block, `${name} explicit relation delete`).toMatch(
-        /@relation\([^\n]+onDelete: (Cascade|Restrict|SetNull)\)/,
-      );
+      for (const relation of expectedRelations[name] ?? []) {
+        expect(block, `${name} relation ${relation}`).toMatch(relation);
+      }
       for (const index of indexes) expect(block, `${name} ${index}`).toContain(index);
     }
   });
 
   it("stores financial values precisely and public secrets only as hashes", () => {
-    for (const model of [
-      "PartnerSalesProfile",
-      "PartnerCommission",
-      "PartnerCommissionEntry",
-      "PartnerPayoutBatch",
-      "PartnerPayoutItem",
-    ]) {
-      expect(modelBlock(model), `${model} money precision`).toContain(
-        "@db.Decimal(19, 4)",
-      );
+    const financialFields: Record<string, string[]> = {
+      PartnerSalesProfile: ["defaultCommissionValue"],
+      PartnerCommission: [
+        "approvedBasis",
+        "approvedValue",
+        "quotedAmount",
+        "currentAmount",
+        "heldAmount",
+        "adjustedAmount",
+        "reversedAmount",
+      ],
+      PartnerCommissionEntry: ["amount", "balanceAfter"],
+      PartnerPayoutBatch: ["total"],
+      PartnerPayoutItem: ["amount"],
+    };
+
+    for (const [model, fields] of Object.entries(financialFields)) {
+      const block = modelBlock(model);
+      for (const field of fields) {
+        expect(block, `${model}.${field} precision`).toMatch(
+          new RegExp(`${field}\\s+Decimal\\s+.*@db\\.Decimal\\(19, 4\\)`),
+        );
+      }
     }
 
     const showcase = modelBlock("PartnerShowcase");
@@ -227,8 +275,9 @@ describe("partner sales persistence contract", () => {
     expect(migration).toContain("CREATE INDEX");
     expect(migration).toContain("FOREIGN KEY");
     expect(migration).toMatch(
-      /CREATE UNIQUE INDEX "PartnerPayoutItem_active_commission_key"[\s\S]+WHERE "cancelledAt" IS NULL/,
+      /CREATE UNIQUE INDEX "PartnerPayoutItem_active_commission_key" ON "PartnerPayoutItem"\("commissionId"\) WHERE "status" <> 'CANCELLED';/,
     );
+    expect(migration).not.toContain('WHERE "cancelledAt" IS NULL');
     expect(migration).not.toMatch(/DROP\s+(TABLE|COLUMN)/i);
   });
 });

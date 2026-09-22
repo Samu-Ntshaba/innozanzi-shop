@@ -283,7 +283,7 @@ CREATE INDEX "PartnerPayoutBatch_preparedById_createdAt_idx" ON "PartnerPayoutBa
 CREATE INDEX "PartnerPayoutBatch_approvedById_approvedAt_idx" ON "PartnerPayoutBatch"("approvedById", "approvedAt");
 
 CREATE UNIQUE INDEX "PartnerPayoutItem_batchId_commissionId_key" ON "PartnerPayoutItem"("batchId", "commissionId");
-CREATE UNIQUE INDEX "PartnerPayoutItem_active_commission_key" ON "PartnerPayoutItem"("commissionId") WHERE "cancelledAt" IS NULL;
+CREATE UNIQUE INDEX "PartnerPayoutItem_active_commission_key" ON "PartnerPayoutItem"("commissionId") WHERE "status" <> 'CANCELLED';
 CREATE INDEX "PartnerPayoutItem_batchId_status_idx" ON "PartnerPayoutItem"("batchId", "status");
 CREATE INDEX "PartnerPayoutItem_commissionId_status_idx" ON "PartnerPayoutItem"("commissionId", "status");
 
