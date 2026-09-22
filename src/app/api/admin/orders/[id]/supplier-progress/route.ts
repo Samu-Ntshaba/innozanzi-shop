@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requirePermission } from "@/domain/auth/session";
 import { saveOrderProcurement } from "@/domain/orders/procurement-actions";
+import { publicSiteUrl } from "@/lib/public-site-url";
 import { boundedFormData, browserMutationGuard } from "@/lib/security/request";
 
 export async function POST(request:Request,{params}:{params:Promise<{id:string}>}){
@@ -10,7 +11,7 @@ export async function POST(request:Request,{params}:{params:Promise<{id:string}>
   const {id}=await params;
   const formData=await boundedFormData(request,32_768);
   if(formData.get("orderId")!==id)return Response.json({error:"Order reference mismatch."},{status:400});
-  const target=new URL(`/admin/orders/${id}`,request.url);target.hash="supplier-order";
+  const target=new URL(`/admin/orders/${id}`,publicSiteUrl());target.hash="supplier-order";
   try{
     await saveOrderProcurement(formData);
     target.searchParams.set("supplierProgress","saved");

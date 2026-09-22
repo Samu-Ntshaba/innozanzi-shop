@@ -79,6 +79,8 @@ describe("distributor-direct order operations readiness",()=>{
     expect(route).toContain("boundedFormData(request,32_768)");
     expect(route).toContain("saveOrderProcurement(formData)");
     expect(route).toContain('formData.get("orderId")!==id');
+    expect(route).toContain('new URL(`/admin/orders/${id}`,publicSiteUrl())');
+    expect(route).not.toContain('new URL(`/admin/orders/${id}`,request.url)');
   });
 
   it("advances the Prisma runtime cache-buster with the latest migration",()=>{
