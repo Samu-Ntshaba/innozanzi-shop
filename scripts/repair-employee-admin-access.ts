@@ -1,7 +1,7 @@
 import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
-import { isAutomaticallyGrantedPermission, PERMISSIONS } from "../src/domain/auth/permissions";
+import { isAutomaticallyGrantedPermission, PERMISSIONS, shouldRemoveAutoManagedPartnerSalesGrant } from "../src/domain/auth/permissions";
 
 const connectionString = process.env.DATABASE_PUBLIC_URL ?? process.env.DATABASE_URL;
 if (!connectionString) throw new Error("A database URL is required.");
@@ -16,7 +16,9 @@ async function main() {
   });
   for (const key of PERMISSIONS) {
     const permission = await prisma.permission.upsert({ where: { key }, update: {}, create: { key } });
-    if (isAutomaticallyGrantedPermission(key) && key !== "users.manage" && key !== "rfq.approve" && key !== "rfq.commission.manage") {
+    if (shouldRemoveAutoManagedPartnerSalesGrant(administrator.slug, key)) {
+      await prisma.rolePermission.deleteMany({ where: { roleId: administrator.id, permissionId: permission.id } });
+    } else if (isAutomaticallyGrantedPermission(key) && key !== "users.manage" && key !== "rfq.approve" && key !== "rfq.commission.manage") {
       await prisma.rolePermission.upsert({
         where: { roleId_permissionId: { roleId: administrator.id, permissionId: permission.id } },
         update: { effect: "ALLOW" },

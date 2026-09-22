@@ -9,6 +9,11 @@ export const PARTNER_SALES_PERMISSIONS = [
   "partner_sales.payout.approve",
 ] as const;
 
+export const BROAD_AUTO_MANAGED_ROLE_SLUGS = [
+  "super-administrator",
+  "administrator",
+] as const;
+
 export const PERMISSIONS = [
   "products.view",
   "products.create",
@@ -137,9 +142,22 @@ export const PERMISSIONS = [
 export type PermissionKey = (typeof PERMISSIONS)[number];
 
 const manuallyAssignedPermissions = new Set<string>(PARTNER_SALES_PERMISSIONS);
+const broadAutoManagedRoleSlugs = new Set<string>(
+  BROAD_AUTO_MANAGED_ROLE_SLUGS,
+);
 
 export function isAutomaticallyGrantedPermission(permission: PermissionKey) {
   return !manuallyAssignedPermissions.has(permission);
+}
+
+export function shouldRemoveAutoManagedPartnerSalesGrant(
+  roleSlug: string,
+  permission: string,
+) {
+  return (
+    broadAutoManagedRoleSlugs.has(roleSlug) &&
+    manuallyAssignedPermissions.has(permission)
+  );
 }
 
 export type PermissionGrant = {

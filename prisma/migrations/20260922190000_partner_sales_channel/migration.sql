@@ -359,6 +359,14 @@ FROM unnest(ARRAY[
 ]) AS permission_key
 ON CONFLICT ("key") DO NOTHING;
 
+-- Remove stale broad-role grants while preserving explicitly configured custom roles.
+DELETE FROM "RolePermission" AS role_permission
+USING "Role" AS role, "Permission" AS permission
+WHERE role_permission."roleId" = role."id"
+  AND role_permission."permissionId" = permission."id"
+  AND role."slug" IN ('super-administrator', 'administrator')
+  AND permission."key" IN ('partner_sales.profile.approve', 'partner_sales.catalogue.manage', 'partner_sales.pricing.approve', 'partner_sales.commission.manage', 'partner_sales.payout.prepare', 'partner_sales.payout.approve');
+
 -- The channel remains unavailable until an explicit controlled-rollout update.
 INSERT INTO "SiteSetting" ("id", "key", "value", "description", "isSensitive", "createdAt", "updatedAt")
 VALUES (
