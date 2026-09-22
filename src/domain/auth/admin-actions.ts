@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { isProtectedRoleRemoval, PERMISSIONS } from "@/domain/auth/permissions";
+import { rolePermissionRulesFromForm } from "@/domain/auth/role-permission-rules";
 import { requirePermission } from "@/domain/auth/session";
 import { STAFF_EMAIL_EVENTS } from "@/domain/notifications/role-email";
 import { enqueueEmail } from "@/integrations/email/outbox";
@@ -33,10 +34,7 @@ export async function saveRoleRules(formData: FormData) {
   if (role.slug === "super-administrator") throw new Error("The Super Administrator role always has unrestricted access.");
 
   const permissionRows = await prisma.permission.findMany({ where: { key: { in: [...PERMISSIONS] } } });
-  const rules = permissionRows.flatMap((permission) => {
-    const effect = formData.get(`permission:${permission.key}`);
-    return effect === "ALLOW" || effect === "DENY" ? [{ roleId, permissionId: permission.id, effect: effect as "ALLOW" | "DENY" }] : [];
-  });
+  const rules = rolePermissionRulesFromForm(roleId, permissionRows, formData);
 
   await prisma.$transaction(async (tx) => {
     await tx.rolePermission.deleteMany({ where: { roleId } });

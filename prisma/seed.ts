@@ -1,7 +1,7 @@
 import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
-import { PERMISSIONS } from "../src/domain/auth/permissions";
+import { isAutomaticallyGrantedPermission, PERMISSIONS } from "../src/domain/auth/permissions";
 import { hashPassword } from "../src/domain/auth/password";
 import { testDatabaseUrl } from "../src/lib/test-mode";
 
@@ -28,8 +28,8 @@ const roles = [
 ] as const;
 
 const rolePermissions: Record<string, readonly (typeof PERMISSIONS)[number][]> = {
-  "super-administrator": PERMISSIONS,
-  administrator: PERMISSIONS.filter((key) => key !== "users.manage" && key !== "rfq.approve" && key !== "rfq.commission.manage" && key !== "returns.refund.approve" && key !== "returns.refund.confirm" && !["transport.approve","transport.expense.approve","transport.payment.confirm","transport.reimbursement.approve","transport.profitability.view","transport.settings.manage"].includes(key)),
+  "super-administrator": PERMISSIONS.filter(isAutomaticallyGrantedPermission),
+  administrator: PERMISSIONS.filter((key) => isAutomaticallyGrantedPermission(key) && key !== "users.manage" && key !== "rfq.approve" && key !== "rfq.commission.manage" && key !== "returns.refund.approve" && key !== "returns.refund.confirm" && !["transport.approve","transport.expense.approve","transport.payment.confirm","transport.reimbursement.approve","transport.profitability.view","transport.settings.manage"].includes(key)),
   "mobile-admin": ["products.view","products.update","orders.view","orders.update","payments.approve","quotations.manage","customers.manage","inventory.manage","reports.view","marketing.dashboard.view","marketing.content.view","marketing.content.edit","marketing.content.publish","marketing.media.manage","marketing.analytics.view","returns.view","returns.review","partnership.view","partnership.request.view","partnership.request.manage","documents.download","documents.send","documents.history.view","transport.view","transport.edit","transport.assign","transport.collection.confirm","transport.delivery.confirm"],
   sales: ["products.view", "orders.view", "orders.update", "quotations.manage", "customers.manage", "partnership.view", "partnership.application.review", "partnership.request.view", "partnership.request.manage", "rfq.view", "rfq.create", "rfq.update", "rfq.analyse", "rfq.price", "rfq.submit", "rfq.assign", "rfq.financials.view","documents.download","documents.send","documents.history.view","documents.resend"],
   finance: ["orders.view", "payments.approve", "reports.view", "rfq.view", "rfq.price", "rfq.approve", "rfq.reject", "rfq.financials.view", "rfq.commission.manage","documents.download","documents.send","documents.history.view","documents.resend","returns.view","returns.refund.pay","returns.refund.confirm","returns.financial.view","transport.view","transport.approve","transport.expense.approve","transport.payment.create","transport.payment.confirm","transport.reimbursement.approve","transport.profitability.view","transport.reports.view"],

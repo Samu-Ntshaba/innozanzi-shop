@@ -14,22 +14,10 @@ import {
   saveRoleRules,
 } from "@/domain/auth/admin-actions";
 import { inviteUser, resendUserInvitation } from "@/domain/auth/invitations";
-import { PERMISSIONS } from "@/domain/auth/permissions";
+import { PERMISSION_GROUPS } from "@/domain/auth/permission-groups";
 import { requirePermission } from "@/domain/auth/session";
 import { prisma } from "@/lib/prisma";
 import { STAFF_EMAIL_EVENTS } from "@/domain/notifications/role-email";
-
-const permissionGroups = [
-  ["Catalogue", PERMISSIONS.filter((permission) => permission.startsWith("products.") || permission.startsWith("inventory."))],
-  ["Sales and fulfilment", PERMISSIONS.filter((permission) => ["orders.", "payments.", "quotations.", "customers."].some((prefix) => permission.startsWith(prefix)))],
-  ["RFQs and tenders", PERMISSIONS.filter((permission) => permission.startsWith("rfq."))],
-  ["Returns and service", PERMISSIONS.filter((permission) => permission.startsWith("returns."))],
-  ["Transport and logistics", PERMISSIONS.filter((permission) => permission.startsWith("transport."))],
-  ["Partnerships", PERMISSIONS.filter((permission) => permission.startsWith("partnership."))],
-  ["Marketing", PERMISSIONS.filter((permission) => permission.startsWith("marketing."))],
-  ["Documents", PERMISSIONS.filter((permission) => permission.startsWith("documents."))],
-  ["Reporting and system", PERMISSIONS.filter((permission) => ["reports.", "users.", "settings."].some((prefix) => permission.startsWith(prefix)))],
-] as const;
 
 type AccessControlPageProps = {
   searchParams: Promise<{ role?: string; tab?: string }>;
@@ -343,7 +331,7 @@ function RolePermissionForm({ role }: { role: RoleWithPermissions }) {
     <form action={saveRoleRules} className="mt-4">
       <input type="hidden" name="roleId" value={role.id} />
       <div className="space-y-2">
-        {permissionGroups.map(([group, permissions], index) => (
+        {PERMISSION_GROUPS.map(([group, permissions], index) => (
           <details className="border border-slate-300" key={group} open={index === 0}>
             <summary className="flex cursor-pointer list-none items-center justify-between gap-3 bg-slate-50 px-3 py-2 text-sm font-semibold [&::-webkit-details-marker]:hidden">
               <span>{group}</span>

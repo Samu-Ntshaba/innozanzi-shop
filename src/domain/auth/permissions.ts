@@ -1,5 +1,14 @@
 import type { PermissionEffect } from "@/generated/prisma/enums";
 
+export const PARTNER_SALES_PERMISSIONS = [
+  "partner_sales.profile.approve",
+  "partner_sales.catalogue.manage",
+  "partner_sales.pricing.approve",
+  "partner_sales.commission.manage",
+  "partner_sales.payout.prepare",
+  "partner_sales.payout.approve",
+] as const;
+
 export const PERMISSIONS = [
   "products.view",
   "products.create",
@@ -31,12 +40,7 @@ export const PERMISSIONS = [
   "partnership.pricing.manage",
   "partnership.settings.manage",
   "partnership.report.view",
-  "partner_sales.profile.approve",
-  "partner_sales.catalogue.manage",
-  "partner_sales.pricing.approve",
-  "partner_sales.commission.manage",
-  "partner_sales.payout.prepare",
-  "partner_sales.payout.approve",
+  ...PARTNER_SALES_PERMISSIONS,
   "rfq.view",
   "rfq.create",
   "rfq.update",
@@ -131,6 +135,12 @@ export const PERMISSIONS = [
 ] as const;
 
 export type PermissionKey = (typeof PERMISSIONS)[number];
+
+const manuallyAssignedPermissions = new Set<string>(PARTNER_SALES_PERMISSIONS);
+
+export function isAutomaticallyGrantedPermission(permission: PermissionKey) {
+  return !manuallyAssignedPermissions.has(permission);
+}
 
 export type PermissionGrant = {
   key: string;
