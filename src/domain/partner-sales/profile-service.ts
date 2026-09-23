@@ -30,16 +30,16 @@ export class PartnerSalesProfileError extends Error {
 const allowedLogoTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
 const markupOrExecutableContent = /[<>]|javascript:|data:text\/html|on\w+\s*=/i;
 
-const optionalText = (max: number) =>
-  z.preprocess(
-    (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
-    z.string().trim().max(max).optional(),
+const plainText = (min: number, max: number) =>
+  z.string().trim().min(min).max(max).refine(
+    (value) => !value || !markupOrExecutableContent.test(value),
+    "Branding fields must be plain text without markup or executable content.",
   );
 
 const optionalPlainText = (max: number) =>
-  optionalText(max).refine(
-    (value) => !value || !markupOrExecutableContent.test(value),
-    "Footer copy must be plain text without markup or executable content.",
+  z.preprocess(
+    (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
+    plainText(0, max).optional(),
   );
 
 function normalizePublicSlug(value: string) {
@@ -65,16 +65,16 @@ const saveProfileSchema = z
           .max(80)
           .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Enter a valid public slug."),
       ),
-    displayName: z.string().trim().min(2).max(120),
-    legalName: optionalText(200),
-    registrationNumber: optionalText(100),
-    vatNumber: optionalText(100),
-    contactName: optionalText(120),
+    displayName: plainText(2, 120),
+    legalName: optionalPlainText(200),
+    registrationNumber: optionalPlainText(100),
+    vatNumber: optionalPlainText(100),
+    contactName: optionalPlainText(120),
     contactEmail: z.preprocess(
       (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
       z.string().trim().toLowerCase().email().max(254).optional(),
     ),
-    contactPhone: optionalText(40),
+    contactPhone: optionalPlainText(40),
     footerText: optionalPlainText(500),
     themePreset: z.enum(PARTNER_THEME_PRESETS),
     defaultCommissionMethod: z.enum(["PERCENTAGE", "FIXED_AMOUNT"]),
@@ -199,6 +199,8 @@ function profileIsReady(profile: {
 }
 
 function profileSnapshot(profile: {
+  id: string;
+  partnershipId: string;
   publicSlug: string;
   status: PartnerSalesProfileStatus;
   displayName: string;
@@ -214,8 +216,16 @@ function profileSnapshot(profile: {
   defaultCommissionMethod: string;
   defaultCommissionValue: { toString(): string };
   publicCatalogueEnabled: boolean;
+  approvedAt: Date | null;
+  approvedById: string | null;
+  suspendedAt: Date | null;
+  revokedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
 }) {
   return {
+    id: profile.id,
+    partnershipId: profile.partnershipId,
     publicSlug: profile.publicSlug,
     status: profile.status,
     displayName: profile.displayName,
@@ -231,6 +241,12 @@ function profileSnapshot(profile: {
     defaultCommissionMethod: profile.defaultCommissionMethod,
     defaultCommissionValue: profile.defaultCommissionValue.toString(),
     publicCatalogueEnabled: profile.publicCatalogueEnabled,
+    approvedAt: profile.approvedAt?.toISOString() ?? null,
+    approvedById: profile.approvedById,
+    suspendedAt: profile.suspendedAt?.toISOString() ?? null,
+    revokedAt: profile.revokedAt?.toISOString() ?? null,
+    createdAt: profile.createdAt.toISOString(),
+    updatedAt: profile.updatedAt.toISOString(),
   };
 }
 
@@ -306,36 +322,38 @@ export async function savePartnerSalesProfile(
 ) {
   assertProfilePermission(actor);
   const data = saveProfileSchema.parse(input);
-  const [partnership, existing, collision] = await Promise.all([
-    prisma.partnership.findUnique({
-      where: { id: data.partnershipId },
-      select: { id: true },
-    }),
-    prisma.partnerSalesProfile.findUnique({
-      where: { partnershipId: data.partnershipId },
-    }),
-    prisma.partnerSalesProfile.findFirst({
-      where: {
-        publicSlug: data.publicSlug,
-        partnershipId: { not: data.partnershipId },
-      },
-      select: { id: true },
-    }),
-  ]);
-  if (!partnership) throw new PartnerSalesProfileError("Partnership not found.");
-  if (collision) {
-    throw new PartnerSalesProfileError("This public slug is already in use.");
-  }
-  if (existing && ["ACTIVE", "SUSPENDED", "CLOSED"].includes(existing.status)) {
-    throw new PartnerSalesProfileError(
-      "Suspend or close the active profile before changing approved branding.",
-    );
-  }
-
   const preparedLogo = await prepareLogo(data.partnershipId, data.logo);
   const storage = preparedLogo ? createSupabaseAdmin() : null;
   try {
     return await prisma.$transaction(async (tx) => {
+      const [partnership, existing, collision] = await Promise.all([
+        tx.partnership.findUnique({
+          where: { id: data.partnershipId },
+          select: { id: true },
+        }),
+        tx.partnerSalesProfile.findUnique({
+          where: { partnershipId: data.partnershipId },
+        }),
+        tx.partnerSalesProfile.findFirst({
+          where: {
+            publicSlug: data.publicSlug,
+            partnershipId: { not: data.partnershipId },
+          },
+          select: { id: true },
+        }),
+      ]);
+      if (!partnership) {
+        throw new PartnerSalesProfileError("Partnership not found.");
+      }
+      if (collision) {
+        throw new PartnerSalesProfileError("This public slug is already in use.");
+      }
+      if (existing && ["ACTIVE", "SUSPENDED", "CLOSED"].includes(existing.status)) {
+        throw new PartnerSalesProfileError(
+          "Suspend or close the active profile before changing approved branding.",
+        );
+      }
+
       let logoDocumentId = existing?.logoDocumentId ?? null;
       if (preparedLogo) {
         const document = await tx.uploadedDocument.create({
@@ -367,24 +385,35 @@ export async function savePartnerSalesProfile(
         defaultCommissionValue: new Decimal(data.defaultCommissionValue),
         publicCatalogueEnabled: data.publicCatalogueEnabled,
       };
-      const saved = existing
-        ? await tx.partnerSalesProfile.update({
-            where: { id: existing.id },
-            data: {
-              ...values,
-              status:
-                existing.status === "CHANGES_REQUIRED"
-                  ? "PROFILE_INCOMPLETE"
-                  : existing.status,
-            },
-          })
-        : await tx.partnerSalesProfile.create({
+      let saved;
+      if (existing) {
+        const updated = await tx.partnerSalesProfile.updateMany({
+          where: { id: existing.id, status: existing.status },
+          data: {
+            ...values,
+            status:
+              existing.status === "CHANGES_REQUIRED"
+                ? "PROFILE_INCOMPLETE"
+                : existing.status,
+          },
+        });
+        if (updated.count !== 1) {
+          throw new PartnerSalesProfileError(
+            "This profile changed by another administrator. Reload the page and try again.",
+          );
+        }
+        saved = await tx.partnerSalesProfile.findUniqueOrThrow({
+          where: { id: existing.id },
+        });
+      } else {
+        saved = await tx.partnerSalesProfile.create({
             data: {
               partnershipId: data.partnershipId,
               ...values,
               status: "PROFILE_INCOMPLETE",
             },
           });
+      }
       await tx.auditLog.create({
         data: {
           actorId: actor.user.id,
@@ -396,7 +425,7 @@ export async function savePartnerSalesProfile(
         },
       });
       return saved;
-    });
+    }, { isolationLevel: "Serializable" });
   } catch (error) {
     if (preparedLogo && storage) {
       await storage.storage
@@ -520,9 +549,17 @@ export async function transitionPartnerSalesProfile(
                   approvedById: null,
                 }
               : { status: data.status, publicCatalogueEnabled: false };
-    const saved = await tx.partnerSalesProfile.update({
-      where: { id: profile.id },
+    const updated = await tx.partnerSalesProfile.updateMany({
+      where: { id: profile.id, status: profile.status },
       data: lifecycleData,
+    });
+    if (updated.count !== 1) {
+      throw new PartnerSalesProfileError(
+        "This profile changed by another administrator. Reload the page and try again.",
+      );
+    }
+    const saved = await tx.partnerSalesProfile.findUniqueOrThrow({
+      where: { id: profile.id },
     });
     await tx.auditLog.create({
       data: {
@@ -530,10 +567,10 @@ export async function transitionPartnerSalesProfile(
         action: `partner-sales.profile.${data.status.toLowerCase()}`,
         entityType: "PartnerSalesProfile",
         entityId: profile.id,
-        before: { status: profile.status },
-        after: { status: data.status, reason: data.reason },
+        before: profileSnapshot(profile),
+        after: { ...profileSnapshot(saved), reason: data.reason },
       },
     });
     return saved;
-  });
+  }, { isolationLevel: "Serializable" });
 }

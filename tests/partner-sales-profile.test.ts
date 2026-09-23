@@ -6,6 +6,8 @@ const mocks = vi.hoisted(() => {
   const profileFindFirst = vi.fn();
   const profileCreate = vi.fn();
   const profileUpdate = vi.fn();
+  const profileUpdateMany = vi.fn();
+  const profileFindUniqueOrThrow = vi.fn();
   const partnershipFindUnique = vi.fn();
   const documentCreate = vi.fn();
   const auditCreate = vi.fn();
@@ -23,6 +25,8 @@ const mocks = vi.hoisted(() => {
       findFirst: profileFindFirst,
       create: profileCreate,
       update: profileUpdate,
+      updateMany: profileUpdateMany,
+      findUniqueOrThrow: profileFindUniqueOrThrow,
     },
     partnership: { findUnique: partnershipFindUnique },
     uploadedDocument: { create: documentCreate },
@@ -35,6 +39,8 @@ const mocks = vi.hoisted(() => {
     profileFindFirst,
     profileCreate,
     profileUpdate,
+    profileUpdateMany,
+    profileFindUniqueOrThrow,
     partnershipFindUnique,
     documentCreate,
     auditCreate,
@@ -152,6 +158,8 @@ const existingProfile = {
   approvedById: null,
   suspendedAt: null,
   revokedAt: null,
+  createdAt: new Date("2026-09-22T08:00:00.000Z"),
+  updatedAt: new Date("2026-09-22T09:00:00.000Z"),
 };
 
 const validInput = {
@@ -178,6 +186,11 @@ describe("partner sales profile service", () => {
     mocks.profileFindUnique.mockResolvedValue(existingProfile);
     mocks.profileFindFirst.mockResolvedValue(null);
     mocks.profileUpdate.mockResolvedValue({
+      ...existingProfile,
+      publicSlug: "acme-business",
+    });
+    mocks.profileUpdateMany.mockResolvedValue({ count: 1 });
+    mocks.profileFindUniqueOrThrow.mockResolvedValue({
       ...existingProfile,
       publicSlug: "acme-business",
     });
@@ -251,6 +264,20 @@ describe("partner sales profile service", () => {
     expect(mocks.transaction).not.toHaveBeenCalled();
   });
 
+  it.each([
+    ["displayName", "<img src=x onerror=alert(1)>"],
+    ["legalName", "<b>Acme Legal</b>"],
+    ["registrationNumber", "2026/123<script>"],
+    ["vatNumber", "javascript:alert(1)"],
+    ["contactName", "<svg onload=alert(1)>"],
+    ["contactPhone", "<a href=tel:+27115550100>call</a>"],
+  ])("rejects markup or executable content in %s", async (field, value) => {
+    await expect(
+      savePartnerSalesProfile({ ...validInput, [field]: value }, actor),
+    ).rejects.toThrow(/plain text/i);
+    expect(mocks.transaction).not.toHaveBeenCalled();
+  });
+
   it("denies callers without the dedicated profile approval permission", async () => {
     await expect(
       savePartnerSalesProfile(validInput, { ...actor, grants: [] }),
@@ -283,8 +310,9 @@ describe("partner sales profile service", () => {
         isPrivate: false,
       }),
     });
-    expect(mocks.profileUpdate).toHaveBeenCalledWith(
+    expect(mocks.profileUpdateMany).toHaveBeenCalledWith(
       expect.objectContaining({
+        where: { id: PROFILE_ID, status: "PROFILE_INCOMPLETE" },
         data: expect.objectContaining({
           logoDocumentId: "66666666-6666-4666-8666-666666666666",
         }),
@@ -295,8 +323,8 @@ describe("partner sales profile service", () => {
   it("writes before and after snapshots to the audit log in the save transaction", async () => {
     await savePartnerSalesProfile(validInput, actor);
 
-    expect(mocks.profileUpdate).toHaveBeenCalledWith({
-      where: { id: PROFILE_ID },
+    expect(mocks.profileUpdateMany).toHaveBeenCalledWith({
+      where: { id: PROFILE_ID, status: "PROFILE_INCOMPLETE" },
       data: expect.objectContaining({
         publicSlug: "acme-business",
         displayName: "Acme Business",
@@ -316,6 +344,20 @@ describe("partner sales profile service", () => {
         }),
       }),
     });
+  });
+
+  it("does not save or audit when the profile status changes concurrently", async () => {
+    mocks.profileUpdateMany.mockResolvedValue({ count: 0 });
+
+    await expect(savePartnerSalesProfile(validInput, actor)).rejects.toThrow(
+      /changed by another administrator/i,
+    );
+    expect(mocks.profileUpdateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: PROFILE_ID, status: "PROFILE_INCOMPLETE" },
+      }),
+    );
+    expect(mocks.auditCreate).not.toHaveBeenCalled();
   });
 
   it("denies a partner owner from approving their own sales profile", async () => {
@@ -385,9 +427,18 @@ describe("partner sales profile service", () => {
   });
 
   it("activates a ready profile and audits the lifecycle transition", async () => {
+    const approvedAt = new Date("2026-09-23T10:00:00.000Z");
+    const updatedAt = new Date("2026-09-23T10:00:01.000Z");
     mocks.profileFindUnique.mockResolvedValue({
       ...existingProfile,
       status: "ADMIN_REVIEW",
+    });
+    mocks.profileFindUniqueOrThrow.mockResolvedValue({
+      ...existingProfile,
+      status: "ACTIVE",
+      approvedAt,
+      approvedById: ADMIN_ID,
+      updatedAt,
     });
 
     await transitionPartnerSalesProfile(
@@ -399,24 +450,75 @@ describe("partner sales profile service", () => {
       actor,
     );
 
-    expect(mocks.profileUpdate).toHaveBeenCalledWith({
-      where: { id: PROFILE_ID },
+    expect(mocks.profileUpdateMany).toHaveBeenCalledWith({
+      where: { id: PROFILE_ID, status: "ADMIN_REVIEW" },
       data: expect.objectContaining({
         status: "ACTIVE",
         approvedById: ADMIN_ID,
         approvedAt: expect.any(Date),
       }),
     });
-    expect(mocks.auditCreate).toHaveBeenCalledWith({
-      data: expect.objectContaining({
-        action: "partner-sales.profile.active",
-        before: expect.objectContaining({ status: "ADMIN_REVIEW" }),
-        after: expect.objectContaining({
-          status: "ACTIVE",
-          reason: "Brand and legal details approved.",
-        }),
-      }),
+    const audit = mocks.auditCreate.mock.calls.at(-1)?.[0].data;
+    const baseSnapshot = {
+      id: PROFILE_ID,
+      partnershipId: PARTNERSHIP_ID,
+      publicSlug: "acme-business",
+      displayName: "Acme Business",
+      legalName: "Acme Business (Pty) Ltd",
+      registrationNumber: "2026/123456/07",
+      vatNumber: null,
+      logoDocumentId: "55555555-5555-4555-8555-555555555555",
+      contactName: "Alex Partner",
+      contactEmail: "alex@acme.example",
+      contactPhone: "+27 11 555 0100",
+      footerText: "Sales support from Acme Business.",
+      themePreset: "OCEAN",
+      defaultCommissionMethod: "PERCENTAGE",
+      defaultCommissionValue: "7.5",
+      publicCatalogueEnabled: false,
+      suspendedAt: null,
+      revokedAt: null,
+      createdAt: existingProfile.createdAt.toISOString(),
+    };
+    expect(audit).toEqual(expect.objectContaining({
+      action: "partner-sales.profile.active",
+      before: {
+        ...baseSnapshot,
+        status: "ADMIN_REVIEW",
+        approvedAt: null,
+        approvedById: null,
+        updatedAt: existingProfile.updatedAt.toISOString(),
+      },
+      after: {
+        ...baseSnapshot,
+        status: "ACTIVE",
+        approvedAt: approvedAt.toISOString(),
+        approvedById: ADMIN_ID,
+        updatedAt: updatedAt.toISOString(),
+        reason: "Brand and legal details approved.",
+      },
+    }));
+  });
+
+  it("does not transition or audit when the expected status changes concurrently", async () => {
+    mocks.profileFindUnique.mockResolvedValue({
+      ...existingProfile,
+      status: "ADMIN_REVIEW",
     });
+    mocks.profileUpdateMany.mockResolvedValue({ count: 0 });
+
+    await expect(
+      transitionPartnerSalesProfile(
+        { partnershipId: PARTNERSHIP_ID, status: "ACTIVE" },
+        actor,
+      ),
+    ).rejects.toThrow(/changed by another administrator/i);
+    expect(mocks.profileUpdateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: PROFILE_ID, status: "ADMIN_REVIEW" },
+      }),
+    );
+    expect(mocks.auditCreate).not.toHaveBeenCalled();
   });
 });
 
@@ -429,6 +531,8 @@ describe("partner sales profile POST route", () => {
     mocks.profileFindUnique.mockResolvedValue(existingProfile);
     mocks.profileFindFirst.mockResolvedValue(null);
     mocks.profileUpdate.mockResolvedValue(existingProfile);
+    mocks.profileUpdateMany.mockResolvedValue({ count: 1 });
+    mocks.profileFindUniqueOrThrow.mockResolvedValue(existingProfile);
     mocks.auditCreate.mockResolvedValue({ id: "audit-route" });
     mocks.auditFindFirst.mockResolvedValue(null);
   });
@@ -489,7 +593,7 @@ describe("partner sales profile POST route", () => {
   });
 
   it("does not disclose unexpected storage or database diagnostics in redirects", async () => {
-    mocks.profileUpdate.mockRejectedValue(
+    mocks.profileUpdateMany.mockRejectedValue(
       new Error("postgres://secret-user:secret-password@private-db"),
     );
     const form = new FormData();
