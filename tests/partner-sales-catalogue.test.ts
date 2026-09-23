@@ -4,6 +4,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 const mocks = vi.hoisted(() => {
   const profileFindUnique = vi.fn();
   const assignmentFindUnique = vi.fn();
+  const assignmentFindFirst = vi.fn();
   const assignmentCreate = vi.fn();
   const assignmentUpdateMany = vi.fn();
   const auditCreate = vi.fn();
@@ -19,6 +20,7 @@ const mocks = vi.hoisted(() => {
     partnerSalesProfile: { findUnique: profileFindUnique },
     partnerCatalogueAssignment: {
       findUnique: assignmentFindUnique,
+      findFirst: assignmentFindFirst,
       create: assignmentCreate,
       updateMany: assignmentUpdateMany,
     },
@@ -32,6 +34,7 @@ const mocks = vi.hoisted(() => {
     ...tx,
     profileFindUnique,
     assignmentFindUnique,
+    assignmentFindFirst,
     assignmentCreate,
     assignmentUpdateMany,
     auditCreate,
@@ -99,7 +102,11 @@ const PROFILE_ID = "22222222-2222-4222-8222-222222222222";
 const ASSIGNMENT_ID = "33333333-3333-4333-8333-333333333333";
 const PRODUCT_ID = "44444444-4444-4444-8444-444444444444";
 const ADMIN_ID = "55555555-5555-4555-8555-555555555555";
+const SUPPLIER_PRODUCT_ID = "66666666-6666-4666-8666-666666666666";
+const COMBO_ID = "77777777-7777-4777-8777-777777777777";
 const NOW = new Date("2026-09-23T10:00:00.000Z");
+
+const decimal = (value: string) => ({ toString: () => value });
 
 const actor = {
   user: { id: ADMIN_ID },
@@ -139,6 +146,61 @@ const product = {
   internalNote: "SECRET INTERNAL NOTE",
   protectedFloor: "SECRET FLOOR",
   margin: "SECRET MARGIN",
+};
+
+const supplierProduct = {
+  id: SUPPLIER_PRODUCT_ID,
+  name: "Vendor Business Display",
+  manufacturerSku: "DISPLAY-27",
+  shortDescription: "A business display for productive teams.",
+  description: "A supplier-sourced business display.",
+  active: true,
+  displayPreferred: true,
+  availability: "IN_STOCK",
+  stock: 12,
+  costPrice: decimal("6000.00"),
+  recommendedRetail: decimal("8999.00"),
+  promotionalPrice: decimal("5500.00"),
+  promotionStartsAt: new Date("2026-09-22T00:00:00.000Z"),
+  promotionEndsAt: new Date("2026-09-24T00:00:00.000Z"),
+  images: [
+    "https://media.secret-supplier.example/catalogue/private/display-27.jpg",
+  ],
+  lastSeenAt: NOW,
+  feed: { enabled: true, lastSuccessAt: NOW },
+  supplier: {
+    purchasingEnabled: true,
+    approvalStatus: "APPROVED",
+    companyName: "SECRET SUPPLIER HOST OWNER",
+  },
+};
+
+const comboCampaign = {
+  id: COMBO_ID,
+  slug: "business-desk-bundle",
+  name: "Business Desk Bundle",
+  headline: "Equip a productive desk",
+  description: "A current display bundle for business teams.",
+  type: "CUSTOM",
+  status: "ACTIVE",
+  startsAt: new Date("2026-09-20T00:00:00.000Z"),
+  endsAt: new Date("2026-09-30T00:00:00.000Z"),
+  normalPrice: decimal("9999.00"),
+  comboPrice: decimal("9499.00"),
+  estimatedCost: decimal("5500.00"),
+  imageUrl: "https://assets.example/business-desk-bundle.webp",
+  mobileImageUrl: null,
+  isTestData: false,
+  approvedAt: new Date("2026-09-20T08:00:00.000Z"),
+  approvedById: ADMIN_ID,
+  items: [
+    {
+      id: "88888888-8888-4888-8888-888888888888",
+      quantity: 1,
+      product: null,
+      supplierCatalogueProduct: supplierProduct,
+    },
+  ],
 };
 
 const activeProfile = {
@@ -186,15 +248,37 @@ function assignInput() {
   };
 }
 
+function supplierAssignInput() {
+  return {
+    ...assignInput(),
+    sourceType: "SUPPLIER_CATALOGUE_PRODUCT" as const,
+    sourceId: SUPPLIER_PRODUCT_ID,
+    presentationTitle: "Business display",
+  };
+}
+
+function comboAssignInput() {
+  return {
+    ...assignInput(),
+    sourceType: "COMBO" as const,
+    sourceId: COMBO_ID,
+    presentationTitle: "Business desk bundle",
+  };
+}
+
 describe("partner catalogue assignment service", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    activeProfile.catalogueAssignments = [];
     mocks.settingFindUnique.mockResolvedValue({ value: { enabled: true } });
     mocks.profileFindUnique.mockImplementation(({ where }: { where: Record<string, string> }) =>
       "partnershipId" in where ? activeProfile : activeProfile,
     );
     mocks.productFindUnique.mockResolvedValue(product);
+    mocks.supplierProductFindUnique.mockResolvedValue(supplierProduct);
+    mocks.comboFindUnique.mockResolvedValue(comboCampaign);
     mocks.assignmentFindUnique.mockResolvedValue(null);
+    mocks.assignmentFindFirst.mockResolvedValue(null);
     mocks.assignmentUpdateMany.mockResolvedValue({ count: 1 });
     mocks.assignmentCreate.mockImplementation(({ data }: { data: Record<string, unknown> }) =>
       Promise.resolve({
@@ -265,6 +349,51 @@ describe("partner catalogue assignment service", () => {
     expect(mocks.transaction).not.toHaveBeenCalled();
   });
 
+  it("denies a caller-supplied profile identity instead of allowing cross-partner assignment", async () => {
+    await expect(
+      assignCatalogueItem(
+        { ...assignInput(), profileId: OTHER_PARTNERSHIP_ID },
+        actor,
+        NOW,
+      ),
+    ).rejects.toThrow();
+    expect(mocks.transaction).not.toHaveBeenCalled();
+  });
+
+  it("rejects CAMPAIGN because ComboCampaign has no combo-versus-campaign discriminator", async () => {
+    await expect(
+      assignCatalogueItem(
+        { ...comboAssignInput(), sourceType: "CAMPAIGN" },
+        actor,
+        NOW,
+      ),
+    ).rejects.toThrow(/source type|campaign/i);
+    expect(mocks.comboFindUnique).not.toHaveBeenCalled();
+    expect(mocks.assignmentCreate).not.toHaveBeenCalled();
+  });
+
+  it("does not double-assign a combo UUID already stored under the legacy CAMPAIGN identity", async () => {
+    mocks.assignmentFindFirst.mockResolvedValue({
+      id: ASSIGNMENT_ID,
+      profileId: PROFILE_ID,
+      sourceType: "CAMPAIGN",
+      sourceId: COMBO_ID,
+      status: "ACTIVE",
+    });
+
+    await expect(
+      assignCatalogueItem(comboAssignInput(), actor, NOW),
+    ).rejects.toThrow(/already assigned/i);
+    expect(mocks.assignmentFindFirst).toHaveBeenCalledWith({
+      where: {
+        profileId: PROFILE_ID,
+        sourceId: COMBO_ID,
+        sourceType: { in: ["COMBO", "CAMPAIGN"] },
+      },
+    });
+    expect(mocks.assignmentCreate).not.toHaveBeenCalled();
+  });
+
   it("omits withdrawn and expired assignments from the public catalogue", async () => {
     const assignment = await assignCatalogueItem(assignInput(), actor, NOW);
     activeProfile.catalogueAssignments = [
@@ -303,6 +432,60 @@ describe("partner catalogue assignment service", () => {
       ...activeProfile,
       status: "SUSPENDED",
     });
+
+    await expect(partnerCatalogue("acme-business", NOW)).resolves.toBeNull();
+    expect(mocks.productFindUnique).not.toHaveBeenCalled();
+  });
+
+  it("returns no catalogue while the partner-sales feature is disabled", async () => {
+    mocks.settingFindUnique.mockResolvedValue({ value: { enabled: false } });
+
+    await expect(partnerCatalogue("acme-business", NOW)).resolves.toBeNull();
+    expect(mocks.profileFindUnique).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["approval timestamp", { approvedAt: null }],
+    ["approval actor", { approvedById: null }],
+    ["catalogue publishing", { publicCatalogueEnabled: false }],
+    [
+      "partnership suspension",
+      {
+        partnership: {
+          ...activeProfile.partnership,
+          suspendedAt: new Date("2026-09-23T09:00:00.000Z"),
+        },
+      },
+    ],
+    [
+      "partnership termination",
+      {
+        partnership: {
+          ...activeProfile.partnership,
+          terminatedAt: new Date("2026-09-23T09:00:00.000Z"),
+        },
+      },
+    ],
+    [
+      "active agreement",
+      {
+        partnership: { ...activeProfile.partnership, agreement: null },
+      },
+    ],
+    [
+      "unexpired agreement",
+      {
+        partnership: {
+          ...activeProfile.partnership,
+          agreement: {
+            status: "ACTIVE",
+            expiresAt: new Date("2026-09-23T09:59:59.000Z"),
+          },
+        },
+      },
+    ],
+  ])("requires %s before publishing", async (_gate, override) => {
+    mocks.profileFindUnique.mockResolvedValue({ ...activeProfile, ...override });
 
     await expect(partnerCatalogue("acme-business", NOW)).resolves.toBeNull();
     expect(mocks.productFindUnique).not.toHaveBeenCalled();
@@ -361,6 +544,67 @@ describe("partner catalogue assignment service", () => {
     const catalogue = await partnerCatalogue("acme-business", NOW);
 
     expect(catalogue?.items).toEqual([]);
+  });
+
+  it("invalidates a supplier assignment when its promotion window changes", async () => {
+    const assignment = await assignCatalogueItem(
+      supplierAssignInput(),
+      actor,
+      NOW,
+    );
+    activeProfile.catalogueAssignments = [assignment];
+    mocks.supplierProductFindUnique.mockResolvedValue({
+      ...supplierProduct,
+      promotionEndsAt: new Date("2026-09-23T09:59:59.000Z"),
+    });
+
+    const catalogue = await partnerCatalogue("acme-business", NOW);
+
+    expect(catalogue?.items).toEqual([]);
+  });
+
+  it("invalidates a combo when a supplier component promotion changes", async () => {
+    const assignment = await assignCatalogueItem(comboAssignInput(), actor, NOW);
+    activeProfile.catalogueAssignments = [assignment];
+    mocks.comboFindUnique.mockResolvedValue({
+      ...comboCampaign,
+      items: [
+        {
+          ...comboCampaign.items[0],
+          supplierCatalogueProduct: {
+            ...supplierProduct,
+            promotionalPrice: decimal("5250.00"),
+          },
+        },
+      ],
+    });
+
+    const catalogue = await partnerCatalogue("acme-business", NOW);
+
+    expect(catalogue?.items).toEqual([]);
+  });
+
+  it("never snapshots or publishes a supplier-hosted media URL", async () => {
+    const assignment = await assignCatalogueItem(
+      supplierAssignInput(),
+      actor,
+      NOW,
+    );
+    expect(assignment.mediaSnapshot).toEqual([]);
+    activeProfile.catalogueAssignments = [assignment];
+
+    const catalogue = await partnerCatalogue("acme-business", NOW);
+    const html = renderToStaticMarkup(
+      await PublicPartnerCataloguePage({
+        params: Promise.resolve({ partnerSlug: "acme-business" }),
+      }),
+    );
+
+    expect(catalogue?.items[0]?.image).toBeNull();
+    expect(JSON.stringify(catalogue)).not.toContain("secret-supplier.example");
+    expect(JSON.stringify(catalogue)).not.toContain("/catalogue/private/");
+    expect(html).not.toContain("secret-supplier.example");
+    expect(html).not.toContain("/catalogue/private/");
   });
 
   it("withdraws with an optimistic state check and audited reason", async () => {
@@ -444,12 +688,26 @@ describe("partner catalogue assignment service", () => {
 describe("partner catalogue Admin route and page", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    activeProfile.catalogueAssignments = [
+      {
+        id: ASSIGNMENT_ID,
+        sourceType: "PRODUCT",
+        sourceId: PRODUCT_ID,
+        status: "ACTIVE",
+        visibleFrom: null,
+        visibleUntil: null,
+        presentationTitle: "Team-ready notebook",
+        approvedAt: NOW,
+        withdrawnAt: null,
+      },
+    ];
     vi.stubEnv("NEXT_PUBLIC_SITE_URL", "https://shop.example");
     mocks.settingFindUnique.mockResolvedValue({ value: { enabled: true } });
     mocks.requirePermission.mockResolvedValue(actor);
     mocks.profileFindUnique.mockResolvedValue(activeProfile);
     mocks.productFindUnique.mockResolvedValue(product);
     mocks.assignmentFindUnique.mockResolvedValue(null);
+    mocks.assignmentFindFirst.mockResolvedValue(null);
     mocks.assignmentCreate.mockImplementation(({ data }: { data: Record<string, unknown> }) =>
       Promise.resolve({ id: ASSIGNMENT_ID, ...data, createdAt: NOW, updatedAt: NOW }),
     );
@@ -503,6 +761,8 @@ describe("partner catalogue Admin route and page", () => {
     expect(html).toContain('action="/api/admin/partner-sales/catalogue"');
     expect(html).toContain('name="sourceType"');
     expect(html).toContain('value="SUPPLIER_CATALOGUE_PRODUCT"');
+    expect(html).toContain('value="COMBO"');
+    expect(html).not.toContain('value="CAMPAIGN"');
     expect(html).toContain("Withdraw");
     expect(html).not.toContain("SECRET COMMISSION");
   });

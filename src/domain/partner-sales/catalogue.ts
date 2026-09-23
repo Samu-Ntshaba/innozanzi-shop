@@ -5,7 +5,9 @@ import {
   hasPermission,
   type PermissionGrant,
 } from "@/domain/auth/permissions";
+import type { CommerceSettings } from "@/domain/commerce/config";
 import { getCommerceSettings } from "@/domain/commerce/settings";
+import { supplierRetailPrice } from "@/domain/catalogue/retail-pricing";
 import { partnerSalesSettings } from "@/domain/partner-sales/settings";
 import { prisma } from "@/lib/prisma";
 import { createSupabaseAdmin } from "@/lib/supabase";
@@ -14,10 +16,10 @@ const SOURCE_TYPES = [
   "PRODUCT",
   "SUPPLIER_CATALOGUE_PRODUCT",
   "COMBO",
-  "CAMPAIGN",
 ] as const;
 
-type CatalogueSourceType = (typeof SOURCE_TYPES)[number];
+type AssignableCatalogueSourceType = (typeof SOURCE_TYPES)[number];
+type CatalogueSourceType = AssignableCatalogueSourceType | "CAMPAIGN";
 type CatalogueDatabase = Pick<
   Prisma.TransactionClient,
   "product" | "supplierCatalogueProduct" | "comboCampaign"
@@ -79,7 +81,9 @@ const optionalDate = z.preprocess(
 const assignSchema = z
   .object({
     partnershipId: z.string().uuid(),
-    sourceType: z.enum(SOURCE_TYPES),
+    sourceType: z.enum(SOURCE_TYPES, {
+      error: "Unsupported catalogue source type. Campaign sources are not available.",
+    }),
     sourceId: z.string().uuid(),
     visibleFrom: optionalDate,
     visibleUntil: optionalDate,
@@ -282,32 +286,87 @@ async function resolveProductSource(
   };
 }
 
-function supplierEligibility(
+type SupplierEligibilityProduct = {
+  active: boolean;
+  displayPreferred: boolean;
+  availability: string;
+  stock: number;
+  costPrice: unknown;
+  recommendedRetail: unknown;
+  promotionalPrice: unknown;
+  promotionStartsAt: Date | null;
+  promotionEndsAt: Date | null;
+  images: string[];
+  lastSeenAt: Date;
+  feed: { enabled: boolean; lastSuccessAt: Date | null };
+  supplier: { purchasingEnabled: boolean; approvalStatus: string };
+};
+
+async function supplierEligibility(
   product: {
-    active: boolean;
-    displayPreferred: boolean;
-    availability: string;
-    stock: number;
-    costPrice: unknown;
-    images: string[];
-    lastSeenAt: Date;
-    feed: { enabled: boolean; lastSuccessAt: Date | null };
-    supplier: { purchasingEnabled: boolean; approvalStatus: string };
+    active: SupplierEligibilityProduct["active"];
+    displayPreferred: SupplierEligibilityProduct["displayPreferred"];
+    availability: SupplierEligibilityProduct["availability"];
+    stock: SupplierEligibilityProduct["stock"];
+    costPrice: SupplierEligibilityProduct["costPrice"];
+    recommendedRetail: SupplierEligibilityProduct["recommendedRetail"];
+    promotionalPrice: SupplierEligibilityProduct["promotionalPrice"];
+    promotionStartsAt: SupplierEligibilityProduct["promotionStartsAt"];
+    promotionEndsAt: SupplierEligibilityProduct["promotionEndsAt"];
+    images: SupplierEligibilityProduct["images"];
+    lastSeenAt: SupplierEligibilityProduct["lastSeenAt"];
+    feed: SupplierEligibilityProduct["feed"];
+    supplier: SupplierEligibilityProduct["supplier"];
   },
   now: Date,
-  freshnessHours: number,
+  settings: CommerceSettings,
 ) {
-  const freshSince = now.getTime() - freshnessHours * 60 * 60 * 1000;
-  const cost = decimalString(product.costPrice);
+  const freshSince =
+    now.getTime() - settings.freshnessHours * 60 * 60 * 1000;
+  const baseCost = decimalString(product.costPrice);
+  const recommendedRetail = decimalString(product.recommendedRetail);
+  const promotionalCost = decimalString(product.promotionalPrice);
+  if (!baseCost || Number(baseCost) <= 0) {
+    return {
+      baseCost,
+      effectiveCost: null,
+      promotion: {
+        active: false,
+        price: promotionalCost,
+        startsAt: product.promotionStartsAt?.toISOString() ?? null,
+        endsAt: product.promotionEndsAt?.toISOString() ?? null,
+      },
+      eligible: false,
+    };
+  }
+  const retail = await supplierRetailPrice(
+    {
+      costPrice: baseCost,
+      recommendedRetail,
+      promotionalPrice: promotionalCost,
+      promotionStartsAt: product.promotionStartsAt,
+      promotionEndsAt: product.promotionEndsAt,
+      now,
+    },
+    settings,
+  );
+  const effectiveCost = retail.promotionActive ? promotionalCost : baseCost;
   return {
-    cost,
+    baseCost,
+    effectiveCost,
+    promotion: {
+      active: retail.promotionActive,
+      price: promotionalCost,
+      startsAt: product.promotionStartsAt?.toISOString() ?? null,
+      endsAt: product.promotionEndsAt?.toISOString() ?? null,
+    },
     eligible: Boolean(
       product.active &&
         product.displayPreferred &&
         product.availability === "IN_STOCK" &&
         product.stock > 0 &&
-        cost &&
-        Number(cost) > 0 &&
+        effectiveCost &&
+        Number(effectiveCost) > 0 &&
         product.images.length > 0 &&
         product.lastSeenAt.getTime() >= freshSince &&
         product.feed.enabled &&
@@ -338,6 +397,10 @@ async function resolveSupplierSource(
         availability: true,
         stock: true,
         costPrice: true,
+        recommendedRetail: true,
+        promotionalPrice: true,
+        promotionStartsAt: true,
+        promotionEndsAt: true,
         images: true,
         lastSeenAt: true,
         feed: { select: { enabled: true, lastSuccessAt: true } },
@@ -349,22 +412,23 @@ async function resolveSupplierSource(
     getCommerceSettings(),
   ]);
   if (!product) return null;
-  const current = supplierEligibility(
-    product,
-    now,
-    settings.freshnessHours,
-  );
-  if (!current.eligible || !current.cost) return null;
+  const current = await supplierEligibility(product, now, settings);
+  if (!current.eligible || !current.effectiveCost) return null;
   return {
     title: product.name,
     description: product.shortDescription ?? product.description,
     // Supplier-specific SKUs and identities are deliberately not public.
     sku: product.manufacturerSku,
-    media: [{ url: product.images[0], altText: product.name }],
+    // Raw supplier media can reveal commercially sensitive hosts and paths.
+    // It is never snapshotted or published; a separately persisted, approved
+    // Innozanzi asset is required before supplier artwork can be shown.
+    media: [],
     fingerprint: availabilityFingerprint({
       sourceType: "SUPPLIER_CATALOGUE_PRODUCT",
       sourceId: product.id,
-      cost: current.cost,
+      baseCost: current.baseCost,
+      effectiveCost: current.effectiveCost,
+      promotion: current.promotion,
       stock: product.stock,
       availability: product.availability,
     }),
@@ -373,7 +437,6 @@ async function resolveSupplierSource(
 
 async function resolveComboSource(
   db: CatalogueDatabase,
-  sourceType: "COMBO" | "CAMPAIGN",
   sourceId: string,
   now: Date,
 ): Promise<ResolvedSource | null> {
@@ -443,14 +506,14 @@ async function resolveComboSource(
       continue;
     }
     if (item.supplierCatalogueProduct) {
-      const current = supplierEligibility(
+      const current = await supplierEligibility(
         item.supplierCatalogueProduct,
         now,
-        settings.freshnessHours,
+        settings,
       );
       if (
         !current.eligible ||
-        !current.cost ||
+        !current.effectiveCost ||
         item.supplierCatalogueProduct.stock < item.quantity
       ) {
         return null;
@@ -458,7 +521,9 @@ async function resolveComboSource(
       itemAvailability.push({
         id: item.id,
         source: "SUPPLIER_CATALOGUE_PRODUCT",
-        cost: current.cost,
+        baseCost: current.baseCost,
+        effectiveCost: current.effectiveCost,
+        promotion: current.promotion,
         available: item.supplierCatalogueProduct.stock,
         quantity: item.quantity,
       });
@@ -473,8 +538,13 @@ async function resolveComboSource(
     sku: null,
     media: image ? [{ url: image, altText: campaign.name }] : [],
     fingerprint: availabilityFingerprint({
-      sourceType,
+      sourceType: "COMBO",
       sourceId: campaign.id,
+      status: campaign.status,
+      startsAt: campaign.startsAt.toISOString(),
+      endsAt: campaign.endsAt.toISOString(),
+      normalPrice: campaign.normalPrice.toString(),
+      comboPrice: campaign.comboPrice.toString(),
       estimatedCost: campaign.estimatedCost.toString(),
       items: itemAvailability,
     }),
@@ -493,7 +563,10 @@ async function resolveSource(
   if (sourceType === "SUPPLIER_CATALOGUE_PRODUCT") {
     return resolveSupplierSource(db, sourceId, now);
   }
-  return resolveComboSource(db, sourceType, sourceId, now);
+  if (sourceType === "COMBO") {
+    return resolveComboSource(db, sourceId, now);
+  }
+  return null;
 }
 
 type AssignmentSnapshotInput = {
@@ -574,15 +647,21 @@ export async function assignCatalogueItem(
           "The selected catalogue source is not currently sellable.",
         );
       }
-      const existing = await tx.partnerCatalogueAssignment.findUnique({
+      const existing = await tx.partnerCatalogueAssignment.findFirst({
         where: {
-          profileId_sourceType_sourceId: {
-            profileId: profile.id,
-            sourceType: data.sourceType,
-            sourceId: data.sourceId,
-          },
+          profileId: profile.id,
+          sourceId: data.sourceId,
+          sourceType:
+            data.sourceType === "COMBO"
+              ? { in: ["COMBO", "CAMPAIGN"] }
+              : data.sourceType,
         },
       });
+      if (existing && existing.sourceType !== data.sourceType) {
+        throw new PartnerCatalogueError(
+          "This source is already assigned under its legacy campaign identity.",
+        );
+      }
       if (existing?.status === "ACTIVE") {
         throw new PartnerCatalogueError(
           "This source is already assigned to the partner catalogue.",

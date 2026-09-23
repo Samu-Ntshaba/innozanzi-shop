@@ -81,7 +81,7 @@ export default async function PartnerCatalogueAdminPage({
   return (
     <AdminPage
       title="Approved catalogue"
-      description={`${partnership.partnerNumber} · ${partnership.owner.name ?? partnership.owner.email} · explicit products and campaigns only`}
+      description={`${partnership.partnerNumber} · ${partnership.owner.name ?? partnership.owner.email} · explicit products and combos only`}
       actions={
         <>
           <Link
@@ -202,7 +202,7 @@ export default async function PartnerCatalogueAdminPage({
 
           <Panel
             title="Assign a catalogue source"
-            description="Use the source UUID from the approved Products, Supplier Catalogue, or Combo/Campaign Admin record."
+            description="Use the source UUID from the approved Products, Supplier Catalogue, or Combo Admin record."
           >
             <form action={route} className="grid gap-4" method="post">
               <input name="operation" type="hidden" value="assign" />
@@ -213,7 +213,6 @@ export default async function PartnerCatalogueAdminPage({
                   <option value="PRODUCT">Innozanzi product</option>
                   <option value="SUPPLIER_CATALOGUE_PRODUCT">Supplier catalogue product</option>
                   <option value="COMBO">Combo</option>
-                  <option value="CAMPAIGN">Campaign</option>
                 </select>
               </label>
               <label className="text-sm font-semibold">
