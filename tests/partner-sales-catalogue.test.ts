@@ -90,6 +90,7 @@ vi.mock("next/navigation", () => ({
 
 import {
   assignCatalogueItem,
+  backfillLegacySupplierCatalogueMediaSnapshots,
   partnerCatalogue,
   withdrawCatalogueItem,
 } from "@/domain/partner-sales/catalogue";
@@ -830,9 +831,10 @@ describe("public partner catalogue", () => {
     ]) {
       expect(serialized).not.toContain(secret);
     }
+    expect(mocks.assignmentUpdateMany).not.toHaveBeenCalled();
   });
 
-  it("idempotently clears and suppresses a legacy supplier media snapshot", async () => {
+  it("suppresses a legacy supplier media snapshot without writing during the public read", async () => {
     const supplierAssignment = await assignCatalogueItem(
       supplierAssignInput(),
       actor,
@@ -853,13 +855,7 @@ describe("public partner catalogue", () => {
 
     const catalogue = await partnerCatalogue("acme-business", NOW);
 
-    expect(mocks.assignmentUpdateMany).toHaveBeenCalledWith({
-      where: {
-        sourceType: "SUPPLIER_CATALOGUE_PRODUCT",
-        mediaSnapshot: { not: Prisma.DbNull },
-      },
-      data: { mediaSnapshot: Prisma.DbNull },
-    });
+    expect(mocks.assignmentUpdateMany).not.toHaveBeenCalled();
     expect(catalogue?.items).toEqual([
       expect.objectContaining({
         assignmentId: ASSIGNMENT_ID,
@@ -867,6 +863,27 @@ describe("public partner catalogue", () => {
       }),
     ]);
     expect(JSON.stringify(catalogue)).not.toContain("secret-supplier.example");
+  });
+
+  it("performs no cleanup write for a missing public slug", async () => {
+    mocks.profileFindUnique.mockResolvedValue(null);
+
+    await expect(
+      partnerCatalogue("missing-partner", NOW),
+    ).resolves.toBeNull();
+    expect(mocks.assignmentUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it("retains a supplier-only idempotent cleanup as an explicit internal helper", async () => {
+    await backfillLegacySupplierCatalogueMediaSnapshots();
+
+    expect(mocks.assignmentUpdateMany).toHaveBeenCalledWith({
+      where: {
+        sourceType: "SUPPLIER_CATALOGUE_PRODUCT",
+        mediaSnapshot: { not: Prisma.DbNull },
+      },
+      data: { mediaSnapshot: Prisma.DbNull },
+    });
   });
 
   it("preserves approved PRODUCT and COMBO media", async () => {

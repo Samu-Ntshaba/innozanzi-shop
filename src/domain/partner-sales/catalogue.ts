@@ -780,7 +780,8 @@ export async function withdrawCatalogueItem(
   );
 }
 
-export async function clearLegacySupplierCatalogueMediaSnapshots() {
+/** Deliberate maintenance operation; never invoke from a public request path. */
+export async function backfillLegacySupplierCatalogueMediaSnapshots() {
   return prisma.partnerCatalogueAssignment.updateMany({
     where: {
       sourceType: "SUPPLIER_CATALOGUE_PRODUCT",
@@ -819,7 +820,6 @@ export async function partnerCatalogue(
 ): Promise<PublicPartnerCatalogueDto | null> {
   const settings = await partnerSalesSettings();
   if (!settings.enabled) return null;
-  await clearLegacySupplierCatalogueMediaSnapshots();
   const profile = await prisma.partnerSalesProfile.findUnique({
     where: { publicSlug: slug },
     include: {
