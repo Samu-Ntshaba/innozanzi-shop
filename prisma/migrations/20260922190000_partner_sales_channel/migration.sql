@@ -359,6 +359,14 @@ FROM unnest(ARRAY[
 ]) AS permission_key
 ON CONFLICT ("key") DO NOTHING;
 
+-- Supplier-hosted media must never persist in partner-facing snapshots.
+-- This predicate is intentionally source-specific so approved Innozanzi
+-- product and combo assets remain intact. Re-running it is safe.
+UPDATE "PartnerCatalogueAssignment"
+SET "mediaSnapshot" = NULL
+WHERE "sourceType" = 'SUPPLIER_CATALOGUE_PRODUCT'
+  AND "mediaSnapshot" IS NOT NULL;
+
 -- Remove stale broad-role grants while preserving explicitly configured custom roles.
 DELETE FROM "RolePermission" AS role_permission
 USING "Role" AS role, "Permission" AS permission

@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { z } from "zod";
-import type { Prisma } from "@/generated/prisma/client";
+import { Prisma } from "@/generated/prisma/client";
 import {
   hasPermission,
   type PermissionGrant,
@@ -780,6 +780,16 @@ export async function withdrawCatalogueItem(
   );
 }
 
+export async function clearLegacySupplierCatalogueMediaSnapshots() {
+  return prisma.partnerCatalogueAssignment.updateMany({
+    where: {
+      sourceType: "SUPPLIER_CATALOGUE_PRODUCT",
+      mediaSnapshot: { not: Prisma.DbNull },
+    },
+    data: { mediaSnapshot: Prisma.DbNull },
+  });
+}
+
 function publicMedia(value: unknown) {
   return safeMediaSnapshot(value)[0] ?? null;
 }
@@ -809,6 +819,7 @@ export async function partnerCatalogue(
 ): Promise<PublicPartnerCatalogueDto | null> {
   const settings = await partnerSalesSettings();
   if (!settings.enabled) return null;
+  await clearLegacySupplierCatalogueMediaSnapshots();
   const profile = await prisma.partnerSalesProfile.findUnique({
     where: { publicSlug: slug },
     include: {
@@ -873,7 +884,10 @@ export async function partnerCatalogue(
       title: assignment.presentationTitle ?? source.title,
       description: assignment.presentationCopy ?? source.description,
       sku: source.sku,
-      image: publicMedia(assignment.mediaSnapshot),
+      image:
+        assignment.sourceType === "SUPPLIER_CATALOGUE_PRODUCT"
+          ? null
+          : publicMedia(assignment.mediaSnapshot),
     });
   }
 

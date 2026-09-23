@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
+import { Prisma } from "@/generated/prisma/client";
 
 const mocks = vi.hoisted(() => {
   const profileFindUnique = vi.fn();
@@ -773,6 +774,10 @@ describe("public partner catalogue", () => {
     vi.clearAllMocks();
     mocks.settingFindUnique.mockResolvedValue({ value: { enabled: true } });
     mocks.productFindUnique.mockResolvedValue(product);
+    mocks.supplierProductFindUnique.mockResolvedValue(supplierProduct);
+    mocks.comboFindUnique.mockResolvedValue(comboCampaign);
+    mocks.assignmentFindFirst.mockResolvedValue(null);
+    mocks.assignmentUpdateMany.mockResolvedValue({ count: 1 });
     mocks.assignmentCreate.mockImplementation(({ data }: { data: Record<string, unknown> }) =>
       Promise.resolve({ id: ASSIGNMENT_ID, ...data, createdAt: NOW, updatedAt: NOW }),
     );
@@ -825,6 +830,72 @@ describe("public partner catalogue", () => {
     ]) {
       expect(serialized).not.toContain(secret);
     }
+  });
+
+  it("idempotently clears and suppresses a legacy supplier media snapshot", async () => {
+    const supplierAssignment = await assignCatalogueItem(
+      supplierAssignInput(),
+      actor,
+      NOW,
+    );
+    activeProfile.catalogueAssignments = [
+      {
+        ...supplierAssignment,
+        mediaSnapshot: [
+          {
+            url: "https://media.secret-supplier.example/catalogue/private/display-27.jpg",
+            altText: "Vendor Business Display",
+          },
+        ],
+      },
+    ];
+    mocks.assignmentUpdateMany.mockClear();
+
+    const catalogue = await partnerCatalogue("acme-business", NOW);
+
+    expect(mocks.assignmentUpdateMany).toHaveBeenCalledWith({
+      where: {
+        sourceType: "SUPPLIER_CATALOGUE_PRODUCT",
+        mediaSnapshot: { not: Prisma.DbNull },
+      },
+      data: { mediaSnapshot: Prisma.DbNull },
+    });
+    expect(catalogue?.items).toEqual([
+      expect.objectContaining({
+        assignmentId: ASSIGNMENT_ID,
+        image: null,
+      }),
+    ]);
+    expect(JSON.stringify(catalogue)).not.toContain("secret-supplier.example");
+  });
+
+  it("preserves approved PRODUCT and COMBO media", async () => {
+    const productAssignment = activeProfile.catalogueAssignments[0];
+    const comboAssignment = await assignCatalogueItem(
+      comboAssignInput(),
+      actor,
+      NOW,
+    );
+    activeProfile.catalogueAssignments = [
+      productAssignment,
+      {
+        ...comboAssignment,
+        id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      },
+    ];
+
+    const catalogue = await partnerCatalogue("acme-business", NOW);
+
+    expect(catalogue?.items.map((item) => item.image)).toEqual([
+      {
+        url: "https://assets.example/notebook.webp",
+        altText: "Business Notebook 14",
+      },
+      {
+        url: "https://assets.example/business-desk-bundle.webp",
+        altText: "Business Desk Bundle",
+      },
+    ]);
   });
 
   it("renders co-branding, merchant disclosure and quotation actions without sensitive fields", async () => {
