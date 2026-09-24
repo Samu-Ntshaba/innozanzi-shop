@@ -313,6 +313,51 @@ function paymentResult(payment: { id: string; orderId: string; provider: Payment
   };
 }
 
+async function restartFailedPayment(
+  db: PartnerPaymentDb,
+  payment: {
+    id: string;
+    orderId: string;
+    provider: PaymentProvider;
+    amount: Decimal.Value;
+    currency: string;
+    status: string;
+    failureReason?: string | null;
+    order?: { id: string; orderNumber: string; paymentStatus?: string | null; status?: string | null } | null;
+  },
+  order: { id: string; orderNumber: string },
+  provider: PartnerPaymentProvider,
+  idempotencyKey: string,
+) {
+  if (payment.order?.paymentStatus === "PAID" || payment.order?.status === "PAYMENT_VERIFIED") {
+    throw new PartnerQuotePaymentError("A verified payment already exists for this order. Finance review is required.");
+  }
+  if (payment.status !== "FAILED" && payment.status !== "CANCELLED") {
+    return paymentResult(payment, order, true);
+  }
+  const restarted = await db.payment.update({
+    where: { id: payment.id },
+    data: {
+      provider,
+      status: "PENDING",
+      failureReason: null,
+      externalReference: randomUUID(),
+      idempotencyKey,
+    },
+    include: { order: { select: { id: true, orderNumber: true } } },
+  });
+  await db.auditLog.create({
+    data: {
+      action: "partner-sales.payment.retry",
+      entityType: "Payment",
+      entityId: payment.id,
+      before: { status: payment.status, provider: payment.provider, failureReason: payment.failureReason ?? null },
+      after: { status: "PENDING", provider, idempotencyKey, orderId: payment.orderId },
+    },
+  });
+  return paymentResult(restarted, restarted.order ?? order, true);
+}
+
 /**
  * Creates the one pending order/payment pair for an accepted partner version.
  * The case lock and deterministic idempotency key make retries from either
@@ -331,17 +376,17 @@ export async function createPartnerQuotePayment(acceptedVersionId: string, provi
     const quoteCase = quote.partnerQuoteCase!;
     const idempotencyKey = `partner-quote:${acceptedVersionId}:${provider}`;
 
-    const existingPayment = await db.payment.findUnique({ where: { idempotencyKey }, include: { order: { select: { id: true, orderNumber: true } } } });
+    const existingPayment = await db.payment.findUnique({ where: { idempotencyKey }, include: { order: { select: { id: true, orderNumber: true, paymentStatus: true, status: true } } } });
     if (existingPayment) {
       if (!new Decimal(existingPayment.amount).equals(new Decimal(quote.grandTotal)) || existingPayment.currency !== quote.currency) throw new PartnerQuotePaymentError("Existing partner payment does not match the accepted amount.");
-      return paymentResult(existingPayment, existingPayment.order ?? { id: existingPayment.orderId, orderNumber: "" }, true);
+      return restartFailedPayment(db, existingPayment, existingPayment.order ?? { id: existingPayment.orderId, orderNumber: "" }, provider, idempotencyKey);
     }
     // A client may retry with the other approved gateway. The order and
     // payment intent are business identities, not provider identities.
-    const existingPending = await db.payment.findFirst({ where: { partnerQuoteCaseId: quoteCase.id, status: { in: ["PENDING", "AWAITING_REVIEW", "PAID", "FAILED", "CANCELLED"] } }, include: { order: { select: { id: true, orderNumber: true } } }, orderBy: { createdAt: "asc" } });
+    const existingPending = await db.payment.findFirst({ where: { partnerQuoteCaseId: quoteCase.id, status: { in: ["PENDING", "AWAITING_REVIEW", "PAID", "FAILED", "CANCELLED"] } }, include: { order: { select: { id: true, orderNumber: true, paymentStatus: true, status: true } } }, orderBy: { createdAt: "asc" } });
     if (existingPending) {
       if (!new Decimal(existingPending.amount).equals(new Decimal(quote.grandTotal)) || existingPending.currency !== quote.currency) throw new PartnerQuotePaymentError("Existing partner payment does not match the accepted amount.");
-      return paymentResult(existingPending, existingPending.order ?? { id: existingPending.orderId, orderNumber: "" }, true);
+      return restartFailedPayment(db, existingPending, existingPending.order ?? { id: existingPending.orderId, orderNumber: "" }, provider, idempotencyKey);
     }
 
     let order = quote.convertedOrderId ? await db.order.findUnique({ where: { id: quote.convertedOrderId }, select: { id: true, orderNumber: true } }) : null;

@@ -841,6 +841,46 @@ describe("public partner catalogue", () => {
     expect(JSON.stringify(catalogue)).not.toContain("secret-supplier.example");
   });
 
+  it("filters legacy combo and campaign assignments before resolving their source", async () => {
+    activeProfile.catalogueAssignments = [
+      {
+        id: "legacy-combo-assignment",
+        profileId: PROFILE_ID,
+        sourceType: "COMBO",
+        sourceId: COMBO_ID,
+        status: "ACTIVE",
+        visibleFrom: null,
+        visibleUntil: null,
+        presentationTitle: null,
+        presentationCopy: null,
+        mediaSnapshot: [],
+        availabilityFingerprint: "legacy",
+        approvedById: ADMIN_ID,
+        approvedAt: NOW,
+        withdrawnAt: null,
+      },
+      {
+        id: "legacy-campaign-assignment",
+        profileId: PROFILE_ID,
+        sourceType: "CAMPAIGN",
+        sourceId: COMBO_ID,
+        status: "ACTIVE",
+        visibleFrom: null,
+        visibleUntil: null,
+        presentationTitle: null,
+        presentationCopy: null,
+        mediaSnapshot: [],
+        availabilityFingerprint: "legacy",
+        approvedById: ADMIN_ID,
+        approvedAt: NOW,
+        withdrawnAt: null,
+      },
+    ];
+
+    await expect(partnerCatalogue("acme-business", NOW)).resolves.toMatchObject({ items: [] });
+    expect(mocks.comboFindUnique).not.toHaveBeenCalled();
+  });
+
   it("performs no cleanup write for a missing public slug", async () => {
     mocks.profileFindUnique.mockResolvedValue(null);
 

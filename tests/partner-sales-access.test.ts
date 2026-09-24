@@ -1,5 +1,3 @@
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -203,16 +201,6 @@ describe("partner sales Admin permissions", () => {
   it("defines every channel permission without implicitly granting it", () => {
     expect(PERMISSIONS).toEqual(expect.arrayContaining([...keys]));
     for (const key of keys) expect(hasPermission([], key)).toBe(false);
-
-    const migration = readFileSync(
-      resolve(
-        process.cwd(),
-        "prisma/migrations/20260922190000_partner_sales_channel/migration.sql",
-      ),
-      "utf8",
-    );
-    for (const key of keys) expect(migration).toContain(`'${key}'`);
-    expect(migration).not.toMatch(/INSERT\s+INTO\s+"RolePermission"/i);
   });
 
   it("keeps pricing approval, payout preparation, and payout approval separate", () => {

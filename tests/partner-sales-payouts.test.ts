@@ -118,6 +118,17 @@ describe("partner payout batches", () => {
     await expect(createPayoutBatch(input)).resolves.toMatchObject({ id: ids.batch, total: "125.5000" });
   });
 
+  it("re-reads the same idempotency payload when the loser sees a commission status change", async () => {
+    const input = { partnershipId: ids.partnership, commissionIds: [ids.commission], periodStart: new Date("2026-09-01"), periodEnd: new Date("2026-09-30"), preparedById: "preparer", idempotencyKey: "interleaved-payout-key" };
+    const committed = { id: ids.batch, status: "PENDING_APPROVAL", partnershipId: ids.partnership, total: new Decimal("125.5000"), items: [{ commissionId: ids.commission, status: "ACTIVE" }] };
+    mocks.partnerPayoutBatch.findUnique.mockResolvedValueOnce(null).mockResolvedValueOnce(committed);
+    mocks.partnerCommission.findMany.mockResolvedValueOnce([]);
+
+    await expect(createPayoutBatch(input)).resolves.toMatchObject({ id: ids.batch, total: "125.5000" });
+    expect(mocks.partnerPayoutBatch.findUnique).toHaveBeenCalledTimes(2);
+    expect(mocks.partnerPayoutBatch.create).not.toHaveBeenCalled();
+  });
+
   it("stores a statement with the batch identity, real period, currency, and case/order references", async () => {
     mocks.partnerPayoutBatch.findUnique.mockResolvedValue({
       id: ids.batch,

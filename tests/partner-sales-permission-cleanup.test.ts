@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import {
   BROAD_AUTO_MANAGED_ROLE_SLUGS,
@@ -61,12 +62,10 @@ describe("partner sales migration safety", () => {
       ),
       "utf8",
     );
-    const registrationAt = migration.indexOf(
-      "-- Register partner-channel capabilities",
+    expect(createHash("sha256").update(migration).digest("hex")).toBe(
+      "8da7d3165cc73fedb9068499c227c985246b106ecbf76741ac926131dd6b671d",
     );
-    expect(registrationAt).toBeGreaterThan(-1);
-    expect(migration).toMatch(/DELETE\s+FROM\s+"RolePermission"/i);
-    expect(migration).toMatch(/UPDATE\s+"PartnerCatalogueAssignment"/i);
+    expect(migration).not.toMatch(/DELETE\s+FROM|UPDATE\s+"PartnerCatalogueAssignment"/i);
     const safeguards = readFileSync(
       resolve(process.cwd(), "prisma/migrations/20260924190000_partner_sales_release_safeguards/migration.sql"),
       "utf8",

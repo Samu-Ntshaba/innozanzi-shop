@@ -119,7 +119,12 @@ export async function createPayoutBatch(input: CreatePayoutBatchInput) {
   const uniqueIds = [...new Set(input.commissionIds)];
   try {
     return await prisma.$transaction(async (tx) => {
+    const idempotencyKey = input.idempotencyKey?.trim() || null;
     if (input.idempotencyKey?.trim()) {
+      // Serialize all attempts for a key before reading commission status. A
+      // loser must observe the winner's committed payload, rather than fail
+      // because the winner already moved commissions out of PAYABLE.
+      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`partner-payout:${idempotencyKey}`}, 0))`;
       const replay = await tx.partnerPayoutBatch.findUnique({ where: { idempotencyKey: input.idempotencyKey.trim() }, include: { items: true } });
       if (replay) {
         validateIdempotentReplay(replay as unknown as BatchRow, input, uniqueIds);
@@ -127,14 +132,15 @@ export async function createPayoutBatch(input: CreatePayoutBatchInput) {
         return result(replay as unknown as BatchRow);
       }
     }
-    const commissions = await tx.partnerCommission.findMany({
-      where: { id: { in: uniqueIds }, partnershipId: input.partnershipId, status: "PAYABLE" },
-    }) as unknown as CommissionRow[];
-    if (commissions.length !== uniqueIds.length) throw new Error("Every selected commission must be payable and belong to the same partnership.");
-    const partnerships = new Set(commissions.map((commission) => commission.partnershipId));
-    if (partnerships.size !== 1 || !partnerships.has(input.partnershipId)) throw new Error("Payout batches may contain commissions from the same partnership only.");
-    const currencies = new Set(commissions.map((commission) => commission.currency));
-    if (currencies.size !== 1) throw new Error("Payout commissions must use one currency.");
+    try {
+      const commissions = await tx.partnerCommission.findMany({
+        where: { id: { in: uniqueIds }, partnershipId: input.partnershipId, status: "PAYABLE" },
+      }) as unknown as CommissionRow[];
+      if (commissions.length !== uniqueIds.length) throw new Error("Every selected commission must be payable and belong to the same partnership.");
+      const partnerships = new Set(commissions.map((commission) => commission.partnershipId));
+      if (partnerships.size !== 1 || !partnerships.has(input.partnershipId)) throw new Error("Payout batches may contain commissions from the same partnership only.");
+      const currencies = new Set(commissions.map((commission) => commission.currency));
+      if (currencies.size !== 1) throw new Error("Payout commissions must use one currency.");
 
     const locked: CommissionRow[] = [];
     for (const candidate of commissions) {
@@ -166,7 +172,15 @@ export async function createPayoutBatch(input: CreatePayoutBatchInput) {
       await stagePartnerSalesEvent(tx, { event: "COMMISSION_INCLUDED_IN_PAYOUT", entityId: commission.id, internalMessage: `Included in payout batch ${created.batchNumber}.` });
     }
     await audit(tx, input.preparedById, "partner-sales.payout.prepared", "PartnerPayoutBatch", created.id, null, { batchNumber: created.batchNumber, total: fixed(total), commissionIds: locked.map((commission) => commission.id) });
-    return result({ ...(created as unknown as BatchRow), total, items: locked.map((commission, index) => ({ id: String(index), commissionId: commission.id, amount: commission.currentAmount, status: "ACTIVE" })) });
+      return result({ ...(created as unknown as BatchRow), total, items: locked.map((commission, index) => ({ id: String(index), commissionId: commission.id, amount: commission.currentAmount, status: "ACTIVE" })) });
+    } catch (error) {
+      if (!idempotencyKey) throw error;
+      const replay = await tx.partnerPayoutBatch.findUnique({ where: { idempotencyKey }, include: { items: true } });
+      if (!replay) throw error;
+      validateIdempotentReplay(replay as unknown as BatchRow, input, uniqueIds);
+      await tx.$queryRaw`SELECT id FROM "PartnerPayoutBatch" WHERE id = ${replay.id}::uuid FOR UPDATE`;
+      return result(replay as unknown as BatchRow);
+    }
     }, { isolationLevel: "Serializable" });
   } catch (error) {
     if (!input.idempotencyKey?.trim() || !isUniqueConflict(error)) throw error;

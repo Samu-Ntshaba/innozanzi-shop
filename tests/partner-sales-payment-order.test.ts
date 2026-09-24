@@ -207,7 +207,7 @@ describe("partner quote payment intent", () => {
   });
 
   it("reuses a failed first payment intent when the customer retries with another provider", async () => {
-    mocks.payment.findFirst.mockResolvedValue({
+    const failedPayment = {
       id: ids.payment,
       orderId: ids.order,
       provider: "PAYFAST",
@@ -215,13 +215,22 @@ describe("partner quote payment intent", () => {
       currency: "ZAR",
       status: "FAILED",
       order: { id: ids.order, orderNumber: "ORD-PS-1" },
-    });
+    };
+    mocks.payment.findFirst.mockResolvedValue(failedPayment);
+    mocks.payment.update.mockResolvedValue({ ...failedPayment, provider: "OZOW", status: "PENDING", failureReason: null });
 
     const result = await createPartnerQuotePayment(ids.version, "OZOW", now);
 
-    expect(result).toMatchObject({ paymentId: ids.payment, orderId: ids.order, duplicate: true });
+    expect(result).toMatchObject({ paymentId: ids.payment, orderId: ids.order, provider: "OZOW", duplicate: true });
     expect(mocks.order.create).not.toHaveBeenCalled();
     expect(mocks.payment.create).not.toHaveBeenCalled();
+    expect(mocks.payment.update).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: ids.payment },
+      data: expect.objectContaining({ provider: "OZOW", status: "PENDING", failureReason: null }),
+    }));
+    expect(mocks.auditLog.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ action: "partner-sales.payment.retry" }),
+    }));
   });
 
   it("supports Ozow with the same exact accepted snapshot and converges repeated intent creation", async () => {

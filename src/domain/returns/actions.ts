@@ -94,7 +94,11 @@ export async function recordRefundPayment(formData:FormData){
     await tx.returnCaseEvent.create({data:{returnCaseId:refund.returnCaseId,actorId:ctx.user.id,type:"REFUND_PAID",customerVisible:true,message:`Refund payment completed. Reference: ${data.transactionReference}.`,newValue:{amount:data.amount,method:data.method}}});
     await tx.auditLog.create({data:{actorId:ctx.user.id,action:"return.refund.confirm-payment",entityType:"ReturnRefund",entityId:refund.id,after:{amount:data.amount,transactionReference:data.transactionReference}}});
     const capturedPayment=await tx.payment.findFirst({where:{orderId:refund.returnCase.orderId,status:{in:["PAID","PARTIALLY_REFUNDED"]}},orderBy:{createdAt:"asc"},select:{id:true,amount:true}});
-    if(capturedPayment)await reconcilePartnerCommissionAfterRefundInTransaction(tx,{orderId:refund.returnCase.orderId,refundAmount:data.amount,capturedAmount:capturedPayment.amount,reason:`Return refund ${refund.refundNumber} completed.`,actorId:ctx.user.id,eventKey:`return-refund:${refund.id}:completed`});
+    if(capturedPayment){
+      const completedRefundPayments=await tx.returnRefundPayment.findMany({where:{refund:{status:"COMPLETED",returnCase:{orderId:refund.returnCase.orderId}}},select:{amount:true}});
+      const cumulativeRefund=completedRefundPayments.reduce((total,payment)=>total.plus(new Decimal(payment.amount)),new Decimal(0));
+      await reconcilePartnerCommissionAfterRefundInTransaction(tx,{orderId:refund.returnCase.orderId,refundAmount:cumulativeRefund,capturedAmount:capturedPayment.amount,reason:`Return refund ${refund.refundNumber} completed.`,actorId:ctx.user.id,eventKey:`return-refund:${refund.id}:completed:${cumulativeRefund.toFixed(4)}`});
+    }
   })}catch(error){await removeUploads(uploads);throw error}revalidatePath("/admin/returns");revalidatePath("/admin/payments")
 }
 

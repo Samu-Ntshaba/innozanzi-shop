@@ -14,7 +14,10 @@ import {
   partnerAvailabilityFingerprint,
   supplierPromotionEvidence,
 } from "@/domain/partner-sales/availability";
-import { assertPartnerCatalogueSourceSupported } from "@/domain/partner-sales/catalogue-policy";
+import {
+  assertPartnerCatalogueSourceSupported,
+  isPartnerCatalogueSourceSupported,
+} from "@/domain/partner-sales/catalogue-policy";
 
 const SOURCE_TYPES = [
   "PRODUCT",
@@ -703,6 +706,10 @@ export async function partnerCatalogue(
   const items: PublicPartnerCatalogueDto["items"] = [];
   for (const assignment of profile.catalogueAssignments) {
     if (!activeAt(assignment, now)) continue;
+    // Legacy COMBO/CAMPAIGN rows remain in the database for history, but
+    // cannot be resolved by the current public source contract. Filter them
+    // before the resolver so a stale row cannot take the whole catalogue down.
+    if (!isPartnerCatalogueSourceSupported(assignment.sourceType)) continue;
     const source = await resolveSource(
       prisma,
       assignment.sourceType,
