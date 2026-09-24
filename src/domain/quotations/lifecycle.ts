@@ -2,6 +2,7 @@ import Decimal from "decimal.js";
 
 export const DEFAULT_MARKUP_PERCENT = new Decimal(5);
 export const QUOTATION_VALID_DAYS = 7;
+export const PARTNER_QUOTATION_VALID_HOURS = 48;
 
 export function quotationNumber() {
   return `QUO-${Date.now().toString(36).toUpperCase()}`;
@@ -34,3 +35,7 @@ export function quoteTotals(items: Array<{ quantity: number; netUnit: Decimal; v
 }
 
 export const quoteExpiry = () => new Date(Date.now() + QUOTATION_VALID_DAYS * 86_400_000);
+
+/** Partner client quotes are deliberately short-lived; Admin may pass an explicit expiry. */
+export const partnerQuoteExpiry = (now = new Date()) =>
+  new Date(now.getTime() + PARTNER_QUOTATION_VALID_HOURS * 3_600_000);
