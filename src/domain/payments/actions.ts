@@ -19,6 +19,8 @@ import { beginHostedOrderPayment } from "@/domain/payments/orchestration";
 import { publicSiteUrl } from "@/lib/public-site-url";
 import { notifyStaffOfPaidOrder } from "@/domain/notifications/order-alerts";
 import { acceptVerifiedPayment } from "@/domain/payments/recovery";
+import Decimal from "decimal.js";
+import { reverseCommission } from "@/domain/partner-sales/commission-service";
 
 export async function reconcileHostedPayment(formData:FormData){
   const ctx=await requirePermission("payments.approve");
@@ -65,7 +67,16 @@ export async function createPaystackRefund(formData:FormData){
   const metadata=(payment.providerMetadata&&typeof payment.providerMetadata==="object"&&!Array.isArray(payment.providerMetadata)?payment.providerMetadata:{}) as Record<string,unknown>;const refunds=Array.isArray(metadata.refunds)?metadata.refunds as Array<{amount?:number}>:[];const refunded=refunds.reduce((sum,item)=>sum+Number(item.amount??0),0);
   if(data.amount>Number(payment.amount)-refunded)throw new Error("Refund amount exceeds the remaining captured payment.");if(!payment.externalReference)throw new Error("The Paystack transaction reference is missing.");
   const result=await new PaystackPaymentAdapter().refund({reference:payment.externalReference,amount:data.amount.toFixed(2),customerNote:data.reason,merchantNote:`Approved by ${ctx.user.email}`});const processed=result.status==="processed";const fullyRefunded=processed&&refunded+data.amount>=Number(payment.amount);const nextStatus=processed?(fullyRefunded?"REFUNDED":"PARTIALLY_REFUNDED"):payment.status;
-  await prisma.$transaction([prisma.payment.update({where:{id:payment.id},data:{status:nextStatus,providerMetadata:{...metadata,refunds:[...refunds,{amount:data.amount,reason:data.reason,status:result.status??"pending",createdAt:new Date().toISOString(),provider:result}]}}}),...(processed?[prisma.order.update({where:{id:payment.orderId},data:{paymentStatus:fullyRefunded?"REFUNDED":"PARTIALLY_REFUNDED",status:fullyRefunded?"REFUNDED":"PARTIALLY_REFUNDED"}})]:[]),prisma.auditLog.create({data:{actorId:ctx.user.id,action:"payment.paystack.refund",entityType:"Payment",entityId:payment.id,after:{amount:data.amount,reason:data.reason,providerStatus:result.status??"pending"}}})]);revalidatePath("/admin/payments");
+  await prisma.$transaction([prisma.payment.update({where:{id:payment.id},data:{status:nextStatus,providerMetadata:{...metadata,refunds:[...refunds,{amount:data.amount,reason:data.reason,status:result.status??"pending",createdAt:new Date().toISOString(),provider:result}]}}}),...(processed?[prisma.order.update({where:{id:payment.orderId},data:{paymentStatus:fullyRefunded?"REFUNDED":"PARTIALLY_REFUNDED",status:fullyRefunded?"REFUNDED":"PARTIALLY_REFUNDED"}})]:[]),prisma.auditLog.create({data:{actorId:ctx.user.id,action:"payment.paystack.refund",entityType:"Payment",entityId:payment.id,after:{amount:data.amount,reason:data.reason,providerStatus:result.status??"pending"}}})]);
+  const partnerCommission = (prisma as unknown as { partnerCommission?: { findUnique: (args: unknown) => Promise<{ id: string; currentAmount: Decimal.Value } | null> } }).partnerCommission;
+  if (processed && partnerCommission) {
+    const linked = await partnerCommission.findUnique({ where: { orderId: payment.orderId }, select: { id: true, currentAmount: true } });
+    if (linked) {
+      const reversal = fullyRefunded ? new Decimal(linked.currentAmount) : new Decimal(linked.currentAmount).mul(data.amount).div(payment.amount).toDecimalPlaces(4);
+      if (reversal.gt(0)) await reverseCommission(linked.id, reversal.toFixed(4), `Paystack refund: ${data.reason}`, ctx.user.id);
+    }
+  }
+  revalidatePath("/admin/payments");
 }
 
 async function quotationDelivery(userId: string, form: FormData) {

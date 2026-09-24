@@ -10,6 +10,7 @@ import { emailTemplates } from "@/integrations/email/templates";
 import { notifyStaffOfPaidOrder } from "@/domain/notifications/order-alerts";
 import { assertOrderTransition, assertOrderTransitionRequirements, defaultOrderTransitionNote, reservationAfterRelease, shouldEmailCustomerForOrderStatus } from "@/domain/orders/lifecycle";
 import { categoryIconOptions } from "@/components/store/category-icon";
+import { evaluateCommissionInTransaction, reverseCommissionInTransaction } from "@/domain/partner-sales/commission-service";
 
 const slugify = (value: string) => value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 const text = z.string().trim().min(1).max(200);
@@ -146,6 +147,15 @@ export async function setOrderStatus(formData: FormData) {
     await tx.orderStatusHistory.create({ data: { orderId: id, fromStatus: before.status, toStatus: status, actorId: context.user.id, note } });
     await tx.deliveryTrackingEvent.create({ data: { orderId: id, status, actorId: context.user.id, publicNote: note, internalNote: internalNote || null } });
     await tx.auditLog.create({ data: { actorId: context.user.id, action: status === "CANCELLED" ? "order.cancel-and-release" : "order.status", entityType: "Order", entityId: id, before: { status: before.status, paymentStatus: before.paymentStatus }, after: { status, note, refundConfirmed: status === "CANCELLED" ? true : undefined } } });
+    const partnerCommission = (tx as unknown as { partnerCommission?: { findUnique: (args: unknown) => Promise<{ id: string } | null> } }).partnerCommission;
+    if (partnerCommission) {
+      const linked = await partnerCommission.findUnique({ where: { orderId: id }, select: { id: true } });
+      if (linked && status === "CANCELLED") {
+        await reverseCommissionInTransaction(tx, { commissionId: linked.id, reason: note, actorId: context.user.id, eventKey: `order-cancelled:${id}` });
+      } else if (linked && status === "COMPLETED") {
+        await evaluateCommissionInTransaction(tx, id, context.user.id);
+      }
+    }
     if (shouldEmailCustomerForOrderStatus(status)) await stageEmail(tx, emailTemplates.orderStatus(before.email, before.orderNumber, status), before.userId ?? undefined, id);
     return tx.order.findUniqueOrThrow({ where: { id }, select: { orderNumber: true, email: true, userId: true } });
   }, { isolationLevel: "Serializable" });
