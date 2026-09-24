@@ -3,26 +3,40 @@ import { prisma } from "@/lib/prisma";
 import type { PaymentEvent } from "@/integrations/payments/provider";
 import { notifyStaffOfPaidOrder } from "@/domain/notifications/order-alerts";
 import { assertPaymentEventMatches } from "@/domain/payments/validation";
+import { linkPaidPartnerOrder } from "@/domain/partner-sales/payment";
 
 export async function finalizeVerifiedPayment(provider: "PAYSTACK" | "YOCO" | "OZOW" | "PAYFAST", event: PaymentEvent) {
   const result = await prisma.$transaction(async (tx) => {
-    let payment = await tx.payment.findUnique({ where: { provider_externalReference: { provider, externalReference: event.externalReference } }, include: { order: { include: { items: true, convertedQuotation: true } } } });
+    let payment = await tx.payment.findUnique({ where: { provider_externalReference: { provider, externalReference: event.externalReference } }, include: { order: { include: { items: true, convertedQuotation: true, partnerQuoteCase: true } } } });
     if (!payment) throw new Error("Unknown payment reference");
     await tx.$queryRaw`SELECT id FROM "Order" WHERE id = ${payment.orderId}::uuid FOR UPDATE`;
     await tx.$queryRaw`SELECT id FROM "Payment" WHERE id = ${payment.id}::uuid FOR UPDATE`;
-    const latest=await tx.payment.findUniqueOrThrow({where:{id:payment.id},include:{order:{include:{items:true,convertedQuotation:true}}}});
+    const latest=await tx.payment.findUniqueOrThrow({where:{id:payment.id},include:{order:{include:{items:true,convertedQuotation:true,partnerQuoteCase:true}}}});
     payment=latest;
+    const linkPartner = async () => {
+      const quoteCase = payment.order.partnerQuoteCase;
+      if (event.status !== "PAID" || !quoteCase?.acceptedQuotationId || !quoteCase.acceptedQuotationVersionId) return null;
+      return linkPaidPartnerOrder(tx, {
+        paymentId: payment.id,
+        orderId: payment.orderId,
+        caseId: quoteCase.id,
+        quotationId: quoteCase.acceptedQuotationId,
+        quotationVersionId: quoteCase.acceptedQuotationVersionId,
+        provider: provider as "PAYFAST" | "OZOW",
+        paidAt: payment.paidAt ?? new Date(),
+      });
+    };
     assertPaymentEventMatches(event,payment);
     const repairOrder=event.status==="PAID"&&latest.status==="PAID"&&payment.order.paymentStatus==="PENDING"&&payment.order.status==="AWAITING_PAYMENT"&&!payment.failureReason?.startsWith("Payment captured");
     if(provider==="OZOW"||provider==="PAYFAST"){
       if(!event.amount||event.currency!=="ZAR")throw new Error("Missing verified amount or currency");
       const duplicate=await tx.gatewayEvent.findUnique({where:{provider_eventId:{provider,eventId:event.eventId}}});
       if(duplicate&&duplicate.paymentId!==payment.id)throw new Error("Gateway event reference conflict");
-      if(((duplicate&&latest.status===event.status)||latest.status==="PAID")&&!repairOrder)return {duplicate:true,paymentId:payment.id,order:payment.order,amount:payment.amount.toString()};
+      if(((duplicate&&latest.status===event.status)||latest.status==="PAID")&&!repairOrder){await linkPartner();return {duplicate:true,paymentId:payment.id,order:payment.order,amount:payment.amount.toString()};}
       if(!duplicate)await tx.gatewayEvent.create({data:{provider,eventId:event.eventId,paymentId:payment.id}});
     }
-    if (latest.status === event.status&&!repairOrder) return { duplicate: true, paymentId: payment.id, order: payment.order, amount: payment.amount.toString() };
-    if (["PAID","REFUNDED","PARTIALLY_REFUNDED"].includes(latest.status)&&!repairOrder) return { duplicate: true, paymentId: payment.id, order: payment.order, amount: payment.amount.toString() };
+    if (latest.status === event.status&&!repairOrder) { await linkPartner(); return { duplicate: true, paymentId: payment.id, order: payment.order, amount: payment.amount.toString() }; }
+    if (["PAID","REFUNDED","PARTIALLY_REFUNDED"].includes(latest.status)&&!repairOrder) { await linkPartner(); return { duplicate: true, paymentId: payment.id, order: payment.order, amount: payment.amount.toString() }; }
     assertPaymentEventMatches(event,payment);
     if(event.status==="PAID"){
       const otherCapture=await tx.payment.findFirst({where:{orderId:payment.orderId,status:"PAID",id:{not:payment.id}}});
@@ -40,7 +54,7 @@ export async function finalizeVerifiedPayment(provider: "PAYSTACK" | "YOCO" | "O
     if(event.status==="PAID"){
       for(const item of payment.order.items){
         if(!payment.order.isTestData){const issue=reviewSnapshot(item);if(issue)commercialIssues.push(`${item.productName}: ${issue}`);}
-        if(item.sourceType==="SUPPLIER"){
+        if(item.sourceType==="SUPPLIER"||item.sourceType==="SUPPLIER_CATALOGUE_PRODUCT"){
           const source=await tx.supplierCatalogueProduct.findFirst({where:{id:item.sourceId??"",active:true}});
           if(!source||source.stock<item.quantity)stockIssue=true;
           if(source?.costPrice&&!payment.order.isTestData){const now=new Date();const cost=source.promotionalPrice&&source.promotionalPrice.gt(0)&&source.promotionalPrice.lt(source.costPrice)&&(!source.promotionStartsAt||source.promotionStartsAt<=now)&&(!source.promotionEndsAt||source.promotionEndsAt>=now)?source.promotionalPrice:source.costPrice;const issue=reviewSnapshot(item,cost);if(issue)commercialIssues.push(`${item.productName}: ${issue}`);}
@@ -58,6 +72,7 @@ export async function finalizeVerifiedPayment(provider: "PAYSTACK" | "YOCO" | "O
       }
     }
     await tx.payment.update({ where: { id: payment.id }, data: { status: event.status, paidAt: event.status === "PAID" ? payment.paidAt??new Date() : null, providerMetadata: event.raw as object, failureReason:null } });
+    await linkPartner();
     const automationSetting=event.status==="PAID"&&"marketingSetting" in tx?await tx.marketingSetting.findUnique({where:{key:"orders.automaticPaidProcessing"},select:{value:true}}):null;
     const automaticProcessing=automationSetting?.value===true&&!stockIssue&&!commercialIssues.length;
     const nextOrderStatus = event.status === "PAID" ? automaticProcessing?"PROCESSING":"PAYMENT_VERIFIED" : payment.order.status;
