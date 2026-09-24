@@ -12,6 +12,7 @@ import {
   type PartnerQuotationClientProjection,
 } from "./documents";
 import { stagePartnerSalesEvent } from "./communications";
+import { partnerSalesSettings } from "./settings";
 
 export type PartnerReviewActor = { user: { id: string }; partnershipId?: string };
 
@@ -115,6 +116,7 @@ export async function requestPartnerRevision(caseId: string, actor: PartnerRevie
 }
 
 export async function sendPartnerQuotation(caseId: string, actor: PartnerReviewActor, now = new Date()) {
+  if (!(await partnerSalesSettings()).enabled) throw new PartnerQuotationError("Partner sales channel is currently unavailable.");
   const existing = await loadReviewCase(caseId);
   ownsCase(existing, actor);
   if (!["PARTNER_REVIEW", "SENT_TO_CLIENT"].includes(existing.status)) throw new PartnerQuotationError("Only a quotation under partner review can be sent.");
@@ -122,7 +124,7 @@ export async function sendPartnerQuotation(caseId: string, actor: PartnerReviewA
   const { quotation, version } = versionForQuotation(before);
   const validUntil = dateValue(quotation.validUntil);
   if (!Number.isFinite(validUntil.getTime()) || validUntil <= now) throw new PartnerQuotationError("This quotation has expired and must be repriced.");
-  const projection = clientQuotationProjection({ ...before, quotation: { ...quotation, partnerQuoteCase: before } });
+  const projection = clientQuotationProjection({ ...before, snapshot: version.snapshot, version, quotation: { ...quotation, partnerQuoteCase: before } });
   const accessToken = createPartnerQuotationToken(String(version.id), validUntil);
 
   await prisma.$transaction(async (tx) => {
@@ -159,10 +161,11 @@ export async function sendPartnerQuotation(caseId: string, actor: PartnerReviewA
   let emailQueued = false;
   try { await enqueueEmail(email, undefined); emailQueued = true; } catch (error) { console.error("Partner quotation email queued for retry", error); }
   revalidatePath(`/account/partner/sales/${caseId}`);
-  return { ...sentResult({ ...before, quotation: { ...quotation, partnerQuoteCase: before } }, String(version.id), accessToken), emailQueued };
+  return { ...sentResult({ ...before, snapshot: version.snapshot, version, quotation: { ...quotation, partnerQuoteCase: before } }, String(version.id), accessToken), emailQueued };
 }
 
 export async function resolveClientQuotation(token: string, now = new Date()): Promise<PartnerQuotationClientProjection & { versionId: string } | null> {
+  if (!(await partnerSalesSettings()).enabled) return null;
   const verified = verifyPartnerQuotationToken(token, now);
   if (!verified) return null;
   const row = await prisma.quotationVersion.findUnique({
@@ -186,6 +189,7 @@ function acceptedResult(row: Record<string, unknown>, versionId: string) {
 }
 
 export async function acceptPartnerQuotation(token: string, rawInput: unknown, now = new Date()) {
+  if (!(await partnerSalesSettings()).enabled) throw new PartnerQuotationError("Partner sales channel is currently unavailable.");
   const input = acceptanceSchema.safeParse(rawInput);
   if (!input.success) throw new PartnerQuotationError(input.error.issues[0]?.message ?? "Acceptance consent is required.");
   const verified = verifyPartnerQuotationToken(token, now);

@@ -6,6 +6,7 @@ import {
   type PublicShowcaseDto,
 } from "@/domain/partner-sales/redaction";
 import { createPublicToken, hashPublicToken } from "@/domain/partner-sales/tokens";
+import { partnerSalesSettings } from "@/domain/partner-sales/settings";
 import { prisma } from "@/lib/prisma";
 
 const showcaseText = (max: number) =>
@@ -132,6 +133,7 @@ function showcaseAvailable(showcase: {
 }
 
 async function loadShowcase(publicId: string, accessToken?: string, now = new Date()) {
+  if (!(await partnerSalesSettings()).enabled) return null;
   const showcase = await prisma.partnerShowcase.findUnique({
     where: { publicId },
     include: {

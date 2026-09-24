@@ -13,7 +13,6 @@ function destination(caseId: string, status: string, message?: string) {
   if (message) url.searchParams.set("message", message.slice(0, 240));
   return url;
 }
-
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const guard = browserMutationGuard(request, "application/x-www-form-urlencoded");
@@ -37,4 +36,3 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     return NextResponse.redirect(destination(id, "error", message), 303);
   }
 }
-

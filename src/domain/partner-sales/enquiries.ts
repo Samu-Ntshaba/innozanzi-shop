@@ -4,6 +4,7 @@ import { consumeRateLimit } from "@/domain/auth/rate-limit";
 import { PartnerEnquiryError, resolveShowcaseRecord } from "@/domain/partner-sales/showcases";
 import { stagePartnerSalesEvent } from "@/domain/partner-sales/communications";
 import { prisma } from "@/lib/prisma";
+import { partnerSalesSettings } from "@/domain/partner-sales/settings";
 
 export {
   PartnerEnquiryError,
@@ -73,6 +74,7 @@ export async function createPartnerEnquiry(rawInput: unknown, now = new Date()) 
     }
     throw error;
   }
+  if (!(await partnerSalesSettings()).enabled) throw new PartnerEnquiryError("Partner sales channel is currently unavailable.");
   const limit = await consumeRateLimit(
     `partner-enquiry:${input.rateLimitKey ?? "unknown"}:${input.publicId}`,
     5,

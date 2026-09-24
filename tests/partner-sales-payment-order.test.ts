@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createHash } from "node:crypto";
+import { partnerAvailabilityFingerprint } from "@/domain/partner-sales/availability";
 
 const ids = {
   case: "33333333-3333-4333-8333-333333333333",
@@ -32,7 +32,7 @@ const mocks = vi.hoisted(() => {
   };
 });
 
-vi.mock("@/lib/prisma", () => ({ prisma: { ...mocks, $transaction: mocks.transaction } }));
+vi.mock("@/lib/prisma", () => ({ prisma: { ...mocks, siteSetting: { findUnique: vi.fn().mockResolvedValue({ value: { enabled: true } }) }, $transaction: mocks.transaction } }));
 
 import {
   PartnerQuotePaymentError,
@@ -42,7 +42,7 @@ import {
 
 const now = new Date("2026-09-24T08:00:00.000Z");
 
-const sourceFingerprint = (value: unknown) => createHash("sha256").update(JSON.stringify(value)).digest("hex");
+const sourceFingerprint = partnerAvailabilityFingerprint;
 
 const quoteItems = [
   {
@@ -59,7 +59,7 @@ const quoteItems = [
     lineTotal: "2300.00",
     sourceType: "PRODUCT",
     sourceId: "product-1",
-    sourceSnapshot: { availabilityFingerprint: sourceFingerprint({ sourceType: "PRODUCT", sourceId: "product-1", cost: "900.00", available: 10, state: "IN_STOCK" }) },
+    sourceSnapshot: { availabilityFingerprint: sourceFingerprint({ sourceType: "PRODUCT", sourceId: "product-1", baseCost: "900.00", effectiveCost: "900.00", available: 10, state: "IN_STOCK", details: { costEvidence: [{ id: "base", available: 10, cost: "900.0000" }] } }) },
     stockSnapshot: 10,
   },
   {
@@ -76,7 +76,7 @@ const quoteItems = [
     lineTotal: "575.00",
     sourceType: "SUPPLIER_CATALOGUE_PRODUCT",
     sourceId: "supplier-product-1",
-    sourceSnapshot: { availabilityFingerprint: sourceFingerprint({ sourceType: "SUPPLIER_CATALOGUE_PRODUCT", sourceId: "supplier-product-1", cost: "450.00", available: 4, state: "IN_STOCK" }) },
+    sourceSnapshot: { availabilityFingerprint: sourceFingerprint({ sourceType: "SUPPLIER_CATALOGUE_PRODUCT", sourceId: "supplier-product-1", baseCost: "450.00", effectiveCost: "450.00", available: 4, state: "IN_STOCK" }) },
     stockSnapshot: 4,
   },
 ];

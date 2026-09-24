@@ -1,4 +1,4 @@
-import { randomUUID, createHash } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import Decimal from "decimal.js";
 import type { Prisma } from "@/generated/prisma/client";
 import type { PaymentProvider } from "@/generated/prisma/enums";
@@ -6,6 +6,8 @@ import { paymentAmountError } from "@/domain/payments/limits";
 import { orderNumber } from "@/domain/quotations/lifecycle";
 import { prisma } from "@/lib/prisma";
 import { stagePartnerSalesEvent } from "./communications";
+import { localProductAvailability, partnerAvailabilityFingerprint, supplierPromotionEvidence } from "./availability";
+import { partnerSalesSettings } from "./settings";
 
 export type PartnerPaymentProvider = "PAYFAST" | "OZOW";
 
@@ -114,10 +116,6 @@ function decimalValue(value: unknown, fallback: Decimal.Value): Decimal.Value {
   return typeof value === "string" || typeof value === "number" || typeof value === "bigint" ? value : fallback;
 }
 
-function availabilityFingerprint(input: { sourceType: string; sourceId: string; cost: string; available: number; state?: string | null }) {
-  return createHash("sha256").update(JSON.stringify(input)).digest("hex");
-}
-
 function expectedFingerprint(item: QuoteItem) {
   const snapshot = record(item.sourceSnapshot);
   const fingerprint = snapshot.availabilityFingerprint;
@@ -163,22 +161,22 @@ function immutableQuoteRow(row: QuoteVersionRow): QuoteVersionRow {
   };
 }
 
-async function currentAvailability(db: PartnerPaymentDb, item: QuoteItem): Promise<Availability> {
+async function currentAvailability(db: PartnerPaymentDb, item: QuoteItem, now = new Date()): Promise<Availability> {
   if (!item.sourceId) throw new PartnerQuotePaymentError(`${item.productName} has no availability source.`, "REPRICE_REQUIRED");
   if (item.sourceType === "SUPPLIER" || item.sourceType === "SUPPLIER_CATALOGUE_PRODUCT") {
-    const source = await db.supplierCatalogueProduct.findUnique({ where: { id: item.sourceId }, select: { costPrice: true, stock: true, availability: true } });
-    if (!source || source.stock < item.quantity) throw new PartnerQuotePaymentError(`${item.productName} is no longer available; request repricing.`, "REPRICE_REQUIRED");
-    const cost = String(source.costPrice);
-    return { cost, available: source.stock, fingerprint: availabilityFingerprint({ sourceType: "SUPPLIER_CATALOGUE_PRODUCT", sourceId: item.sourceId, cost, available: source.stock, state: source.availability }) };
+    const source = await db.supplierCatalogueProduct.findUnique({ where: { id: item.sourceId }, select: { costPrice: true, promotionalPrice: true, promotionStartsAt: true, promotionEndsAt: true, stock: true, availability: true } });
+    if (!source || source.stock < item.quantity || source.availability !== "IN_STOCK") throw new PartnerQuotePaymentError(`${item.productName} is no longer available; request repricing.`, "REPRICE_REQUIRED");
+    const promotion = supplierPromotionEvidence({ costPrice: source.costPrice, promotionalPrice: source.promotionalPrice, promotionStartsAt: source.promotionStartsAt, promotionEndsAt: source.promotionEndsAt, now });
+    if (!promotion.effectiveCost) throw new PartnerQuotePaymentError(`${item.productName} has no current cost; request repricing.`, "REPRICE_REQUIRED");
+    return { cost: promotion.effectiveCost, available: source.stock, fingerprint: partnerAvailabilityFingerprint({ sourceType: "SUPPLIER_CATALOGUE_PRODUCT", sourceId: item.sourceId, baseCost: promotion.baseCost!, effectiveCost: promotion.effectiveCost, promotionalCost: promotion.promotionalCost, promotionActive: promotion.promotionActive, promotionStartsAt: promotion.promotionStartsAt, promotionEndsAt: promotion.promotionEndsAt, available: source.stock, state: source.availability }) };
   }
 
   if (!item.productId) throw new PartnerQuotePaymentError(`${item.productName} is not linked to inventory; request repricing.`, "REPRICE_REQUIRED");
-  const source = await db.product.findUnique({ where: { id: item.productId }, select: { costPrice: true, stockStatus: true, inventory: { select: { onHand: true, reserved: true } } } });
+  const source = await db.product.findUnique({ where: { id: item.productId }, select: { costPrice: true, stockStatus: true, inventory: { select: { id: true, onHand: true, reserved: true } }, variants: { select: { id: true, isActive: true, costPrice: true, inventory: { select: { onHand: true, reserved: true } } } }, suppliers: { where: { isPreferred: true }, take: 1, select: { costPrice: true } } } });
   if (!source) throw new PartnerQuotePaymentError(`${item.productName} is no longer available; request repricing.`, "REPRICE_REQUIRED");
-  const available = source.inventory.reduce((total, row) => total + Math.max(0, row.onHand - row.reserved), 0);
-  if (available < item.quantity) throw new PartnerQuotePaymentError(`${item.productName} is no longer sufficiently available; request repricing.`, "REPRICE_REQUIRED");
-  const cost = String(source.costPrice);
-  return { cost, available, fingerprint: availabilityFingerprint({ sourceType: "PRODUCT", sourceId: item.productId, cost, available, state: String(source.stockStatus) }) };
+  const current = localProductAvailability(source);
+  if (!current.cost || current.available < item.quantity) throw new PartnerQuotePaymentError(`${item.productName} is no longer sufficiently available; request repricing.`, "REPRICE_REQUIRED");
+  return { cost: current.cost, available: current.available, fingerprint: partnerAvailabilityFingerprint({ sourceType: "PRODUCT", sourceId: item.productId, baseCost: current.cost, effectiveCost: current.cost, available: current.available, state: String(source.stockStatus), details: { costEvidence: current.costEvidence } }) };
 }
 
 function assertQuoteIdentity(row: QuoteVersionRow, acceptedVersionId: string, now: Date, provider: PartnerPaymentProvider) {
@@ -224,7 +222,7 @@ async function validateAcceptedVersion(db: PartnerPaymentDb, acceptedVersionId: 
   }
   assertQuoteIdentity(row, acceptedVersionId, now, provider);
   for (const item of row.quotation.items) {
-    const live = await currentAvailability(db, item);
+    const live = await currentAvailability(db, item, now);
     const expected = expectedFingerprint(item);
     if (expected && expected !== live.fingerprint) {
       throw new PartnerQuotePaymentError(`${item.productName} cost or stock changed; request repricing.`, "REPRICE_REQUIRED");
@@ -263,6 +261,7 @@ function paymentResult(payment: { id: string; orderId: string; provider: Payment
  * gateway or browser converge on the same pair.
  */
 export async function createPartnerQuotePayment(acceptedVersionId: string, provider: PartnerPaymentProvider, now = new Date()): Promise<PartnerQuotePaymentResult> {
+  if (!(await partnerSalesSettings()).enabled) throw new PartnerQuotePaymentError("Partner sales channel is currently unavailable.");
   if (provider !== "PAYFAST" && provider !== "OZOW") throw new PartnerQuotePaymentError("Choose PayFast or Ozow for partner quotation payment.");
   const result = await prisma.$transaction(async (tx) => {
     const db = tx as unknown as PartnerPaymentDb;
@@ -330,6 +329,7 @@ export async function createPartnerQuotePayment(acceptedVersionId: string, provi
 
 /** Re-checks the accepted version immediately before hosted fields are rendered. */
 export async function validatePartnerQuotePayment(paymentId: string, now = new Date()) {
+  if (!(await partnerSalesSettings()).enabled) throw new PartnerQuotePaymentError("Partner sales channel is currently unavailable.");
   const payment = await prisma.payment.findUnique({ where: { id: paymentId }, include: { partnerQuoteCase: { select: { id: true, acceptedQuotationVersionId: true } } } });
   if (!payment || !payment.partnerQuoteCase?.acceptedQuotationVersionId || payment.provider === "EFT" || payment.provider === "MANUAL") throw new PartnerQuotePaymentError("Partner hosted payment was not found.");
   if (payment.status !== "PENDING") throw new PartnerQuotePaymentError("This payment is no longer pending.");

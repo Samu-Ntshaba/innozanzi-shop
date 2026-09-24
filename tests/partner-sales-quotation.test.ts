@@ -23,8 +23,7 @@ const mocks = vi.hoisted(() => {
     enqueueEmail: vi.fn().mockResolvedValue({ id: "notification-1" }),
   };
 });
-
-vi.mock("@/lib/prisma", () => ({ prisma: { ...mocks, $transaction: mocks.transaction } }));
+vi.mock("@/lib/prisma", () => ({ prisma: { ...mocks, siteSetting: { findUnique: vi.fn().mockResolvedValue({ value: { enabled: true } }) }, $transaction: mocks.transaction } }));
 vi.mock("@/integrations/email/outbox", () => ({ enqueueEmail: mocks.enqueueEmail }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
@@ -134,6 +133,7 @@ describe("partner quotation documents", () => {
       validUntil,
     });
     expect(pdf.subarray(0, 5).toString()).toBe("%PDF-");
+    expect(pdf.length).toBeGreaterThan(500);
     expect(pdf.toString("latin1")).not.toContain("supplier-secret");
     expect(pdf.toString("latin1")).not.toContain("<script>");
   });
@@ -175,6 +175,12 @@ describe("partner review and client acceptance", () => {
     const sent = await sendPartnerQuotation(ids.case, actor);
     expect(sent.version).toBe(1);
     expect(sent.accessToken).toEqual(expect.any(String));
+    expect(sent.snapshot.grandTotal).toBe("2420.00");
+    expect(sent.snapshot.items).toHaveLength(1);
+    expect(mocks.enqueueEmail).toHaveBeenCalledWith(expect.objectContaining({
+      text: expect.stringContaining("2420.00"),
+      attachments: expect.arrayContaining([expect.objectContaining({ contentType: "application/pdf" })]),
+    }), undefined);
     expect(mocks.quotation.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: "SENT" }) }));
   });
 
@@ -208,4 +214,3 @@ describe("partner review and client acceptance", () => {
     expect(new Set(results.map((result) => result.status === "fulfilled" ? result.value.acceptanceId : "failed")).size).toBe(1);
   });
 });
-

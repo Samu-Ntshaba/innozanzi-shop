@@ -86,7 +86,8 @@ function snapshotFrom(value: unknown): PartnerQuotationClientSnapshot {
 
 function approvedClientSnapshot(input: unknown): PartnerQuotationClientSnapshot {
   const row = record(input);
-  const snapshot = record(row.snapshot);
+  const version = record(row.version);
+  const snapshot = record(row.snapshot ?? version.snapshot);
   const audience = record(snapshot.audience);
   return snapshotFrom(audience.client ?? row.clientSnapshot ?? snapshot);
 }
@@ -94,6 +95,7 @@ function approvedClientSnapshot(input: unknown): PartnerQuotationClientSnapshot 
 /** Return only the approved client audience from an immutable quotation version. */
 export function clientQuotationProjection(input: unknown): PartnerQuotationClientProjection {
   const row = record(input);
+  const version = record(row.version);
   const quotation = record(row.quotation ?? input);
   const profile = record(quotation.partnerSalesProfile ?? row.partnerSalesProfile);
   const quoteCase = record(quotation.partnerQuoteCase ?? row.partnerQuoteCase);
@@ -103,7 +105,7 @@ export function clientQuotationProjection(input: unknown): PartnerQuotationClien
   return {
     quotationId: plain(quotation.id, plain(row.quotationId)),
     quotationNumber: plain(quotation.quotationNumber, "Quotation"),
-    version: typeof row.version === "number" ? row.version : typeof quotation.version === "number" ? quotation.version : 1,
+    version: typeof row.version === "number" ? row.version : typeof version.version === "number" ? version.version : typeof quotation.version === "number" ? quotation.version : 1,
     partner: {
       displayName: plain(profile.displayName, snapshot.partner?.displayName ?? "Partner"),
       publicSlug: plain(profile.publicSlug, snapshot.partner?.publicSlug ?? "") || null,

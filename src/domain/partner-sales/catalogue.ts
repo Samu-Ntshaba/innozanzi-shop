@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import { z } from "zod";
 import { Prisma } from "@/generated/prisma/client";
 import {
@@ -7,10 +6,14 @@ import {
 } from "@/domain/auth/permissions";
 import type { CommerceSettings } from "@/domain/commerce/config";
 import { getCommerceSettings } from "@/domain/commerce/settings";
-import { supplierRetailPrice } from "@/domain/catalogue/retail-pricing";
 import { partnerSalesSettings } from "@/domain/partner-sales/settings";
 import { prisma } from "@/lib/prisma";
 import { createSupabaseAdmin } from "@/lib/supabase";
+import {
+  localProductAvailability,
+  partnerAvailabilityFingerprint,
+  supplierPromotionEvidence,
+} from "@/domain/partner-sales/availability";
 
 const SOURCE_TYPES = [
   "PRODUCT",
@@ -154,60 +157,7 @@ function decimalString(value: unknown) {
   return null;
 }
 
-function availabilityFingerprint(value: unknown) {
-  return createHash("sha256").update(JSON.stringify(value)).digest("hex");
-}
-
-function manualProductAvailability(product: {
-  costPrice: unknown;
-  inventory: Array<{ id: string; onHand: number; reserved: number }>;
-  variants: Array<{
-    id: string;
-    isActive: boolean;
-    costPrice: unknown;
-    inventory: { onHand: number; reserved: number } | null;
-  }>;
-  suppliers: Array<{ costPrice: unknown }>;
-}) {
-  const activeVariants = product.variants.filter((variant) => variant.isActive);
-  const fallbackCost = decimalString(
-    product.costPrice ?? product.suppliers[0]?.costPrice,
-  );
-  if (activeVariants.length) {
-    const costEvidence = activeVariants.map((variant) => {
-      const available = Math.max(
-        0,
-        (variant.inventory?.onHand ?? 0) -
-          (variant.inventory?.reserved ?? 0),
-      );
-      return {
-        id: variant.id,
-        available,
-        cost: decimalString(variant.costPrice) ?? fallbackCost,
-      };
-    });
-    const stocked = costEvidence.filter((variant) => variant.available > 0);
-    const costsValid =
-      stocked.length > 0 &&
-      stocked.every(
-        (variant) => variant.cost && Number(variant.cost) > 0,
-      );
-    return {
-      available: stocked.reduce((total, variant) => total + variant.available, 0),
-      cost: costsValid ? stocked[0]?.cost ?? null : null,
-      costEvidence,
-    };
-  }
-  const available = product.inventory.reduce(
-    (total, row) => total + Math.max(0, row.onHand - row.reserved),
-    0,
-  );
-  return {
-    available,
-    cost: fallbackCost,
-    costEvidence: [{ id: "base", available, cost: fallbackCost }],
-  };
-}
+const manualProductAvailability = localProductAvailability;
 
 async function resolveProductSource(
   db: CatalogueDatabase,
@@ -275,13 +225,14 @@ async function resolveProductSource(
         altText: product.images[0].altText,
       },
     ],
-    fingerprint: availabilityFingerprint({
+    fingerprint: partnerAvailabilityFingerprint({
       sourceType: "PRODUCT",
       sourceId: product.id,
-      cost: current.cost,
-      costEvidence: current.costEvidence,
+      baseCost: current.cost,
+      effectiveCost: current.cost,
       available: current.available,
-      stockStatus: product.stockStatus,
+      state: product.stockStatus,
+      details: { costEvidence: current.costEvidence },
     }),
   };
 }
@@ -324,7 +275,6 @@ async function supplierEligibility(
   const freshSince =
     now.getTime() - settings.freshnessHours * 60 * 60 * 1000;
   const baseCost = decimalString(product.costPrice);
-  const recommendedRetail = decimalString(product.recommendedRetail);
   const promotionalCost = decimalString(product.promotionalPrice);
   if (!baseCost || Number(baseCost) <= 0) {
     return {
@@ -339,23 +289,19 @@ async function supplierEligibility(
       eligible: false,
     };
   }
-  const retail = await supplierRetailPrice(
-    {
-      costPrice: baseCost,
-      recommendedRetail,
-      promotionalPrice: promotionalCost,
-      promotionStartsAt: product.promotionStartsAt,
-      promotionEndsAt: product.promotionEndsAt,
-      now,
-    },
-    settings,
-  );
-  const effectiveCost = retail.promotionActive ? promotionalCost : baseCost;
+  const promotion = supplierPromotionEvidence({
+    costPrice: baseCost,
+    promotionalPrice: promotionalCost,
+    promotionStartsAt: product.promotionStartsAt,
+    promotionEndsAt: product.promotionEndsAt,
+    now,
+  });
+  const effectiveCost = promotion.effectiveCost;
   return {
     baseCost,
     effectiveCost,
     promotion: {
-      active: retail.promotionActive,
+        active: promotion.promotionActive,
       price: promotionalCost,
       startsAt: product.promotionStartsAt?.toISOString() ?? null,
       endsAt: product.promotionEndsAt?.toISOString() ?? null,
@@ -423,14 +369,17 @@ async function resolveSupplierSource(
     // It is never snapshotted or published; a separately persisted, approved
     // Innozanzi asset is required before supplier artwork can be shown.
     media: [],
-    fingerprint: availabilityFingerprint({
+    fingerprint: partnerAvailabilityFingerprint({
       sourceType: "SUPPLIER_CATALOGUE_PRODUCT",
       sourceId: product.id,
       baseCost: current.baseCost,
       effectiveCost: current.effectiveCost,
-      promotion: current.promotion,
-      stock: product.stock,
-      availability: product.availability,
+      promotionalCost: current.promotion.price,
+      promotionActive: current.promotion.active,
+      promotionStartsAt: current.promotion.startsAt,
+      promotionEndsAt: current.promotion.endsAt,
+      available: product.stock,
+      state: product.availability,
     }),
   };
 }
@@ -537,16 +486,20 @@ async function resolveComboSource(
     description: campaign.description,
     sku: null,
     media: image ? [{ url: image, altText: campaign.name }] : [],
-    fingerprint: availabilityFingerprint({
+    fingerprint: partnerAvailabilityFingerprint({
       sourceType: "COMBO",
       sourceId: campaign.id,
-      status: campaign.status,
-      startsAt: campaign.startsAt.toISOString(),
-      endsAt: campaign.endsAt.toISOString(),
-      normalPrice: campaign.normalPrice.toString(),
-      comboPrice: campaign.comboPrice.toString(),
-      estimatedCost: campaign.estimatedCost.toString(),
-      items: itemAvailability,
+      baseCost: campaign.estimatedCost,
+      effectiveCost: campaign.estimatedCost,
+      available: Math.min(...itemAvailability.map((item) => Number(item.available))),
+      state: campaign.status,
+      details: {
+        startsAt: campaign.startsAt.toISOString(),
+        endsAt: campaign.endsAt.toISOString(),
+        normalPrice: campaign.normalPrice.toString(),
+        comboPrice: campaign.comboPrice.toString(),
+        items: itemAvailability,
+      },
     }),
   };
 }

@@ -13,12 +13,13 @@ const ids = {
 
 const mocks = vi.hoisted(() => {
   const tx = {
+    $queryRawUnsafe: vi.fn(),
     partnerQuoteCase: { findUnique: vi.fn(), update: vi.fn() },
     quotation: { create: vi.fn(), update: vi.fn() },
     quotationRequest: { update: vi.fn() },
     quotationItem: { createMany: vi.fn(), deleteMany: vi.fn() },
     quotationVersion: { create: vi.fn(), count: vi.fn() },
-    partnerCommission: { create: vi.fn() },
+    partnerCommission: { findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
     partnerCommissionEntry: { create: vi.fn() },
     quotationStatusHistory: { create: vi.fn() },
     auditLog: { create: vi.fn() },
@@ -178,5 +179,52 @@ describe("partner quote approval", () => {
       }),
     });
     await expect(approvePartnerQuotation({ caseId: ids.case }, actor)).rejects.toThrow("changed");
+  });
+
+  it("re-estimates the existing unpaid commission during a revision without inserting a duplicate", async () => {
+    const { approvePartnerQuotation } = await import("@/domain/partner-sales/cases");
+    const actor = { user: { id: "actor-1" }, grants: [{ key: "partner_sales.pricing.approve", effect: "ALLOW" as const }] };
+    mocks.partnerQuoteCase.findUnique.mockResolvedValue({
+      id: ids.case,
+      caseNumber: "PC-1",
+      partnershipId: "11111111-1111-4111-8111-111111111111",
+      profileId: "22222222-2222-4222-8222-222222222222",
+      partnerClientId: "33333333-3333-4333-8333-333333333333",
+      status: "REVISION_REQUESTED",
+      innozanziOwnerId: null,
+      profile: { publicSlug: "acme", displayName: "Acme", defaultCommissionMethod: "PERCENTAGE", defaultCommissionValue: "10" },
+      partnerClient: { companyName: "Client", contactName: "Buyer", email: "buyer@example.com" },
+      quotationRequest: { id: "99999999-9999-4999-8999-999999999999", requestNumber: "QR-1", contactName: "Buyer", email: "buyer@example.com", items: [{ id: "item-1", productName: "Business laptop", requestedQuantity: 1, productSnapshot: { sourceType: "PRODUCT", sourceId: "product-1", cost: "1000", available: 5, availabilityFingerprint: "fp-1", currentAvailabilityFingerprint: "fp-1" } }] },
+      quotations: [{ version: 1 }],
+    });
+    mocks.partnerCommission.findUnique.mockResolvedValue({ id: "existing-commission", status: "ESTIMATED", paidAt: null });
+    mocks.partnerCommission.update.mockResolvedValue({ id: "existing-commission" });
+
+    const result = await approvePartnerQuotation({ caseId: ids.case }, actor);
+
+    expect(result.commissionId).toBe("existing-commission");
+    expect(mocks.partnerCommission.create).not.toHaveBeenCalled();
+    expect(mocks.partnerCommission.update).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: "existing-commission" },
+      data: expect.objectContaining({ status: "ESTIMATED", currentAmount: expect.anything() }),
+    }));
+  });
+
+  it("locks concurrent revisions before re-estimating the single commission obligation", async () => {
+    const { approvePartnerQuotation } = await import("@/domain/partner-sales/cases");
+    const actor = { user: { id: "actor-1" }, grants: [{ key: "partner_sales.pricing.approve", effect: "ALLOW" as const }] };
+    mocks.partnerQuoteCase.findUnique.mockResolvedValue({
+      id: ids.case, caseNumber: "PC-1", partnershipId: "11111111-1111-4111-8111-111111111111", profileId: "22222222-2222-4222-8222-222222222222", partnerClientId: "33333333-3333-4333-8333-333333333333", status: "REVISION_REQUESTED", innozanziOwnerId: null,
+      profile: { publicSlug: "acme", displayName: "Acme", defaultCommissionMethod: "PERCENTAGE", defaultCommissionValue: "10" }, partnerClient: { companyName: "Client", contactName: "Buyer", email: "buyer@example.com" },
+      quotationRequest: { id: "99999999-9999-4999-8999-999999999999", requestNumber: "QR-1", contactName: "Buyer", email: "buyer@example.com", items: [{ id: "item-1", productName: "Business laptop", requestedQuantity: 1, productSnapshot: { sourceType: "PRODUCT", sourceId: "product-1", cost: "1000", available: 5, availabilityFingerprint: "fp-1", currentAvailabilityFingerprint: "fp-1" } }] }, quotations: [{ version: 1 }],
+    });
+    mocks.partnerCommission.findUnique.mockResolvedValue({ id: "existing-commission", status: "ESTIMATED", paidAt: null });
+    mocks.partnerCommission.update.mockResolvedValue({ id: "existing-commission" });
+
+    await Promise.all([approvePartnerQuotation({ caseId: ids.case }, actor), approvePartnerQuotation({ caseId: ids.case }, actor)]);
+
+    expect(mocks.$queryRawUnsafe).toHaveBeenCalledTimes(2);
+    expect(mocks.partnerCommission.create).not.toHaveBeenCalled();
+    expect(mocks.partnerCommission.update).toHaveBeenCalledTimes(2);
   });
 });

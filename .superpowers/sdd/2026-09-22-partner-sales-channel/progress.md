@@ -58,3 +58,12 @@ Task 8: complete — commit `9b13050`; focused `npm test -- tests/partner-sales-
 Task 9: complete — focused partner payment/order tests → 1 file / 6 tests; full `npx vitest run` → 115 files / 525 tests; `npx tsc --noEmit` and `npm run lint` passed; webpack compiled and page-data collection requires configured `DATABASE_URL`/`DATABASE_PUBLIC_URL`.
 Task 10: complete — redacted partnership-scoped order tracking, responsive partner pages, and Admin/Mobile Admin partner-case linkage; focused 4/4 and full 529/529 tests pass; `npx tsc --noEmit`, `npm run lint` (four pre-existing warnings), and `git diff --check` pass; webpack compiles but page-data collection requires configured `DATABASE_URL`/`DATABASE_PUBLIC_URL`.
 Task 14: implementation ready — Task 14 report written; full 121 files / 576 tests pass, typecheck/lint pass (four pre-existing warnings), webpack page-data and migration rehearsal blocked by missing database URL; commit pending parent due read-only worktree git metadata.
+
+## Final blocker-fix pass (base `cf9cd46`)
+
+- Canonical availability contract added and used by catalogue assignment, case pricing, and payment validation. It normalizes source type/id, base/effective cost, promotional window/active state, stock, availability state, and source details; stale cost, promotion, stock, and time evidence remains a repricing blocker.
+- Revision approval now locks the quote case and re-estimates the existing unpaid `ESTIMATED` commission, or creates one only when absent. Paid/non-estimated commission history is never mutated and concurrent revisions cannot insert a second case commission.
+- Partner send, email/PDF projection, and partner case page now select and pass the immutable approved version snapshot; client totals and line items remain nonzero and exact.
+- Public showcase/enquiry/quotation resolution, acceptance, and hosted-payment validation fail closed when `partner_sales.channel.v1` is disabled, before mutation.
+- Added focused RED→GREEN regression coverage in `tests/partner-sales-release-blockers.test.ts`, `tests/partner-sales-channel-disabled.test.ts`, and revision/concurrency additions to the pricing and quotation/payment suites.
+- Removed the seven blank-line-at-EOF errors reported by `git diff b833e42...HEAD --check`.

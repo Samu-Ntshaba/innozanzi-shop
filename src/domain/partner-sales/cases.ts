@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import Decimal from "decimal.js";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -17,6 +16,7 @@ import {
   type PartnerPricingItem,
 } from "./pricing";
 import { stagePartnerSalesEvent } from "./communications";
+import { localProductAvailability, partnerAvailabilityFingerprint, supplierPromotionEvidence } from "./availability";
 
 export { PartnerPricingError } from "./pricing";
 
@@ -130,11 +130,7 @@ function stringValue(value: unknown, fallback: string) {
   return typeof value === "string" && value.trim() ? value : fallback;
 }
 
-function fingerprint(value: unknown) {
-  return createHash("sha256").update(JSON.stringify(value)).digest("hex");
-}
-
-async function currentSource(db: PartnerCaseDatabase, item: QuoteRequestItem, snapshot: Record<string, unknown>) {
+async function currentSource(db: PartnerCaseDatabase, item: QuoteRequestItem, snapshot: Record<string, unknown>, now = new Date()) {
   if (snapshot.currentCost !== undefined || snapshot.currentAvailable !== undefined || snapshot.currentAvailabilityFingerprint !== undefined) {
     const previousCost = snapshot.cost === undefined ? undefined : String(snapshot.cost);
     const currentCost = snapshot.currentCost === undefined ? previousCost : String(snapshot.currentCost);
@@ -156,15 +152,18 @@ async function currentSource(db: PartnerCaseDatabase, item: QuoteRequestItem, sn
   const sourceId = typeof snapshot.sourceId === "string" ? snapshot.sourceId : undefined;
   if (!sourceId) throw new PartnerPricingError(`${item.productName ?? "An item"} has no current cost or stock evidence.`);
   if (sourceType === "PRODUCT") {
-    const product = await db.product.findUnique({ where: { id: sourceId }, select: { costPrice: true, stockStatus: true, inventory: { select: { onHand: true, reserved: true } } } });
+    const product = await db.product.findUnique({ where: { id: sourceId }, select: { costPrice: true, stockStatus: true, inventory: { select: { id: true, onHand: true, reserved: true } }, variants: { select: { id: true, isActive: true, costPrice: true, inventory: { select: { onHand: true, reserved: true } } } }, suppliers: { where: { isPreferred: true }, take: 1, select: { costPrice: true } } } });
     if (!product) throw new PartnerPricingError("A quoted product is no longer available.");
-    const available = product.inventory.reduce((total, row) => total + Math.max(0, row.onHand - row.reserved), 0);
-    return { cost: product.costPrice, available, currentAvailabilityFingerprint: fingerprint({ sourceType, sourceId, cost: String(product.costPrice), available, stockStatus: product.stockStatus }) };
+    const current = localProductAvailability(product);
+    if (!current.cost || current.available <= 0) throw new PartnerPricingError("A quoted product is no longer available.");
+    return { cost: current.cost, available: current.available, currentAvailabilityFingerprint: partnerAvailabilityFingerprint({ sourceType, sourceId, baseCost: current.cost, effectiveCost: current.cost, available: current.available, state: String(product.stockStatus), details: { costEvidence: current.costEvidence } }) };
   }
   if (sourceType === "SUPPLIER_CATALOGUE_PRODUCT") {
-    const product = await db.supplierCatalogueProduct.findUnique({ where: { id: sourceId }, select: { costPrice: true, stock: true, availability: true } });
+    const product = await db.supplierCatalogueProduct.findUnique({ where: { id: sourceId }, select: { costPrice: true, promotionalPrice: true, promotionStartsAt: true, promotionEndsAt: true, stock: true, availability: true } });
     if (!product) throw new PartnerPricingError("A supplier item is no longer available.");
-    return { cost: product.costPrice, available: product.stock, currentAvailabilityFingerprint: fingerprint({ sourceType, sourceId, cost: String(product.costPrice), available: product.stock, availability: product.availability }) };
+    const promotion = supplierPromotionEvidence({ costPrice: product.costPrice, promotionalPrice: product.promotionalPrice, promotionStartsAt: product.promotionStartsAt, promotionEndsAt: product.promotionEndsAt, now });
+    if (!promotion.effectiveCost || product.stock <= 0 || product.availability !== "IN_STOCK") throw new PartnerPricingError("A supplier item is no longer available.");
+    return { cost: promotion.effectiveCost, available: product.stock, currentAvailabilityFingerprint: partnerAvailabilityFingerprint({ sourceType, sourceId, baseCost: promotion.baseCost!, effectiveCost: promotion.effectiveCost!, promotionalCost: promotion.promotionalCost, promotionActive: promotion.promotionActive, promotionStartsAt: promotion.promotionStartsAt, promotionEndsAt: promotion.promotionEndsAt, available: product.stock, state: product.availability }) };
   }
   throw new PartnerPricingError(`${item.productName ?? "An item"} has no supported current availability source.`);
 }
@@ -176,12 +175,19 @@ async function loadCase(db: PartnerCaseDatabase, caseId: string) {
   return typed;
 }
 
-async function pricingInputForCase(db: PartnerCaseDatabase, quoteCase: QuoteCaseRecord, overrides: Partial<Omit<ApprovePartnerQuotationInput, "caseId">> = {}): Promise<PartnerPricingInput> {
+async function lockCase(db: unknown, caseId: string) {
+  const candidate = db as { $queryRawUnsafe?: (query: string, ...values: unknown[]) => Promise<unknown> };
+  if (typeof candidate.$queryRawUnsafe === "function") {
+    await candidate.$queryRawUnsafe('SELECT id FROM "PartnerQuoteCase" WHERE id = $1 FOR UPDATE', caseId);
+  }
+}
+
+async function pricingInputForCase(db: PartnerCaseDatabase, quoteCase: QuoteCaseRecord, overrides: Partial<Omit<ApprovePartnerQuotationInput, "caseId">> = {}, now = new Date()): Promise<PartnerPricingInput> {
   if (!quoteCase.quotationRequest?.items?.length) throw new PartnerPricingError("The partner quote case has no requested items.");
   const sourceItems: PartnerPricingItem[] = [];
   for (const item of quoteCase.quotationRequest!.items) {
     const snapshot = record(item.productSnapshot);
-    const current = await currentSource(db, item, snapshot);
+    const current = await currentSource(db, item, snapshot, now);
     const storedFingerprint = typeof snapshot.availabilityFingerprint === "string" ? snapshot.availabilityFingerprint : null;
     sourceItems.push({
       id: item.id,
@@ -218,7 +224,7 @@ async function pricingInputForCase(db: PartnerCaseDatabase, quoteCase: QuoteCase
 export async function quotePartnerCase(caseId: string, actor: PartnerPricingActor) {
   assertPricingPermission(actor);
   const quoteCase = await loadCase(prisma as unknown as PartnerCaseDatabase, caseId);
-  const result = calculatePartnerPricing(await pricingInputForCase(prisma as unknown as PartnerCaseDatabase, quoteCase));
+  const result = calculatePartnerPricing(await pricingInputForCase(prisma as unknown as PartnerCaseDatabase, quoteCase, {}, new Date()));
   return {
     caseId: quoteCase.id,
     caseNumber: quoteCase.caseNumber,
@@ -247,6 +253,7 @@ export async function approvePartnerQuotation(rawInput: unknown, actor: PartnerP
   const now = new Date();
   const result = await prisma.$transaction(async (tx) => {
     const db = tx as unknown as PartnerCaseDatabase;
+    await lockCase(tx, input.caseId);
     const quoteCase = await loadCase(db, input.caseId);
     if (quoteCase.innozanziOwnerId === actor.user.id && !actor.isSuperAdministrator) {
       throw new PartnerPricingError("The Innozanzi case owner cannot approve their own quotation.");
@@ -254,7 +261,7 @@ export async function approvePartnerQuotation(rawInput: unknown, actor: PartnerP
     if (["COMPLETED", "DECLINED", "EXPIRED", "CANCELLED", "REFUNDED", "DISPUTED"].includes(quoteCase.status)) {
       throw new PartnerPricingError("This quote case cannot receive a new commercial approval.");
     }
-    const pricing = calculatePartnerPricing(await pricingInputForCase(db, quoteCase, input));
+    const pricing = calculatePartnerPricing(await pricingInputForCase(db, quoteCase, input, now));
     const version = Math.max(0, ...(quoteCase.quotations ?? []).map((quotation) => quotation.version)) + 1;
     const quotationNumber = `QUO-PS-${Date.now().toString(36).toUpperCase()}-${version}`;
     const clientSnapshot = clientPricingSnapshot(pricing, quoteCase.profile);
@@ -308,22 +315,47 @@ export async function approvePartnerQuotation(rawInput: unknown, actor: PartnerP
     });
     const quotationId = quotation.id;
     const quotationVersion = await tx.quotationVersion.create({ data: { quotationId, version, kind: "FINAL", createdById: actor.user.id, snapshot } });
-    const commission = await tx.partnerCommission.create({
-      data: {
-        partnershipId: quoteCase.partnershipId,
-        caseId: quoteCase.id,
-        quotationId,
-        quotationVersionId: quotationVersion.id,
-        method: pricing.commissionMethod,
-        approvedBasis: pricing.netSale,
-        approvedValue: pricing.commissionValue,
-        quotedAmount: pricing.commissionAmount,
-        currentAmount: pricing.commissionAmount,
-        currency: pricing.currency,
-        calculationSnapshot: internalSnapshot,
-        status: "ESTIMATED",
-      },
-    });
+    const existingCommission = typeof tx.partnerCommission.findUnique === "function"
+      ? await tx.partnerCommission.findUnique({ where: { caseId: quoteCase.id } })
+      : null;
+    const commission = existingCommission
+      ? existingCommission.status !== "ESTIMATED" || existingCommission.paidAt
+        ? (() => { throw new PartnerPricingError("This commission has payment history and cannot be mutated by a quotation revision."); })()
+        : await tx.partnerCommission.update({
+            where: { id: existingCommission.id },
+            data: {
+              quotationId,
+              quotationVersionId: quotationVersion.id,
+              method: pricing.commissionMethod,
+              approvedBasis: pricing.netSale,
+              approvedValue: pricing.commissionValue,
+              quotedAmount: pricing.commissionAmount,
+              currentAmount: pricing.commissionAmount,
+              currency: pricing.currency,
+              calculationSnapshot: internalSnapshot,
+              status: "ESTIMATED",
+              heldAmount: 0,
+              adjustedAmount: 0,
+              reversedAmount: 0,
+              adjustmentReason: null,
+            },
+          })
+      : await tx.partnerCommission.create({
+          data: {
+            partnershipId: quoteCase.partnershipId,
+            caseId: quoteCase.id,
+            quotationId,
+            quotationVersionId: quotationVersion.id,
+            method: pricing.commissionMethod,
+            approvedBasis: pricing.netSale,
+            approvedValue: pricing.commissionValue,
+            quotedAmount: pricing.commissionAmount,
+            currentAmount: pricing.commissionAmount,
+            currency: pricing.currency,
+            calculationSnapshot: internalSnapshot,
+            status: "ESTIMATED",
+          },
+        });
     await tx.partnerCommissionEntry.create({ data: { commissionId: commission.id, type: "ESTIMATE", amount: pricing.commissionAmount, balanceAfter: pricing.commissionAmount, reason: "Partner quotation approved", actorId: actor.user.id, metadata: { quotationId, quotationVersionId: quotationVersion.id } } });
     await tx.partnerQuoteCase.update({ where: { id: quoteCase.id }, data: { activeQuotationId: quotationId, status: "PARTNER_REVIEW" } });
     await tx.quotationRequest.update({ where: { id: quoteCase.quotationRequest!.id }, data: { status: "QUOTED" } });
