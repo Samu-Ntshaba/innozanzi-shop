@@ -181,7 +181,7 @@ export async function createPayoutBatch(input: CreatePayoutBatchInput) {
       await tx.$queryRaw`SELECT id FROM "PartnerPayoutBatch" WHERE id = ${replay.id}::uuid FOR UPDATE`;
       return result(replay as unknown as BatchRow);
     }
-    }, { isolationLevel: "Serializable" });
+    }, { isolationLevel: "ReadCommitted" });
   } catch (error) {
     if (!input.idempotencyKey?.trim() || !isUniqueConflict(error)) throw error;
     const replay = await prisma.partnerPayoutBatch.findUnique({ where: { idempotencyKey: input.idempotencyKey.trim() }, include: { items: true } });

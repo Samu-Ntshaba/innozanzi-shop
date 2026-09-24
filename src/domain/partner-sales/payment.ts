@@ -254,6 +254,29 @@ async function lockCase(db: PartnerPaymentDb, caseId: string) {
   if (typeof client.$queryRawUnsafe === "function") await client.$queryRawUnsafe('SELECT id FROM "PartnerQuoteCase" WHERE id = $1 FOR UPDATE', caseId);
 }
 
+type LockedPartnerOrder = {
+  id: string;
+  orderNumber: string;
+  paymentStatus?: string | null;
+  status?: string | null;
+  cancelledAt?: Date | null;
+};
+
+async function lockOrder(db: PartnerPaymentDb, orderId: string, fallback?: LockedPartnerOrder): Promise<LockedPartnerOrder> {
+  const client = db as unknown as { $queryRawUnsafe?: (query: string, ...values: unknown[]) => Promise<unknown> };
+  if (typeof client.$queryRawUnsafe === "function") {
+    const rows = await client.$queryRawUnsafe(
+      'SELECT id, "orderNumber", "paymentStatus", status, "cancelledAt" FROM "Order" WHERE id = $1::uuid FOR UPDATE',
+      orderId,
+    ) as LockedPartnerOrder[] | undefined;
+    if (rows?.[0]) return rows[0];
+  }
+  const row = await db.order.findUnique({ where: { id: orderId }, select: { id: true, orderNumber: true, paymentStatus: true, status: true, cancelledAt: true } });
+  if (row) return row as LockedPartnerOrder;
+  if (fallback) return fallback;
+  throw new PartnerQuotePaymentError("The payment order could not be found.");
+}
+
 async function loadAcceptedVersion(db: PartnerPaymentDb, acceptedVersionId: string) {
   const row = await db.quotationVersion.findUnique({ where: { id: acceptedVersionId }, include: { quotation: { include: { items: true, partnerQuoteCase: { include: { partnerClient: true } } } } } });
   if (!row) throw new PartnerQuotePaymentError("The accepted quotation version could not be found.");
@@ -329,12 +352,17 @@ async function restartFailedPayment(
   provider: PartnerPaymentProvider,
   idempotencyKey: string,
 ) {
-  if (payment.order?.paymentStatus === "PAID" || payment.order?.status === "PAYMENT_VERIFIED") {
+  const lockedOrder = await lockOrder(db, payment.orderId, payment.order ?? order);
+  if (lockedOrder.paymentStatus === "PAID" || lockedOrder.status === "PAID" || lockedOrder.status === "PAYMENT_VERIFIED") {
     throw new PartnerQuotePaymentError("A verified payment already exists for this order. Finance review is required.");
   }
   if (payment.status !== "FAILED" && payment.status !== "CANCELLED") {
     return paymentResult(payment, order, true);
   }
+  await db.order.update({
+    where: { id: lockedOrder.id },
+    data: { paymentStatus: "PENDING", status: "AWAITING_PAYMENT", cancelledAt: null, paymentMethod: provider },
+  });
   const restarted = await db.payment.update({
     where: { id: payment.id },
     data: {

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { readFileSync } from "node:fs";
 import { partnerAvailabilityFingerprint } from "@/domain/partner-sales/availability";
 
 const ids = {
@@ -214,8 +215,10 @@ describe("partner quote payment intent", () => {
       amount: "2875.00",
       currency: "ZAR",
       status: "FAILED",
-      order: { id: ids.order, orderNumber: "ORD-PS-1" },
+      order: { id: ids.order, orderNumber: "ORD-PS-1", paymentStatus: "FAILED", status: "CANCELLED", cancelledAt: new Date("2026-09-23T08:00:00.000Z") },
     };
+    mocks.order.findUnique.mockResolvedValue(failedPayment.order);
+    mocks.order.update.mockResolvedValue({ ...failedPayment.order, paymentStatus: "PENDING", status: "AWAITING_PAYMENT", cancelledAt: null });
     mocks.payment.findFirst.mockResolvedValue(failedPayment);
     mocks.payment.update.mockResolvedValue({ ...failedPayment, provider: "OZOW", status: "PENDING", failureReason: null });
 
@@ -228,12 +231,41 @@ describe("partner quote payment intent", () => {
       where: { id: ids.payment },
       data: expect.objectContaining({ provider: "OZOW", status: "PENDING", failureReason: null }),
     }));
+    expect(mocks.order.update).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: ids.order },
+      data: expect.objectContaining({ paymentStatus: "PENDING", status: "AWAITING_PAYMENT", cancelledAt: null }),
+    }));
     expect(mocks.auditLog.create).toHaveBeenCalledWith(expect.objectContaining({
       data: expect.objectContaining({ action: "partner-sales.payment.retry" }),
     }));
   });
 
+  it("keeps the pay page eligible only for a pending payment and awaiting-payment order", () => {
+    const page = readFileSync(new URL("../src/app/pay/[paymentId]/page.tsx", import.meta.url), "utf8");
+    expect(page).toContain('status: { in: ["PENDING", "PAID"] }');
+    expect(page).toContain('payment.order.paymentStatus!=="PENDING"||payment.order.status!=="AWAITING_PAYMENT"');
+  });
+
+  it("never restarts a failed payment when its order is already verified and paid", async () => {
+    const paidOrder = { id: ids.order, orderNumber: "ORD-PS-1", paymentStatus: "PAID", status: "PAYMENT_VERIFIED" };
+    mocks.order.findUnique.mockResolvedValue(paidOrder);
+    mocks.payment.findFirst.mockResolvedValue({
+      id: ids.payment,
+      orderId: ids.order,
+      provider: "PAYFAST",
+      amount: "2875.00",
+      currency: "ZAR",
+      status: "FAILED",
+      order: paidOrder,
+    });
+
+    await expect(createPartnerQuotePayment(ids.version, "OZOW", now)).rejects.toThrow(/verified payment/i);
+    expect(mocks.payment.update).not.toHaveBeenCalled();
+    expect(mocks.order.update).not.toHaveBeenCalled();
+  });
+
   it("supports Ozow with the same exact accepted snapshot and converges repeated intent creation", async () => {
+    mocks.order.findUnique.mockResolvedValue(undefined);
     mocks.payment.create.mockResolvedValueOnce({ id: ids.payment, orderId: ids.order, provider: "OZOW", amount: "2875.00", currency: "ZAR", status: "PENDING" });
     const first = await createPartnerQuotePayment(ids.version, "OZOW", now);
     mocks.order.findFirst.mockResolvedValue({ id: ids.order, orderNumber: "ORD-PS-1" });

@@ -129,6 +129,21 @@ describe("partner payout batches", () => {
     expect(mocks.partnerPayoutBatch.create).not.toHaveBeenCalled();
   });
 
+  it("acquires the idempotency lock before replay and status reads under ReadCommitted", async () => {
+    const input = { partnershipId: ids.partnership, commissionIds: [ids.commission], periodStart: new Date("2026-09-01"), periodEnd: new Date("2026-09-30"), preparedById: "preparer", idempotencyKey: "ordered-payout-key" };
+    const reads: string[] = [];
+    mocks.$queryRaw.mockImplementation(async () => { reads.push("lock"); return []; });
+    mocks.partnerPayoutBatch.findUnique.mockImplementation(async () => { reads.push("replay"); return null; });
+    mocks.partnerCommission.findMany.mockImplementation(async () => { reads.push("status"); return [commission()]; });
+
+    await createPayoutBatch(input);
+
+    expect(mocks.transaction).toHaveBeenCalledWith(expect.any(Function), { isolationLevel: "ReadCommitted" });
+    expect(reads.indexOf("lock")).toBeGreaterThanOrEqual(0);
+    expect(reads.indexOf("lock")).toBeLessThan(reads.indexOf("replay"));
+    expect(reads.indexOf("lock")).toBeLessThan(reads.indexOf("status"));
+  });
+
   it("stores a statement with the batch identity, real period, currency, and case/order references", async () => {
     mocks.partnerPayoutBatch.findUnique.mockResolvedValue({
       id: ids.batch,
