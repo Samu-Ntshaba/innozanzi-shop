@@ -281,19 +281,14 @@ describe("partner sales persistence contract", () => {
     expect(migration).not.toMatch(/DROP\s+(TABLE|COLUMN)/i);
   });
 
-  it("clears only legacy supplier catalogue media snapshots after creating the assignment table", () => {
+  it("keeps legacy supplier media cleanup outside the additive migration", () => {
     const migration = source(migrationPath);
     const tableCreation = migration.indexOf(
       'CREATE TABLE "PartnerCatalogueAssignment"',
     );
-    const supplierMediaCleanup = migration.indexOf(
-      'UPDATE "PartnerCatalogueAssignment"\nSET "mediaSnapshot" = NULL\nWHERE "sourceType" = \'SUPPLIER_CATALOGUE_PRODUCT\'\n  AND "mediaSnapshot" IS NOT NULL;',
-    );
-
     expect(tableCreation).toBeGreaterThanOrEqual(0);
-    expect(supplierMediaCleanup).toBeGreaterThan(tableCreation);
-    expect(migration).not.toMatch(
-      /UPDATE "PartnerCatalogueAssignment"[\s\S]*WHERE "sourceType" (?:IN \([^)]*(?:PRODUCT|COMBO)|<>)/,
-    );
+    expect(migration).not.toMatch(/UPDATE\s+"PartnerCatalogueAssignment"/i);
+    expect(migration).not.toMatch(/DELETE\s+FROM\s+"RolePermission"/i);
+    expect(source("scripts/backfill-partner-sales-release.ts")).toContain("mediaSnapshot");
   });
 });

@@ -4,6 +4,7 @@ import type { PaymentEvent } from "@/integrations/payments/provider";
 import { notifyStaffOfPaidOrder } from "@/domain/notifications/order-alerts";
 import { assertPaymentEventMatches } from "@/domain/payments/validation";
 import { linkPaidPartnerOrder } from "@/domain/partner-sales/payment";
+import { partnerSalesSettings } from "@/domain/partner-sales/settings";
 
 export async function finalizeVerifiedPayment(provider: "PAYSTACK" | "YOCO" | "OZOW" | "PAYFAST", event: PaymentEvent) {
   const result = await prisma.$transaction(async (tx) => {
@@ -13,6 +14,11 @@ export async function finalizeVerifiedPayment(provider: "PAYSTACK" | "YOCO" | "O
     await tx.$queryRaw`SELECT id FROM "Payment" WHERE id = ${payment.id}::uuid FOR UPDATE`;
     const latest=await tx.payment.findUniqueOrThrow({where:{id:payment.id},include:{order:{include:{items:true,convertedQuotation:true,partnerQuoteCase:true}}}});
     payment=latest;
+    // The partner channel kill switch is enforced at the authoritative
+    // finalizer, before gateway evidence can mutate payment/order state.
+    if (payment.order.partnerQuoteCase && !(await partnerSalesSettings()).enabled) {
+      throw new Error("Partner sales channel is currently unavailable.");
+    }
     const linkPartner = async () => {
       const quoteCase = payment.order.partnerQuoteCase;
       if (event.status !== "PAID" || !quoteCase?.acceptedQuotationId || !quoteCase.acceptedQuotationVersionId) return null;

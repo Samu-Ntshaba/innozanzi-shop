@@ -106,7 +106,7 @@ type QuoteVersionRow = {
   };
 };
 
-type PartnerPaymentDb = Pick<Prisma.TransactionClient, "quotationVersion" | "partnerQuoteCase" | "quotation" | "order" | "payment" | "product" | "supplierCatalogueProduct" | "partnerCommission" | "partnerCommissionEntry" | "auditLog">;
+type PartnerPaymentDb = Pick<Prisma.TransactionClient, "quotationVersion" | "partnerQuoteCase" | "quotation" | "order" | "orderAddress" | "payment" | "product" | "supplierCatalogueProduct" | "comboCampaign" | "partnerCommission" | "partnerCommissionEntry" | "auditLog">;
 
 function record(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
@@ -128,6 +128,7 @@ function immutableQuoteRow(row: QuoteVersionRow): QuoteVersionRow {
   const internal = record(audience.internal);
   const internalItems = Array.isArray(internal.items) ? internal.items : [];
   const totals = record(internal.totals);
+  const clientSnapshot = record(record(audience.client).client);
   if (!internalItems.length || !Object.keys(totals).length) return row;
   const items = row.quotation.items.map((item, index) => {
     const approved = record(internalItems[index]);
@@ -156,8 +157,34 @@ function immutableQuoteRow(row: QuoteVersionRow): QuoteVersionRow {
       deliveryTotal: decimalValue(totals.deliveryTotal, row.quotation.deliveryTotal),
       vatTotal: decimalValue(totals.vatTotal, row.quotation.vatTotal),
       grandTotal: decimalValue(totals.grandTotal, row.quotation.grandTotal),
+      validUntil: clientSnapshot.validUntil ? new Date(String(clientSnapshot.validUntil)) : row.quotation.validUntil,
+      currency: typeof audience.client === "object" && typeof record(audience.client).currency === "string" ? String(record(audience.client).currency) : row.quotation.currency,
       items,
+      partnerQuoteCase: row.quotation.partnerQuoteCase ? {
+        ...row.quotation.partnerQuoteCase,
+        partnerClient: { ...row.quotation.partnerQuoteCase.partnerClient, ...clientSnapshot },
+      } : row.quotation.partnerQuoteCase,
     },
+  };
+}
+
+function orderDeliverySnapshot(quoteCase: QuoteVersionRow["quotation"]["partnerQuoteCase"]) {
+  const client = quoteCase?.partnerClient;
+  const snapshot = record(client?.deliveryAddress);
+  const destination = typeof snapshot.destination === "string" ? snapshot.destination.trim() : "";
+  const address = record(snapshot.address ?? snapshot);
+  return {
+    type: "DELIVERY" as const,
+    recipient: typeof client?.contactName === "string" && client.contactName.trim() ? client.contactName.trim() : "Client",
+    companyName: typeof client?.companyName === "string" ? client.companyName.trim() || null : null,
+    phone: typeof client?.phone === "string" ? client.phone.trim() || null : null,
+    line1: typeof address.line1 === "string" && address.line1.trim() ? address.line1.trim() : destination || "Delivery address pending confirmation",
+    line2: typeof address.line2 === "string" ? address.line2.trim() || null : null,
+    suburb: typeof address.suburb === "string" ? address.suburb.trim() || null : null,
+    city: typeof address.city === "string" && address.city.trim() ? address.city.trim() : "Not provided",
+    province: typeof address.province === "string" && address.province.trim() ? address.province.trim() : "Not provided",
+    postalCode: typeof address.postalCode === "string" && address.postalCode.trim() ? address.postalCode.trim() : "0000",
+    countryCode: typeof address.countryCode === "string" && address.countryCode.trim() ? address.countryCode.trim().slice(0, 2).toUpperCase() : "ZA",
   };
 }
 
@@ -169,6 +196,17 @@ async function currentAvailability(db: PartnerPaymentDb, item: QuoteItem, now = 
     const promotion = supplierPromotionEvidence({ costPrice: source.costPrice, promotionalPrice: source.promotionalPrice, promotionStartsAt: source.promotionStartsAt, promotionEndsAt: source.promotionEndsAt, now });
     if (!promotion.effectiveCost) throw new PartnerQuotePaymentError(`${item.productName} has no current cost; request repricing.`, "REPRICE_REQUIRED");
     return { cost: promotion.effectiveCost, available: source.stock, fingerprint: partnerAvailabilityFingerprint({ sourceType: "SUPPLIER_CATALOGUE_PRODUCT", sourceId: item.sourceId, baseCost: promotion.baseCost!, effectiveCost: promotion.effectiveCost, promotionalCost: promotion.promotionalCost, promotionActive: promotion.promotionActive, promotionStartsAt: promotion.promotionStartsAt, promotionEndsAt: promotion.promotionEndsAt, available: source.stock, state: source.availability }) };
+  }
+
+  if (item.sourceType === "COMBO") {
+    const snapshot = record(item.sourceSnapshot);
+    const campaign = await db.comboCampaign.findUnique({ where: { id: item.sourceId }, include: { items: true } });
+    if (!campaign || campaign.status !== "ACTIVE" || campaign.startsAt > now || campaign.endsAt <= now || !campaign.items.length) throw new PartnerQuotePaymentError(`${item.productName} is no longer available; request repricing.`, "REPRICE_REQUIRED");
+    const available = typeof snapshot.available === "number" ? snapshot.available : item.quantity;
+    const cost = String(campaign.estimatedCost);
+    const fingerprint = partnerAvailabilityFingerprint({ sourceType: "COMBO", sourceId: item.sourceId, baseCost: cost, effectiveCost: cost, available, state: campaign.status, details: { startsAt: campaign.startsAt.toISOString(), endsAt: campaign.endsAt.toISOString(), items: snapshot.items ?? campaign.items.map((comboItem) => ({ id: comboItem.id, quantity: comboItem.quantity, cost: String(comboItem.unitCost) })) } });
+    if (available < item.quantity) throw new PartnerQuotePaymentError(`${item.productName} is no longer available; request repricing.`, "REPRICE_REQUIRED");
+    return { cost, available, fingerprint };
   }
 
   if (!item.productId) throw new PartnerQuotePaymentError(`${item.productName} is not linked to inventory; request repricing.`, "REPRICE_REQUIRED");
@@ -276,7 +314,14 @@ export async function createPartnerQuotePayment(acceptedVersionId: string, provi
     const existingPayment = await db.payment.findUnique({ where: { idempotencyKey }, include: { order: { select: { id: true, orderNumber: true } } } });
     if (existingPayment) {
       if (!new Decimal(existingPayment.amount).equals(new Decimal(quote.grandTotal)) || existingPayment.currency !== quote.currency) throw new PartnerQuotePaymentError("Existing partner payment does not match the accepted amount.");
-      return paymentResult(existingPayment, existingPayment.order, true);
+      return paymentResult(existingPayment, existingPayment.order ?? { id: existingPayment.orderId, orderNumber: "" }, true);
+    }
+    // A client may retry with the other approved gateway. The order and
+    // payment intent are business identities, not provider identities.
+    const existingPending = await db.payment.findFirst({ where: { partnerQuoteCaseId: quoteCase.id, status: { in: ["PENDING", "AWAITING_REVIEW", "PAID"] } }, include: { order: { select: { id: true, orderNumber: true } } }, orderBy: { createdAt: "asc" } });
+    if (existingPending) {
+      if (!new Decimal(existingPending.amount).equals(new Decimal(quote.grandTotal)) || existingPending.currency !== quote.currency) throw new PartnerQuotePaymentError("Existing partner payment does not match the accepted amount.");
+      return paymentResult(existingPending, existingPending.order ?? { id: existingPending.orderId, orderNumber: "" }, true);
     }
 
     let order = quote.convertedOrderId ? await db.order.findUnique({ where: { id: quote.convertedOrderId }, select: { id: true, orderNumber: true } }) : null;
@@ -305,7 +350,8 @@ export async function createPartnerQuotePayment(acceptedVersionId: string, provi
       status: "AWAITING_PAYMENT",
       paymentStatus: "PENDING",
       paymentMethod: provider,
-      customerNotes: null,
+      customerNotes: typeof record(quoteCase.partnerClient.deliveryAddress).instructions === "string" ? String(record(quoteCase.partnerClient.deliveryAddress).instructions) : null,
+      addresses: { create: orderDeliverySnapshot(quoteCase) },
       items: { create: quote.items.map(orderItemData) },
     } });
     const paymentId = randomUUID();
@@ -366,13 +412,20 @@ export async function linkPaidPartnerOrder(tx: Prisma.TransactionClient, input: 
     await tx.partnerQuoteCase.update({ where: { id: input.caseId }, data: { status: "PAID", paidAt: input.paidAt ?? new Date() } });
   }
   await tx.quotation.update({ where: { id: input.quotationId }, data: { status: "PAYMENT_VERIFIED", convertedOrderId: input.orderId } });
-  if (!alreadyLinked) {
-    await tx.partnerCommission.update({ where: { id: commission.id }, data: { orderId: input.orderId, status: "LOCKED_ON_PAYMENT" } });
+    if (!alreadyLinked) {
+      await tx.partnerCommission.update({ where: { id: commission.id }, data: { orderId: input.orderId, status: "LOCKED_ON_PAYMENT" } });
     const lockEntry = await tx.partnerCommissionEntry.findFirst({ where: { commissionId: commission.id, type: "LOCK" } });
     if (!lockEntry) {
-      await tx.partnerCommissionEntry.create({ data: { commissionId: commission.id, type: "LOCK", amount: commission.currentAmount, balanceAfter: commission.currentAmount, reason: "Verified partner quotation payment received", metadata: { paymentId: input.paymentId, quotationVersionId: input.quotationVersionId, provider: input.provider } } });
+        await tx.partnerCommissionEntry.create({ data: { commissionId: commission.id, type: "LOCK", amount: commission.currentAmount, balanceAfter: commission.currentAmount, reason: "Verified partner quotation payment received", metadata: { paymentId: input.paymentId, quotationVersionId: input.quotationVersionId, provider: input.provider } } });
+      }
+      // Payment locks the amount first, then opens the completion window. Both
+      // states are audited through the same transaction so retries cannot skip
+      // or duplicate the lifecycle progression.
+      await tx.partnerCommission.update({ where: { id: commission.id }, data: { status: "PENDING_COMPLETION" } });
+      await tx.auditLog.create({ data: { action: "partner-sales.commission.pending-completion", entityType: "PartnerCommission", entityId: commission.id, after: { status: "PENDING_COMPLETION", paymentId: input.paymentId } } });
+    } else if (commission.status === "LOCKED_ON_PAYMENT") {
+      await tx.partnerCommission.update({ where: { id: commission.id }, data: { status: "PENDING_COMPLETION" } });
     }
-  }
   await tx.auditLog.create({ data: { action: "partner-sales.payment.link", entityType: "PartnerQuoteCase", entityId: input.caseId, after: { orderId: input.orderId, quotationId: input.quotationId, quotationVersionId: input.quotationVersionId, commissionId: commission.id, provider: input.provider } } });
   await stagePartnerSalesEvent(tx, {
     event: "PAYMENT_CONFIRMED",

@@ -52,8 +52,8 @@ describe("persisted partner sales permission cleanup", () => {
   });
 });
 
-describe("partner sales migration cleanup", () => {
-  it("deletes stale broad-role grants after registration without touching custom roles", () => {
+describe("partner sales migration safety", () => {
+  it("keeps broad-role cleanup and supplier media cleanup in an explicit backfill", () => {
     const migration = readFileSync(
       resolve(
         process.cwd(),
@@ -64,25 +64,11 @@ describe("partner sales migration cleanup", () => {
     const registrationAt = migration.indexOf(
       "-- Register partner-channel capabilities",
     );
-    const cleanupAt = migration.indexOf(
-      "-- Remove stale broad-role grants",
-    );
-    const settingAt = migration.indexOf(
-      "-- The channel remains unavailable",
-    );
-    const cleanup = migration.slice(cleanupAt, settingAt);
-
     expect(registrationAt).toBeGreaterThan(-1);
-    expect(cleanupAt).toBeGreaterThan(registrationAt);
-    expect(settingAt).toBeGreaterThan(cleanupAt);
-    expect(cleanup).toContain('DELETE FROM "RolePermission"');
-    expect(cleanup).toContain(
-      `role."slug" IN ('super-administrator', 'administrator')`,
-    );
-    expect(cleanup).toContain(
-      `permission."key" IN ('partner_sales.profile.approve'`,
-    );
-    expect(cleanup).not.toContain("custom-administrator");
-    expect(cleanup).not.toMatch(/DELETE FROM "RolePermission"\s*;/);
+    expect(migration).not.toMatch(/DELETE\s+FROM\s+"RolePermission"/i);
+    expect(migration).not.toMatch(/UPDATE\s+"PartnerCatalogueAssignment"/i);
+    expect(migration).toContain("ON CONFLICT (\"key\") DO UPDATE SET");
+    expect(migration).toContain("{\"enabled\":false}");
+    expect(readFileSync(resolve(process.cwd(), "scripts/backfill-partner-sales-release.ts"), "utf8")).toContain("deleteMany");
   });
 });

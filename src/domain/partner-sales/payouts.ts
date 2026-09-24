@@ -3,6 +3,7 @@ import Decimal from "decimal.js";
 import type { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { stagePartnerSalesEvent } from "./communications";
+import { payoutStatementCsv } from "./payout-pdf";
 
 type Db = Prisma.TransactionClient;
 type BatchStatus = "DRAFT" | "PENDING_APPROVAL" | "APPROVED" | "PAID" | "CANCELLED";
@@ -102,6 +103,16 @@ export async function createPayoutBatch(input: CreatePayoutBatchInput) {
   if (input.periodEnd < input.periodStart) throw new Error("Payout period end must be after its start.");
   const uniqueIds = [...new Set(input.commissionIds)];
   return prisma.$transaction(async (tx) => {
+    if (input.idempotencyKey?.trim()) {
+      const replay = await tx.partnerPayoutBatch.findUnique({ where: { idempotencyKey: input.idempotencyKey.trim() }, include: { items: true } });
+      if (replay) {
+        const replayItems = (replay.items ?? []).filter((item) => item.status !== "CANCELLED").map((item) => item.commissionId).sort();
+        const requestedItems = [...uniqueIds].sort();
+        if (replay.partnershipId !== input.partnershipId || replayItems.join(",") !== requestedItems.join(",")) throw new Error("This payout idempotency key was already used for a different batch.");
+        await tx.$queryRaw`SELECT id FROM "PartnerPayoutBatch" WHERE id = ${replay.id}::uuid FOR UPDATE`;
+        return result(replay as unknown as BatchRow);
+      }
+    }
     const commissions = await tx.partnerCommission.findMany({
       where: { id: { in: uniqueIds }, partnershipId: input.partnershipId, status: "PAYABLE" },
     }) as unknown as CommissionRow[];
@@ -130,6 +141,7 @@ export async function createPayoutBatch(input: CreatePayoutBatchInput) {
         total,
         currency: [...currencies][0],
         preparedById: input.preparedById,
+        idempotencyKey: input.idempotencyKey?.trim() || null,
       },
       include: { items: true },
     });
@@ -176,7 +188,14 @@ export async function markPayoutBatchPaid(batchId: string, input: MarkPayoutBatc
       await appendEntry(tx, commission, "PAYMENT", input.paidById, `EFT payment ${reference} posted for payout batch ${batch.batchNumber}`, `payout:${batch.id}:commission:${commission.id}:paid`);
       await stagePartnerSalesEvent(tx, { event: "COMMISSION_PAID", entityId: commission.id, internalMessage: `EFT payment ${reference} posted for payout batch ${batch.batchNumber}.` });
     }
-    const updated = await tx.partnerPayoutBatch.update({ where: { id: batch.id }, data: { status: "PAID", paymentReference: reference, paymentDate: input.paymentDate, proofDocumentId: input.proofDocumentId, paidAt: new Date() }, include: { items: true } });
+    const statementItems = activeItems.map((item) => ({ caseNumber: null, orderNumber: null, amount: fixed(item.amount), status: "PAID" }));
+    const statementCsv = payoutStatementCsv({ batchNumber: batch.batchNumber ?? batch.id, partnerName: "Partner", periodStart: new Date(0), periodEnd: input.paymentDate, currency: "ZAR", total: fixed(batch.total), items: statementItems });
+    let statementDocumentId: string | undefined;
+    if (typeof tx.uploadedDocument.create === "function") {
+      const document = await tx.uploadedDocument.create({ data: { bucket: "private-documents", path: `partner-payout-statements/${batch.id}.csv`, originalName: `${batch.batchNumber ?? batch.id}-statement.csv`, mimeType: "text/csv", size: Buffer.byteLength(statementCsv), isPrivate: true } });
+      statementDocumentId = document.id;
+    }
+    const updated = await tx.partnerPayoutBatch.update({ where: { id: batch.id }, data: { status: "PAID", paymentReference: reference, paymentDate: input.paymentDate, proofDocumentId: input.proofDocumentId, paidAt: new Date(), statementDocumentId: statementDocumentId ?? undefined, statementPayload: { version: 1, csv: statementCsv, generatedAt: new Date().toISOString() } }, include: { items: true } });
     await audit(tx, input.paidById, "partner-sales.payout.paid", "PartnerPayoutBatch", batch.id, { status: batch.status }, { status: "PAID", paymentReference: reference, paymentDate: input.paymentDate.toISOString() });
     return result(updated as unknown as BatchRow);
   }, { isolationLevel: "Serializable" });

@@ -4929,6 +4929,7 @@ model PartnerCatalogueAssignment {
   presentationCopy        String?                          @db.Text
   mediaSnapshot           Json?
   availabilityFingerprint String
+  sourceSnapshot         Json?
   approvedById            String?                          @db.Uuid
   approvedAt              DateTime?
   withdrawnAt             DateTime?
@@ -5010,6 +5011,7 @@ model PartnerShowcaseItem {
   mediaSnapshot            Json?
   presentationCopySnapshot String?                     @db.Text
   availabilityFingerprint  String
+  sourceSnapshot           Json?
   createdAt                DateTime                    @default(now())
   showcase                 PartnerShowcase             @relation(fields: [showcaseId], references: [id], onDelete: Cascade)
   catalogueAssignment      PartnerCatalogueAssignment? @relation(fields: [catalogueAssignmentId], references: [id], onDelete: SetNull)
@@ -5033,6 +5035,8 @@ model PartnerQuoteCase {
   acceptedQuotationId        String?                @unique @db.Uuid
   acceptedQuotationVersionId String?                @unique @db.Uuid
   clientVisibleNotes         String?                @db.Text
+  clientSnapshot             Json?
+  deliveryInstructions      String?                @db.Text
   partnerNotes               String?                @db.Text
   internalNotes              String?                @db.Text
   enquiredAt                 DateTime               @default(now())
@@ -5140,6 +5144,8 @@ model PartnerPayoutBatch {
   paymentDate         DateTime?
   proofDocumentId     String?                  @unique @db.Uuid
   statementDocumentId String?                  @unique @db.Uuid
+  statementPayload    Json?
+  idempotencyKey      String?                  @unique
   preparedById        String                   @db.Uuid
   approvedById        String?                  @db.Uuid
   approvedAt          DateTime?

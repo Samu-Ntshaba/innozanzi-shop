@@ -38,10 +38,6 @@ function stringValue(value: unknown, fallback = "") {
   return fallback;
 }
 
-function dateValue(value: unknown) {
-  return value instanceof Date ? value : new Date(stringValue(value));
-}
-
 function ownsCase(quoteCase: { partnershipId?: string }, actor: PartnerReviewActor) {
   if (actor.partnershipId && quoteCase.partnershipId !== actor.partnershipId) {
     throw new PartnerQuotationError("This quotation belongs to another partnership.");
@@ -122,9 +118,9 @@ export async function sendPartnerQuotation(caseId: string, actor: PartnerReviewA
   if (!["PARTNER_REVIEW", "SENT_TO_CLIENT"].includes(existing.status)) throw new PartnerQuotationError("Only a quotation under partner review can be sent.");
   const before = existing as unknown as Record<string, unknown>;
   const { quotation, version } = versionForQuotation(before);
-  const validUntil = dateValue(quotation.validUntil);
-  if (!Number.isFinite(validUntil.getTime()) || validUntil <= now) throw new PartnerQuotationError("This quotation has expired and must be repriced.");
   const projection = clientQuotationProjection({ ...before, snapshot: version.snapshot, version, quotation: { ...quotation, partnerQuoteCase: before } });
+  const validUntil = projection.validUntil;
+  if (!Number.isFinite(validUntil.getTime()) || validUntil <= now) throw new PartnerQuotationError("This quotation has expired and must be repriced.");
   const accessToken = createPartnerQuotationToken(String(version.id), validUntil);
 
   await prisma.$transaction(async (tx) => {
@@ -176,16 +172,18 @@ export async function resolveClientQuotation(token: string, now = new Date()): P
   });
   if (!row) return null;
   const quote = row.quotation;
-  if (!quote || !["SENT", "ACCEPTED"].includes(quote.status) || dateValue(quote.validUntil) <= now) return null;
+  const projection = clientQuotationProjection(row);
+  if (!quote || !["SENT", "ACCEPTED"].includes(quote.status) || projection.validUntil <= now) return null;
   const quoteCase = quote.partnerQuoteCase;
   if (!quoteCase || !["SENT_TO_CLIENT", "ACCEPTED", "PAYMENT_PENDING"].includes(quoteCase.status)) return null;
   if (quoteCase.activeQuotationId !== quote.id || Number(quote.version) !== Number(row.version)) return null;
-  return { ...clientQuotationProjection(row), versionId: row.id };
+  return { ...projection, versionId: row.id };
 }
 
 function acceptedResult(row: Record<string, unknown>, versionId: string) {
   const quote = row.quotation && typeof row.quotation === "object" ? row.quotation as Record<string, unknown> : row;
-  return { acceptanceId: versionId, quotationId: stringValue(quote.id), version: Number(row.version ?? quote.version ?? 1), amount: stringValue(String(quote.grandTotal ?? "0.00")), status: "PAYMENT_PENDING" as const };
+  const projection = clientQuotationProjection(row);
+  return { acceptanceId: versionId, quotationId: stringValue(quote.id), version: Number(row.version ?? quote.version ?? 1), amount: projection.snapshot.grandTotal, status: "PAYMENT_PENDING" as const };
 }
 
 export async function acceptPartnerQuotation(token: string, rawInput: unknown, now = new Date()) {
@@ -210,9 +208,10 @@ export async function acceptPartnerQuotation(token: string, rawInput: unknown, n
     if (!quoteCase) throw new PartnerQuotationError("This quotation is no longer available.");
     if (quoteCase.acceptedQuotationVersionId === row.id || ["ACCEPTED", "PAYMENT_PENDING", "PAID", "ORDER_IN_PROGRESS", "COMPLETED"].includes(quoteCase.status)) return acceptedResult(row, row.id);
     if (quote.status !== "SENT" || quoteCase.status !== "SENT_TO_CLIENT" || quoteCase.activeQuotationId !== quote.id || Number(row.version) !== Number(quote.version)) throw new PartnerQuotationError("Only the latest approved quotation version can be accepted.");
-    if (dateValue(quote.validUntil) <= now) throw new PartnerQuotationError("This quotation has expired and must be repriced.");
-    const metadata = { acceptedAt: now.toISOString(), version: row.version, amount: String(quote.grandTotal), ...(input.data.metadata ?? {}) };
-    await tx.quotation.update({ where: { id: quote.id }, data: { status: "ACCEPTED", acceptedAt: now, acceptedVersion: row.version, acceptedAmount: quote.grandTotal, acceptanceMetadata: metadata } });
+    const immutableProjection = clientQuotationProjection(row);
+    if (immutableProjection.validUntil <= now) throw new PartnerQuotationError("This quotation has expired and must be repriced.");
+    const metadata = { acceptedAt: now.toISOString(), version: row.version, amount: immutableProjection.snapshot.grandTotal, ...(input.data.metadata ?? {}) };
+    await tx.quotation.update({ where: { id: quote.id }, data: { status: "ACCEPTED", acceptedAt: now, acceptedVersion: row.version, acceptedAmount: immutableProjection.snapshot.grandTotal, acceptanceMetadata: metadata } });
     await tx.partnerQuoteCase.update({ where: { id: quoteCase.id }, data: { status: "PAYMENT_PENDING", acceptedQuotationId: quote.id, acceptedQuotationVersionId: row.id, acceptedAt: now } });
     await tx.quotationStatusHistory.create({ data: { quotationId: quote.id, fromStatus: "SENT", toStatus: "ACCEPTED", note: `Client accepted immutable quotation version ${row.version}.` } });
     await tx.auditLog.create({ data: { action: "partner-sales.quotation.accept", entityType: "Quotation", entityId: quote.id, after: { quotationVersionId: row.id, version: row.version, amount: String(quote.grandTotal), consent: true } } });

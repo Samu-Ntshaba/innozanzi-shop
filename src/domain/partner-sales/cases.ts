@@ -51,6 +51,10 @@ type QuoteCaseRecord = {
     publicSlug?: string | null;
     displayName?: string | null;
     contactEmail?: string | null;
+    contactName?: string | null;
+    contactPhone?: string | null;
+    footerText?: string | null;
+    themePreset?: string | null;
     defaultCommissionMethod: PartnerCommissionMethod;
     defaultCommissionValue: unknown;
   };
@@ -64,6 +68,8 @@ type QuoteCaseRecord = {
     deliveryAddress?: unknown;
     communicationConsent?: boolean | null;
   };
+  clientSnapshot?: unknown;
+  deliveryInstructions?: string | null;
   quotationRequest?: {
     id: string;
     requestNumber: string;
@@ -102,10 +108,11 @@ type PartnerCaseDatabase = Pick<
   | "quotationRequest"
   | "product"
   | "supplierCatalogueProduct"
+  | "comboCampaign"
 >;
 
 const caseInclude = {
-  profile: { select: { publicSlug: true, displayName: true, contactEmail: true, defaultCommissionMethod: true, defaultCommissionValue: true } },
+  profile: { select: { publicSlug: true, displayName: true, contactEmail: true, contactName: true, contactPhone: true, footerText: true, themePreset: true, defaultCommissionMethod: true, defaultCommissionValue: true } },
   partnerClient: { select: { companyName: true, contactName: true, email: true, phone: true, vatNumber: true, billingAddress: true, deliveryAddress: true } },
   quotationRequest: { include: { items: true } },
   quotations: { select: { version: true }, orderBy: { version: "desc" }, take: 20 },
@@ -164,6 +171,34 @@ async function currentSource(db: PartnerCaseDatabase, item: QuoteRequestItem, sn
     const promotion = supplierPromotionEvidence({ costPrice: product.costPrice, promotionalPrice: product.promotionalPrice, promotionStartsAt: product.promotionStartsAt, promotionEndsAt: product.promotionEndsAt, now });
     if (!promotion.effectiveCost || product.stock <= 0 || product.availability !== "IN_STOCK") throw new PartnerPricingError("A supplier item is no longer available.");
     return { cost: promotion.effectiveCost, available: product.stock, currentAvailabilityFingerprint: partnerAvailabilityFingerprint({ sourceType, sourceId, baseCost: promotion.baseCost!, effectiveCost: promotion.effectiveCost!, promotionalCost: promotion.promotionalCost, promotionActive: promotion.promotionActive, promotionStartsAt: promotion.promotionStartsAt, promotionEndsAt: promotion.promotionEndsAt, available: product.stock, state: product.availability }) };
+  }
+  if (sourceType === "COMBO") {
+    const combo = await db.comboCampaign.findUnique({
+      where: { id: sourceId },
+      include: { items: true },
+    });
+    if (!combo || combo.status !== "ACTIVE" || combo.startsAt > now || combo.endsAt <= now || combo.items.length === 0) {
+      throw new PartnerPricingError(`${item.productName ?? "This combo"} is no longer available.`);
+    }
+    const storedItems = Array.isArray(snapshot.items) ? snapshot.items : combo.items.map((comboItem) => ({
+      id: comboItem.id,
+      source: comboItem.productId ? "PRODUCT" : "SUPPLIER_CATALOGUE_PRODUCT",
+      cost: String(comboItem.unitCost),
+      available: item.requestedQuantity,
+      quantity: comboItem.quantity,
+    }));
+    const available = storedItems.reduce((minimum, value) => Math.min(minimum, numberValue(record(value).available, item.requestedQuantity)), item.requestedQuantity);
+    const cost = String(combo.estimatedCost);
+    const currentAvailabilityFingerprint = partnerAvailabilityFingerprint({
+      sourceType: "COMBO",
+      sourceId,
+      baseCost: cost,
+      effectiveCost: cost,
+      available,
+      state: combo.status,
+      details: { startsAt: combo.startsAt.toISOString(), endsAt: combo.endsAt.toISOString(), items: storedItems },
+    });
+    return { cost, available, currentAvailabilityFingerprint };
   }
   throw new PartnerPricingError(`${item.productName ?? "An item"} has no supported current availability source.`);
 }
@@ -264,16 +299,25 @@ export async function approvePartnerQuotation(rawInput: unknown, actor: PartnerP
     const pricing = calculatePartnerPricing(await pricingInputForCase(db, quoteCase, input, now));
     const version = Math.max(0, ...(quoteCase.quotations ?? []).map((quotation) => quotation.version)) + 1;
     const quotationNumber = `QUO-PS-${Date.now().toString(36).toUpperCase()}-${version}`;
-    const clientSnapshot = clientPricingSnapshot(pricing, quoteCase.profile);
+    const clientSnapshot = clientPricingSnapshot(pricing, quoteCase.profile, {
+      companyName: quoteCase.partnerClient.companyName,
+      contactName: quoteCase.partnerClient.contactName,
+      email: quoteCase.partnerClient.email,
+      phone: quoteCase.partnerClient.phone,
+      vatNumber: quoteCase.partnerClient.vatNumber,
+      deliveryAddress: record(quoteCase.clientSnapshot).deliveryAddress ?? quoteCase.partnerClient.deliveryAddress ?? null,
+      deliveryInstructions: quoteCase.deliveryInstructions ?? (typeof record(quoteCase.clientSnapshot).deliveryInstructions === "string" ? String(record(quoteCase.clientSnapshot).deliveryInstructions) : null),
+    });
+    const immutableClientSnapshot = { ...clientSnapshot, terms: "Issued by Innozanzi on behalf of the partner. Payment and fulfilment are managed by Innozanzi." };
     const internalSnapshot = internalPricingSnapshot(pricing);
-    const snapshot = {
-      audience: { client: clientSnapshot, internal: internalSnapshot },
+    const snapshot = JSON.parse(JSON.stringify({
+      audience: { client: immutableClientSnapshot, internal: internalSnapshot },
       approvedById: actor.user.id,
       approvedAt: now.toISOString(),
       caseId: quoteCase.id,
       caseNumber: quoteCase.caseNumber,
       version,
-    };
+    })) as Prisma.InputJsonValue;
     const quotation = await tx.quotation.create({
       data: {
         quotationNumber,

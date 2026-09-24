@@ -186,7 +186,7 @@ describe("partner review and client acceptance", () => {
 
   it("resolves expired or revoked links to null", async () => {
     const token = createPartnerQuotationToken(ids.version, validUntil);
-    mocks.quotationVersion.findUnique.mockResolvedValue({ ...versionRecord, quotation: { ...versionRecord.quotation, validUntil: new Date("2020-01-01") } });
+    mocks.quotationVersion.findUnique.mockResolvedValue({ ...versionRecord, snapshot: { audience: { client: { ...versionRecord.snapshot.audience.client, validUntil: "2020-01-01T00:00:00.000Z" } } }, quotation: { ...versionRecord.quotation, validUntil: new Date("2030-01-01") } });
     await expect(resolveClientQuotation(token, new Date("2026-09-24"))).resolves.toBeNull();
     mocks.quotationVersion.findUnique.mockResolvedValue({ ...versionRecord, quotation: { ...versionRecord.quotation, status: "CANCELLED" } });
     await expect(resolveClientQuotation(token)).resolves.toBeNull();

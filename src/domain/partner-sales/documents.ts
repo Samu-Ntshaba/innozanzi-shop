@@ -1,4 +1,4 @@
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { commercialPdf } from "@/domain/documents/commercial-pdf";
 import { defaultDocumentBranding, type DocumentBranding } from "@/domain/documents/branding";
 
@@ -6,7 +6,9 @@ type RecordLike = Record<string, unknown>;
 
 export type PartnerQuotationClientSnapshot = {
   currency?: string;
-  partner?: { displayName?: string | null; publicSlug?: string | null };
+  partner?: { displayName?: string | null; publicSlug?: string | null; themePreset?: string | null; contactName?: string | null; contactEmail?: string | null; contactPhone?: string | null; footerText?: string | null };
+  client?: { companyName?: string | null; contactName?: string | null; email?: string | null; phone?: string | null; vatNumber?: string | null; billingAddress?: unknown; deliveryAddress?: unknown; deliveryInstructions?: string | null };
+  terms?: string | null;
   validUntil: string;
   items: Array<{ id: string; title: string; quantity: number; unitPrice: string; vatTotal: string; lineTotal: string }>;
   subtotal: string;
@@ -39,7 +41,13 @@ export type PartnerQuotationPdfInput = {
   validUntil: Date;
 };
 
-const tokenSecret = () => process.env.PARTNER_QUOTATION_TOKEN_SECRET ?? process.env.AUTH_SECRET ?? "innozanzi-partner-quotation-dev-secret";
+const testTokenSecret = randomBytes(32).toString("hex");
+function tokenSecret() {
+  const configured = process.env.PARTNER_QUOTATION_TOKEN_SECRET ?? process.env.AUTH_SECRET;
+  if (configured?.trim()) return configured;
+  if (process.env.NODE_ENV === "test" || process.env.PARTNER_QUOTATION_ALLOW_INSECURE_TEST_SECRET === "true") return testTokenSecret;
+  throw new Error("Partner quotation token signing is unavailable: configure PARTNER_QUOTATION_TOKEN_SECRET.");
+}
 
 function plain(value: unknown, fallback = "") {
   if (typeof value !== "string") return fallback;
@@ -62,7 +70,8 @@ function snapshotFrom(value: unknown): PartnerQuotationClientSnapshot {
   const items = Array.isArray(source.items) ? source.items : [];
   return {
     currency: plain(source.currency, "ZAR"),
-    partner: { displayName: plain(record(source.partner).displayName), publicSlug: plain(record(source.partner).publicSlug) || null },
+    partner: { displayName: plain(record(source.partner).displayName), publicSlug: plain(record(source.partner).publicSlug) || null, themePreset: plain(record(source.partner).themePreset, "DEFAULT"), contactName: plain(record(source.partner).contactName) || null, contactEmail: plain(record(source.partner).contactEmail) || null, contactPhone: plain(record(source.partner).contactPhone) || null, footerText: plain(record(source.partner).footerText) || null },
+    client: record(source.client) as PartnerQuotationClientSnapshot["client"],
     validUntil: plain(source.validUntil),
     items: items.map((item, index) => {
       const line = record(item);
@@ -81,6 +90,7 @@ function snapshotFrom(value: unknown): PartnerQuotationClientSnapshot {
     discountTotal: money(source.discountTotal),
     grandTotal: money(source.grandTotal),
     merchantDisclosure: plain(source.merchantDisclosure, "Quotation issued by Innozanzi. Payment and fulfilment are managed by Innozanzi."),
+    terms: plain(source.terms) || null,
   };
 }
 
@@ -97,27 +107,26 @@ export function clientQuotationProjection(input: unknown): PartnerQuotationClien
   const row = record(input);
   const version = record(row.version);
   const quotation = record(row.quotation ?? input);
-  const profile = record(quotation.partnerSalesProfile ?? row.partnerSalesProfile);
-  const quoteCase = record(quotation.partnerQuoteCase ?? row.partnerQuoteCase);
-  const client = record(quoteCase.partnerClient ?? row.partnerClient);
   const snapshot = approvedClientSnapshot(input);
-  const validUntil = quotation.validUntil instanceof Date ? quotation.validUntil : new Date(plain(quotation.validUntil, snapshot.validUntil));
+  const snapshotPartner = snapshot.partner ?? {};
+  const snapshotClient = snapshot.client ?? {};
+  const validUntil = new Date(snapshot.validUntil || plain(quotation.validUntil));
   return {
     quotationId: plain(quotation.id, plain(row.quotationId)),
     quotationNumber: plain(quotation.quotationNumber, "Quotation"),
     version: typeof row.version === "number" ? row.version : typeof version.version === "number" ? version.version : typeof quotation.version === "number" ? quotation.version : 1,
     partner: {
-      displayName: plain(profile.displayName, snapshot.partner?.displayName ?? "Partner"),
-      publicSlug: plain(profile.publicSlug, snapshot.partner?.publicSlug ?? "") || null,
-      themePreset: plain(profile.themePreset, "DEFAULT"),
+      displayName: plain(snapshotPartner.displayName, "Partner"),
+      publicSlug: plain(snapshotPartner.publicSlug) || null,
+      themePreset: plain(snapshotPartner.themePreset, "DEFAULT"),
     },
     client: {
-      companyName: plain(client.companyName, "Client"),
-      contactName: plain(client.contactName, "Client"),
-      email: plain(client.email),
+      companyName: plain(snapshotClient.companyName, "Client"),
+      contactName: plain(snapshotClient.contactName, "Client"),
+      email: plain(snapshotClient.email),
     },
     snapshot,
-    terms: quotation.terms == null ? null : plain(quotation.terms),
+    terms: snapshot.terms == null ? null : plain(snapshot.terms),
     validUntil,
   };
 }
@@ -152,7 +161,8 @@ export function verifyPartnerQuotationToken(token: string, now = new Date()) {
   const parts = token.split(".");
   if (parts.length !== 3 || !parts[0] || !/^\d+$/.test(parts[1]) || !parts[2]) return null;
   const [payload, expiryText, provided] = parts;
-  const expected = signature(payload);
+  let expected: string;
+  try { expected = signature(payload); } catch { return null; }
   const expectedBuffer = Buffer.from(expected);
   const providedBuffer = Buffer.from(provided);
   if (expectedBuffer.length !== providedBuffer.length || !timingSafeEqual(expectedBuffer, providedBuffer)) return null;

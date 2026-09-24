@@ -54,6 +54,7 @@ function safeSnapshot(item: {
   titleSnapshot: string;
   presentationCopySnapshot: string | null;
   availabilityFingerprint: string;
+  sourceSnapshot?: unknown;
 }) {
   return {
     sourceType: item.sourceType,
@@ -61,6 +62,7 @@ function safeSnapshot(item: {
     title: item.titleSnapshot,
     presentationCopy: item.presentationCopySnapshot,
     availabilityFingerprint: item.availabilityFingerprint,
+    sourceSnapshot: item.sourceSnapshot ?? null,
   };
 }
 
@@ -117,6 +119,7 @@ export async function createPartnerEnquiry(rawInput: unknown, now = new Date()) 
             phone: input.phone ?? null,
             communicationConsent: true,
             consentAt: new Date(),
+            deliveryAddress: { destination: input.destination, instructions: input.deliveryInstructions },
           },
         })
       : await tx.partnerClient.create({
@@ -165,6 +168,15 @@ export async function createPartnerEnquiry(rawInput: unknown, now = new Date()) 
         originatingShowcaseId: showcase.id,
         status: "NEW_ENQUIRY",
         clientVisibleNotes: input.deliveryInstructions,
+        deliveryInstructions: input.deliveryInstructions,
+        clientSnapshot: {
+          companyName: input.companyName,
+          contactName: input.contactName,
+          email: input.email,
+          phone: input.phone ?? null,
+          deliveryAddress: { destination: input.destination },
+          deliveryInstructions: input.deliveryInstructions,
+        },
       },
     });
     await tx.quotationRequest.update({

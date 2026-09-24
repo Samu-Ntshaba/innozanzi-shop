@@ -125,6 +125,7 @@ type ResolvedSource = {
   sku: string | null;
   media: Array<{ url: string; altText: string | null }>;
   fingerprint: string;
+  sourceSnapshot?: Record<string, unknown>;
 };
 
 function assertCataloguePermission(actor: PartnerCatalogueActor) {
@@ -381,6 +382,7 @@ async function resolveSupplierSource(
       available: product.stock,
       state: product.availability,
     }),
+    sourceSnapshot: { sourceType: "SUPPLIER_CATALOGUE_PRODUCT", sourceId: product.id, cost: current.effectiveCost, available: product.stock },
   };
 }
 
@@ -481,6 +483,15 @@ async function resolveComboSource(
     return null;
   }
   const image = campaign.imageUrl ?? campaign.mobileImageUrl;
+  const sourceSnapshot = {
+    sourceType: "COMBO",
+    sourceId: campaign.id,
+    cost: campaign.estimatedCost.toString(),
+    available: Math.min(...itemAvailability.map((item) => Number(item.available))),
+    comboPrice: campaign.comboPrice.toString(),
+    normalPrice: campaign.normalPrice.toString(),
+    items: itemAvailability,
+  };
   return {
     title: campaign.name,
     description: campaign.description,
@@ -501,6 +512,7 @@ async function resolveComboSource(
         items: itemAvailability,
       },
     }),
+    sourceSnapshot,
   };
 }
 
@@ -533,6 +545,7 @@ type AssignmentSnapshotInput = {
   presentationTitle: string | null;
   presentationCopy: string | null;
   mediaSnapshot: unknown;
+  sourceSnapshot?: unknown;
   availabilityFingerprint: string;
   approvedById: string | null;
   approvedAt: Date | null;
@@ -551,6 +564,7 @@ function assignmentSnapshot(assignment: AssignmentSnapshotInput) {
     presentationTitle: assignment.presentationTitle,
     presentationCopy: assignment.presentationCopy,
     mediaSnapshot: safeMediaSnapshot(assignment.mediaSnapshot),
+    sourceSnapshot: assignment.sourceSnapshot ?? null,
     availabilityFingerprint: assignment.availabilityFingerprint,
     approvedById: assignment.approvedById,
     approvedAt: assignment.approvedAt?.toISOString() ?? null,
@@ -604,10 +618,7 @@ export async function assignCatalogueItem(
         where: {
           profileId: profile.id,
           sourceId: data.sourceId,
-          sourceType:
-            data.sourceType === "COMBO"
-              ? { in: ["COMBO", "CAMPAIGN"] }
-              : data.sourceType,
+          sourceType: data.sourceType === "COMBO" ? { in: ["COMBO", "CAMPAIGN"] } : data.sourceType,
         },
       });
       if (existing && existing.sourceType !== data.sourceType) {
@@ -620,6 +631,7 @@ export async function assignCatalogueItem(
           "This source is already assigned to the partner catalogue.",
         );
       }
+      const sourceSnapshot = source.sourceSnapshot ? JSON.parse(JSON.stringify(source.sourceSnapshot)) as Prisma.InputJsonValue : Prisma.DbNull;
       const values = {
         status: "ACTIVE" as const,
         visibleFrom: data.visibleFrom ?? null,
@@ -627,6 +639,7 @@ export async function assignCatalogueItem(
         presentationTitle: data.presentationTitle ?? null,
         presentationCopy: data.presentationCopy ?? null,
         mediaSnapshot: source.media,
+        sourceSnapshot,
         availabilityFingerprint: source.fingerprint,
         approvedById: actor.user.id,
         approvedAt: now,

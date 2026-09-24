@@ -226,6 +226,7 @@ export async function createShowcase(
         mediaSnapshot: assignment.mediaSnapshot ?? undefined,
         presentationCopySnapshot: assignment.presentationCopy ?? null,
         availabilityFingerprint: assignment.availabilityFingerprint,
+        sourceSnapshot: assignment.sourceSnapshot ?? undefined,
       })),
     });
     await tx.auditLog.create({

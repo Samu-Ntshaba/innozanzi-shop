@@ -56,6 +56,7 @@ CREATE TABLE "PartnerCatalogueAssignment" (
   "presentationCopy" TEXT,
   "mediaSnapshot" JSONB,
   "availabilityFingerprint" TEXT NOT NULL,
+  "sourceSnapshot" JSONB,
   "approvedById" UUID,
   "approvedAt" TIMESTAMP(3),
   "withdrawnAt" TIMESTAMP(3),
@@ -115,6 +116,7 @@ CREATE TABLE "PartnerShowcaseItem" (
   "mediaSnapshot" JSONB,
   "presentationCopySnapshot" TEXT,
   "availabilityFingerprint" TEXT NOT NULL,
+  "sourceSnapshot" JSONB,
   "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT "PartnerShowcaseItem_pkey" PRIMARY KEY ("id")
 );
@@ -133,6 +135,8 @@ CREATE TABLE "PartnerQuoteCase" (
   "acceptedQuotationId" UUID,
   "acceptedQuotationVersionId" UUID,
   "clientVisibleNotes" TEXT,
+  "clientSnapshot" JSONB,
+  "deliveryInstructions" TEXT,
   "partnerNotes" TEXT,
   "internalNotes" TEXT,
   "enquiredAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -205,6 +209,8 @@ CREATE TABLE "PartnerPayoutBatch" (
   "paymentDate" TIMESTAMP(3),
   "proofDocumentId" UUID,
   "statementDocumentId" UUID,
+  "statementPayload" JSONB,
+  "idempotencyKey" TEXT,
   "preparedById" UUID NOT NULL,
   "approvedById" UUID,
   "approvedAt" TIMESTAMP(3),
@@ -275,6 +281,7 @@ CREATE INDEX "PartnerCommissionEntry_type_createdAt_idx" ON "PartnerCommissionEn
 CREATE INDEX "PartnerCommissionEntry_actorId_createdAt_idx" ON "PartnerCommissionEntry"("actorId", "createdAt");
 
 CREATE UNIQUE INDEX "PartnerPayoutBatch_batchNumber_key" ON "PartnerPayoutBatch"("batchNumber");
+CREATE UNIQUE INDEX "PartnerPayoutBatch_idempotencyKey_key" ON "PartnerPayoutBatch"("idempotencyKey");
 CREATE UNIQUE INDEX "PartnerPayoutBatch_proofDocumentId_key" ON "PartnerPayoutBatch"("proofDocumentId");
 CREATE UNIQUE INDEX "PartnerPayoutBatch_statementDocumentId_key" ON "PartnerPayoutBatch"("statementDocumentId");
 CREATE INDEX "PartnerPayoutBatch_partnershipId_status_periodStart_periodE_idx" ON "PartnerPayoutBatch"("partnershipId", "status", "periodStart", "periodEnd");
@@ -359,21 +366,10 @@ FROM unnest(ARRAY[
 ]) AS permission_key
 ON CONFLICT ("key") DO NOTHING;
 
--- Supplier-hosted media must never persist in partner-facing snapshots.
--- This predicate is intentionally source-specific so approved Innozanzi
--- product and combo assets remain intact. Re-running it is safe.
-UPDATE "PartnerCatalogueAssignment"
-SET "mediaSnapshot" = NULL
-WHERE "sourceType" = 'SUPPLIER_CATALOGUE_PRODUCT'
-  AND "mediaSnapshot" IS NOT NULL;
-
--- Remove stale broad-role grants while preserving explicitly configured custom roles.
-DELETE FROM "RolePermission" AS role_permission
-USING "Role" AS role, "Permission" AS permission
-WHERE role_permission."roleId" = role."id"
-  AND role_permission."permissionId" = permission."id"
-  AND role."slug" IN ('super-administrator', 'administrator')
-  AND permission."key" IN ('partner_sales.profile.approve', 'partner_sales.catalogue.manage', 'partner_sales.pricing.approve', 'partner_sales.commission.manage', 'partner_sales.payout.prepare', 'partner_sales.payout.approve');
+-- Supplier-media cleanup and stale broad-role grant cleanup are explicit,
+-- idempotent operational backfills. They intentionally do not run as part of
+-- this additive schema migration. Run scripts/backfill-partner-sales-release.ts
+-- after inspecting the target environment.
 
 -- The channel remains unavailable until an explicit controlled-rollout update.
 INSERT INTO "SiteSetting" ("id", "key", "value", "description", "isSensitive", "createdAt", "updatedAt")
@@ -386,4 +382,8 @@ VALUES (
   CURRENT_TIMESTAMP,
   CURRENT_TIMESTAMP
 )
-ON CONFLICT ("key") DO NOTHING;
+ON CONFLICT ("key") DO UPDATE SET
+  "value" = '{"enabled":false}'::jsonb,
+  "description" = EXCLUDED."description",
+  "isSensitive" = EXCLUDED."isSensitive",
+  "updatedAt" = CURRENT_TIMESTAMP;

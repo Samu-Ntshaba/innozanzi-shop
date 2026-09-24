@@ -67,3 +67,12 @@ Task 14: implementation ready — Task 14 report written; full 121 files / 576 t
 - Public showcase/enquiry/quotation resolution, acceptance, and hosted-payment validation fail closed when `partner_sales.channel.v1` is disabled, before mutation.
 - Added focused RED→GREEN regression coverage in `tests/partner-sales-release-blockers.test.ts`, `tests/partner-sales-channel-disabled.test.ts`, and revision/concurrency additions to the pricing and quotation/payment suites.
 - Removed the seven blank-line-at-EOF errors reported by `git diff b833e42...HEAD --check`.
+
+## Final release-safeguard pass (base `bc9e6fb`)
+
+- Added immutable partner client/delivery snapshots and transactional `OrderAddress` creation for paid partner orders; retained delivery instructions in the order snapshot.
+- Added COMBO source/component snapshots and canonical fingerprints, immutable approved quote output projections, production fail-closed token signing, canonical case-number redirects, and cross-provider payment-intent convergence.
+- Enforced the partner kill switch at payment finalization and return recovery; added commission hold/reconciliation and lifecycle progression with idempotent append-only ledger entries and post-payout corrections.
+- Added payout idempotency and immutable redacted statement storage/download; changed migration cleanup to an explicit operational backfill and force-disabled rollout setting; documented forward-only rollback/backfill operations.
+- Added RED→GREEN regression coverage in `tests/partner-sales-release-blockers.test.ts` and `tests/partner-sales-token-secret.test.ts`, plus adjusted migration/immutable snapshot expectations.
+- Verification: `npm test` 124 files / 590 tests; `npx tsc --noEmit`; `npm run lint` (four pre-existing warnings); webpack compiled and TypeScript passed but page-data collection requires configured `DATABASE_URL`/`DATABASE_PUBLIC_URL`; `git diff b833e42...HEAD --check` passed.

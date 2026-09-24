@@ -5,17 +5,18 @@ This channel is an additive, controlled extension of Partnerships, Quotations, P
 ## Activation
 
 1. Confirm the additive migration is applied in the intended non-production environment first, then in the release environment. Run `npx prisma migrate status` and `npx prisma migrate deploy`; never point rehearsal commands at production.
-2. Run `npx tsx scripts/audit-commerce-launch.ts`. Resolve every partner blocker: orphan cases, quotation/payment/order mismatches, duplicate commissions, ineligible payable commissions, duplicate payout membership, and failed partner communications.
-3. Confirm PayFast and Ozow configuration, notification workers, Orders ownership, trusted ingress headers, and the required Admin permissions. Do not print secrets or private client/financial fields in evidence.
-4. Create one pilot profile for an approved partnership. Verify legal/display details, logo, contact details, catalogue assignments, commission default, merchant disclosure, and agreement expiry. Admin approval moves the profile to `ACTIVE`; a partner cannot self-activate it.
-5. Complete the acceptance journeys for both gateways with an explicitly authorised isolated/sandbox transaction. Record provider reference, application payment, order, invoice, communication, and reconciliation evidence in the readiness matrix. Browser success pages are not payment evidence.
-6. Obtain written approval from the selected pilot owner, then enable the setting. Roll out to one partner, monitor, and expand only after the pilot remains healthy.
+2. Run the explicit, idempotent operational backfill only after reviewing its dry-run counts: `npx tsx scripts/backfill-partner-sales-release.ts`. This clears legacy supplier media snapshots and stale broad-role partner grants; it is intentionally separate from the forward-only additive migration.
+3. Run `npx tsx scripts/audit-commerce-launch.ts`. Resolve every partner blocker: orphan cases, quotation/payment/order mismatches, duplicate commissions, ineligible payable commissions, duplicate payout membership, and failed partner communications.
+4. Confirm PayFast and Ozow configuration, notification workers, Orders ownership, trusted ingress headers, and the required Admin permissions. Do not print secrets or private client/financial fields in evidence.
+5. Create one pilot profile for an approved partnership. Verify legal/display details, logo, contact details, catalogue assignments, commission default, merchant disclosure, and agreement expiry. Admin approval moves the profile to `ACTIVE`; a partner cannot self-activate it.
+6. Complete the acceptance journeys for both gateways with an explicitly authorised isolated/sandbox transaction. Record provider reference, application payment, order, invoice, communication, and reconciliation evidence in the readiness matrix. Browser success pages are not payment evidence.
+7. Obtain written approval from the selected pilot owner, then enable the setting. Roll out to one partner, monitor, and expand only after the pilot remains healthy.
 
 ## Suspension and rollback
 
 To stop new partner activity, set `partner_sales.channel.v1` to `{ "enabled": false }` and/or move the profile to `SUSPENDED`. Existing orders, payments, commissions, and payout history remain available to authorised Admin and partner views according to their scopes; do not delete historical records. Public catalogues, showcases, enquiry submission, quotation acceptance, and new hosted-payment intents must stop while the setting is off.
 
-If a migration or deployment must be rolled back, stop activation first, preserve the database records, restore the prior application version only when its Prisma schema is compatible, and follow the normal backup/restore change process. Do not manually drop the partner tables or columns. Escalate any incompatible schema issue to the release owner and database owner.
+If a migration or deployment must be rolled back, stop activation first, preserve the database records, restore the prior application version only when its Prisma schema is compatible, and follow the normal backup/restore change process. Do not manually drop the partner tables or columns. The safe rollback is forward-only: force `partner_sales.channel.v1` to `{ "enabled": false }`, disable affected profiles, and retain all cases, snapshots, orders, commissions, payouts, statements, and audits. Escalate any incompatible schema issue to the release owner and database owner.
 
 ## Quote exception handling
 

@@ -35,6 +35,7 @@ type CommissionRow = {
   id: string;
   orderId: string | null;
   status: string;
+  quotedAmount: Decimal.Value;
   currentAmount: Decimal.Value;
   heldAmount: Decimal.Value;
   adjustedAmount: Decimal.Value;
@@ -166,6 +167,10 @@ async function evaluateInTransaction(tx: Db, orderId: string, actorId?: string):
   });
 
   let status = commission.status;
+  if (commission.status === "LOCKED_ON_PAYMENT") {
+    status = "PENDING_COMPLETION";
+    await tx.partnerCommission.update({ where: { id: commission.id }, data: { status } });
+  }
   const exceptionReasons = eligibility.reasons.filter((reason) => !["ORDER_NOT_COMPLETED", "FINANCIAL_RECONCILIATION_PENDING", "COMMISSION_HOLD"].includes(reason));
   if (!eligibility.eligible && exceptionReasons.length > 0 && !["PAID", "INCLUDED_IN_BATCH", "REVERSED"].includes(commission.status)) {
     status = "HELD";
@@ -254,6 +259,36 @@ export async function reverseCommissionInTransaction(tx: Db, input: MutationInpu
     ? await tx.partnerCommission.findUnique({ where: { id: input.commissionId }, select: { currentAmount: true } })
     : null;
   return mutateCommission(tx, commission ? { ...input, amount: commission.currentAmount } : input, "REVERSAL");
+}
+
+/**
+ * Authoritative financial-event hook used by gateway refunds and the EFT
+ * return workflow. The event key makes retries append no duplicate ledger
+ * entry; paid commissions receive a CORRECTION entry through the normal
+ * reversal path instead of mutating paid history.
+ */
+export async function reconcilePartnerCommissionAfterRefundInTransaction(
+  tx: Db,
+  input: { orderId: string; refundAmount: Decimal.Value; capturedAmount: Decimal.Value; reason: string; actorId?: string; eventKey: string },
+) {
+  const commission = await tx.partnerCommission.findUnique({ where: { orderId: input.orderId } });
+  if (!commission) return null;
+  const refund = money(input.refundAmount, "Refund amount");
+  const captured = money(input.capturedAmount, "Captured amount");
+  if (refund.isNegative() || captured.isNegative() || captured.isZero() || refund.gt(captured)) throw new Error("Refund amount is outside the captured payment.");
+  // Refunds are incremental events. Base each reversal on the original
+  // quoted commission, while capping it at the remaining balance so a later
+  // full-refund notification cannot over-reverse an earlier partial refund.
+  const amount = Decimal.min(
+    money(commission.currentAmount, "Commission amount"),
+    money(commission.quotedAmount, "Quoted commission").mul(refund).div(captured),
+  ).toDecimalPlaces(4);
+  if (amount.isZero()) return { commissionId: commission.id, amount: "0.0000", status: commission.status };
+  return reverseCommissionInTransaction(tx, { commissionId: commission.id, amount, reason: input.reason, actorId: input.actorId, eventKey: input.eventKey });
+}
+
+export async function reconcilePartnerCommissionAfterRefund(input: { orderId: string; refundAmount: Decimal.Value; capturedAmount: Decimal.Value; reason: string; actorId?: string; eventKey: string }) {
+  return prisma.$transaction((tx) => reconcilePartnerCommissionAfterRefundInTransaction(tx, input), { isolationLevel: "Serializable" });
 }
 
 export async function holdCommission(input: MutationInput): Promise<CommissionMutationResult>;

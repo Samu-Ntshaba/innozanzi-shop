@@ -257,10 +257,11 @@ export function internalPricingSnapshot(result: PartnerPricingResult) {
   };
 }
 
-export function clientPricingSnapshot(result: PartnerPricingResult, partner?: { displayName?: string | null; publicSlug?: string | null }) {
+export function clientPricingSnapshot(result: PartnerPricingResult, partner?: { displayName?: string | null; publicSlug?: string | null; themePreset?: string | null; contactName?: string | null; contactEmail?: string | null; contactPhone?: string | null; footerText?: string | null }, client?: { companyName?: string | null; contactName?: string | null; email?: string | null; phone?: string | null; vatNumber?: string | null; billingAddress?: unknown; deliveryAddress?: unknown; deliveryInstructions?: string | null }) {
   return {
     currency: result.currency,
-    partner: { displayName: partner?.displayName ?? null, publicSlug: partner?.publicSlug ?? null },
+    partner: { displayName: partner?.displayName ?? null, publicSlug: partner?.publicSlug ?? null, themePreset: partner?.themePreset ?? "DEFAULT", contactName: partner?.contactName ?? null, contactEmail: partner?.contactEmail ?? null, contactPhone: partner?.contactPhone ?? null, footerText: partner?.footerText ?? null },
+    client: client ? { ...client } : undefined,
     validUntil: result.validUntil.toISOString(),
     items: result.items.map((item) => ({
       id: item.id,

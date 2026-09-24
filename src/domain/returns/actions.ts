@@ -10,6 +10,7 @@ import{createSupabaseAdmin}from"@/lib/supabase";
 import{enqueueEmail}from"@/integrations/email/outbox";
 import{emailTemplates}from"@/integrations/email/templates";
 import{sendStaffEmail}from"@/domain/notifications/role-email";
+import{holdCommissionInTransaction,reconcilePartnerCommissionAfterRefundInTransaction}from"@/domain/partner-sales/commission-service";
 
 const allowedTypes=new Set(["image/jpeg","image/png","image/webp","application/pdf","video/mp4","video/quicktime"]);
 const MAX=25*1024*1024;
@@ -74,6 +75,8 @@ export async function decideReturnResolution(formData:FormData){
     if(data.type==="REPLACEMENT"||data.type==="EXCHANGE")await tx.returnReplacement.create({data:{replacementNumber:reference("RPL"),returnCaseId:row.id,resolutionId:resolution.id,status:"APPROVED",productNameSnapshot:row.productNameSnapshot,quantity:row.quantityAffected,serialNumbers:[]}});
     const operational=["REPAIR","REPLACEMENT","EXCHANGE"].includes(data.type);
     await tx.returnCase.update({where:{id:row.id},data:{status:data.type==="REJECTED"?"REJECTED":"RESOLVED",resolutionType:data.type,resolutionStatus:data.type==="REJECTED"?"REJECTED":operational?"IN_PROGRESS":"APPROVED",refundStatus:refund?"AWAITING_PAYMENT":"NOT_REQUIRED",resolvedAt:operational?null:new Date()}});
+    const partnerCommission = await tx.partnerCommission.findUnique({where:{orderId:row.orderId}});
+    if(partnerCommission && data.type!=="REJECTED") await holdCommissionInTransaction(tx,{commissionId:partnerCommission.id,reason:`Return resolution ${data.type} requires financial reconciliation.`,actorId:ctx.user.id,eventKey:`return:${row.id}:hold`});
     await tx.returnCaseEvent.create({data:{returnCaseId:row.id,actorId:ctx.user.id,type:"RESOLUTION_DECIDED",customerVisible:true,message:data.customerExplanation,newValue:{type:data.type,approvedAmount:data.approvedAmount}}});
     await tx.auditLog.create({data:{actorId:ctx.user.id,action:"return.resolve",entityType:"ReturnCase",entityId:row.id,after:{type:data.type,approvedAmount:data.approvedAmount}}});
   });revalidatePath(`/admin/returns/${row.id}`)
@@ -90,6 +93,8 @@ export async function recordRefundPayment(formData:FormData){
     await tx.returnCase.update({where:{id:refund.returnCaseId},data:{refundStatus:"COMPLETED",resolutionStatus:"COMPLETED"}});
     await tx.returnCaseEvent.create({data:{returnCaseId:refund.returnCaseId,actorId:ctx.user.id,type:"REFUND_PAID",customerVisible:true,message:`Refund payment completed. Reference: ${data.transactionReference}.`,newValue:{amount:data.amount,method:data.method}}});
     await tx.auditLog.create({data:{actorId:ctx.user.id,action:"return.refund.confirm-payment",entityType:"ReturnRefund",entityId:refund.id,after:{amount:data.amount,transactionReference:data.transactionReference}}});
+    const capturedPayment=await tx.payment.findFirst({where:{orderId:refund.returnCase.orderId,status:{in:["PAID","PARTIALLY_REFUNDED"]}},orderBy:{createdAt:"asc"},select:{id:true,amount:true}});
+    if(capturedPayment)await reconcilePartnerCommissionAfterRefundInTransaction(tx,{orderId:refund.returnCase.orderId,refundAmount:data.amount,capturedAmount:capturedPayment.amount,reason:`Return refund ${refund.refundNumber} completed.`,actorId:ctx.user.id,eventKey:`return-refund:${refund.id}:completed`});
   })}catch(error){await removeUploads(uploads);throw error}revalidatePath("/admin/returns");revalidatePath("/admin/payments")
 }
 

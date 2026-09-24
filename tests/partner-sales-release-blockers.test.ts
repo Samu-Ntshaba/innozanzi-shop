@@ -95,4 +95,32 @@ describe("partner sales release blockers", () => {
       expect(source(path), path).toContain("partnerSalesSettings");
     }
   });
+
+  it("keeps partner recipient and delivery instructions immutable into the order workflow", () => {
+    expect(source("src/domain/partner-sales/enquiries.ts")).toContain("clientSnapshot:");
+    expect(source("src/domain/partner-sales/cases.ts")).toContain("clientPricingSnapshot(pricing, quoteCase.profile");
+    expect(source("src/domain/partner-sales/payment.ts")).toContain("addresses: { create: orderDeliverySnapshot(quoteCase) }");
+    expect(source("prisma/schema.prisma")).toContain("clientSnapshot");
+    expect(source("prisma/schema.prisma")).toContain("deliveryInstructions");
+  });
+
+  it("routes supported combos through immutable component evidence and rejects legacy campaigns", () => {
+    expect(source("src/domain/partner-sales/catalogue.ts")).toContain('sourceType: "COMBO"');
+    expect(source("src/domain/partner-sales/cases.ts")).toContain('if (sourceType === "COMBO")');
+    expect(source("src/domain/partner-sales/payment.ts")).toContain('if (item.sourceType === "COMBO")');
+    expect(source("src/domain/partner-sales/catalogue.ts")).toContain("legacy campaign identity");
+  });
+
+  it("keeps payout creation idempotent and statements authenticated", () => {
+    expect(source("src/domain/partner-sales/payouts.ts")).toContain("idempotencyKey");
+    expect(source("src/domain/partner-sales/payouts.ts")).toContain("statementPayload");
+    expect(source("src/app/api/account/partner/payouts/[id]/statement/route.ts")).toContain("requirePartnerSalesContext");
+  });
+
+  it("reconciles every financial exception through the append-only commission ledger", () => {
+    expect(source("src/domain/partner-sales/payment.ts")).toContain('status: "PENDING_COMPLETION"');
+    expect(source("src/domain/partner-sales/commission-service.ts")).toContain("reconcilePartnerCommissionAfterRefundInTransaction");
+    expect(source("src/domain/returns/actions.ts")).toContain("reconcilePartnerCommissionAfterRefundInTransaction");
+    expect(source("src/domain/payments/finalize.ts")).toContain("partnerSalesSettings");
+  });
 });
