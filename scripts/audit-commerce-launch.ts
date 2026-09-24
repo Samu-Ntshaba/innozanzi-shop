@@ -4,6 +4,7 @@ import { commerceSchema } from "../src/domain/commerce/config";
 import { pricingImpact } from "../src/domain/commerce/impact";
 import { innozanziPrice } from "../src/domain/commerce/engine";
 import { gatewayConfigured } from "../src/integrations/payments/approved-gateways";
+import { PARTNER_SALES_SETTINGS_KEY, partnerSalesSettingsSchema } from "../src/domain/partner-sales/settings";
 
 // Read-only. Output is aggregated; never print credentials, feed URLs or customer data.
 async function main(){
@@ -31,6 +32,49 @@ async function main(){
   prisma.notification.count({where:{type:"EMAIL_OUTBOX",status:"FAILED"}}),
   prisma.$queryRaw<Array<{duplicates:bigint}>>`SELECT COUNT(*)::bigint AS duplicates FROM (SELECT "inventoryId", "referenceId" FROM "InventoryMovement" WHERE type='RESERVATION' AND "referenceType"='Order' GROUP BY "inventoryId", "referenceId" HAVING COUNT(*) > 1) duplicate_reservations`,
  ]);
+ const [partnerSettingRow,activePartnerProfiles,partnerOrphanRows,partnerMismatchRows,partnerDuplicateCommissionRows,partnerIneligiblePayableRows,partnerDuplicatePayoutRows,partnerFailedCommunicationRows,partnerPendingCommunicationRows]=await Promise.all([
+  prisma.siteSetting.findUnique({where:{key:PARTNER_SALES_SETTINGS_KEY},select:{value:true}}),
+  prisma.partnerSalesProfile.count({where:{status:"ACTIVE",publicCatalogueEnabled:true}}),
+  prisma.$queryRaw<Array<{count:bigint}>>`SELECT COUNT(*)::bigint AS count
+    FROM "PartnerQuoteCase" c
+    LEFT JOIN "PartnerSalesProfile" p ON p.id=c."profileId"
+    LEFT JOIN "PartnerClient" pc ON pc.id=c."partnerClientId"
+    LEFT JOIN "Order" o ON o."partnerQuoteCaseId"=c.id
+    WHERE p.id IS NULL OR pc.id IS NULL OR (c.status IN ('PAID','ORDER_IN_PROGRESS','COMPLETED') AND o.id IS NULL)`,
+  prisma.$queryRaw<Array<{count:bigint}>>`SELECT COUNT(*)::bigint AS count FROM (
+    SELECT p.id FROM "Payment" p LEFT JOIN "Order" o ON o.id=p."orderId"
+    WHERE p."partnerQuoteCaseId" IS NOT NULL AND (o.id IS NULL OR o."partnerQuoteCaseId" IS DISTINCT FROM p."partnerQuoteCaseId")
+    UNION ALL
+    SELECT o.id FROM "Order" o LEFT JOIN "Payment" p ON p."orderId"=o.id AND p."partnerQuoteCaseId"=o."partnerQuoteCaseId"
+    WHERE o."partnerQuoteCaseId" IS NOT NULL AND p.id IS NULL
+  ) mismatches`,
+  prisma.$queryRaw<Array<{count:bigint}>>`SELECT COUNT(*)::bigint AS count FROM (
+    SELECT "caseId" FROM "PartnerCommission" GROUP BY "caseId" HAVING COUNT(*) > 1
+  ) duplicate_commissions`,
+  prisma.$queryRaw<Array<{count:bigint}>>`SELECT COUNT(*)::bigint AS count
+    FROM "PartnerCommission" pc JOIN "Order" o ON o.id=pc."orderId"
+    WHERE pc.status='PAYABLE'
+      AND (o."paymentStatus" <> 'PAID' OR o.status NOT IN ('DELIVERED','COMPLETED') OR NOT EXISTS (
+        SELECT 1 FROM "AuditLog" a WHERE a.action='order.economics.reconcile' AND a."entityType"='Order' AND a."entityId"=o.id
+      ))`,
+  prisma.$queryRaw<Array<{count:bigint}>>`SELECT COUNT(*)::bigint AS count FROM (
+    SELECT "commissionId" FROM "PartnerPayoutItem" WHERE status <> 'CANCELLED' GROUP BY "commissionId" HAVING COUNT(*) > 1
+  ) duplicate_payout_membership`,
+  prisma.$queryRaw<Array<{count:bigint}>>`SELECT COUNT(*)::bigint AS count FROM "Notification"
+    WHERE type='EMAIL_OUTBOX' AND status='FAILED' AND data->>'idempotencyKey' LIKE 'partner-sales:%'`,
+  prisma.$queryRaw<Array<{count:bigint}>>`SELECT COUNT(*)::bigint AS count FROM "Notification"
+    WHERE type='EMAIL_OUTBOX' AND status IN ('PENDING','FAILED') AND data->>'idempotencyKey' LIKE 'partner-sales:%'`,
+ ]);
+ const metric=(rows:Array<{count:bigint}>)=>Number(rows[0]?.count??0);
+ const partnerSalesSetting=partnerSalesSettingsSchema.safeParse(partnerSettingRow?.value);
+ const partnerSalesEnabled=partnerSalesSetting.success&&partnerSalesSetting.data.enabled;
+ const partnerOrphans=metric(partnerOrphanRows);
+ const partnerMismatches=metric(partnerMismatchRows);
+ const duplicatePartnerCommissions=metric(partnerDuplicateCommissionRows);
+ const ineligiblePartnerPayables=metric(partnerIneligiblePayableRows);
+ const duplicatePartnerPayoutMembership=metric(partnerDuplicatePayoutRows);
+ const failedPartnerCommunication=metric(partnerFailedCommunicationRows);
+ const pendingPartnerCommunication=metric(partnerPendingCommunicationRows);
  const communicationTest=communicationRows.length?await prisma.order.count({where:{id:{in:communicationRows.map(row=>row.id)},isTestData:true}}):0;
  const failedCommunication=communicationRows.filter(row=>row.status==="FAILED").length;
  const pendingCommunication=communicationRows.length-failedCommunication;
@@ -50,11 +94,17 @@ async function main(){
  if(failedRecovery)blockers.push("FAILED_VERIFIED_PAYMENT_RECOVERY");
  if(failedCommunication)blockers.push("FAILED_PAID_ORDER_COMMUNICATION");
  if(duplicateReservations)blockers.push("DUPLICATE_INVENTORY_RESERVATIONS");
+ if(partnerMismatches)blockers.push("PARTNER_QUOTATION_PAYMENT_ORDER_MISMATCH");
+ if(duplicatePartnerCommissions)blockers.push("DUPLICATE_PARTNER_COMMISSIONS");
+ if(ineligiblePartnerPayables)blockers.push("INELIGIBLE_PARTNER_PAYABLE_COMMISSIONS");
+ if(duplicatePartnerPayoutMembership)blockers.push("DUPLICATE_PARTNER_PAYOUT_MEMBERSHIP");
+ if(failedPartnerCommunication)blockers.push("FAILED_PARTNER_COMMUNICATION");
  console.log(JSON.stringify({capturedAt:new Date().toISOString(),configuredPricing,vatRegistered:settings.vatRegistered,ready:blockers.length===0,blockers,
   gateways:{payfast:gatewayConfigured("PAYFAST"),ozow:gatewayConfigured("OZOW")},feeds,
   catalogue:{activeSupplierOffers:products.length,withoutRrp,missingCost,priceExceptions,stale,legacyRrpPremium,publishedLocalProducts:locals.length,localRegularPriceBelowFloorOrMissingCost:belowFloor},
   pendingHostedPaymentsOlderThan30Minutes:pendingPayments,paidUnfinalized,failedRecovery,pendingPaidOrderCommunication:pendingCommunication,failedCommunication,duplicateReservations,paidOrdersWithoutActiveInvoice:paidWithoutInvoice,failedEmails:failedEmail,
   testData:{pendingHostedPaymentsOlderThan30Minutes:pendingTestPayments,paidUnfinalized:paidUnfinalizedTest,paidOrderCommunication:communicationTest},
+  partnerSales:{featureEnabled:partnerSalesEnabled,activeProfiles:activePartnerProfiles,orphanCases:partnerOrphans,quotationPaymentOrderMismatches:partnerMismatches,duplicateCommissions:duplicatePartnerCommissions,ineligiblePayableCommissions:ineligiblePartnerPayables,duplicatePayoutMembership:duplicatePartnerPayoutMembership,pendingCommunications:pendingPartnerCommunication,failedCommunications:failedPartnerCommunication},
   limitations:"Local sale prices/variants, merchant contracts, browser journeys, delivery quotes, live scheduler execution and provider delivery are separate verification steps."},null,2));
  if(blockers.length)throw new Error("READINESS_BLOCKERS");
 }
