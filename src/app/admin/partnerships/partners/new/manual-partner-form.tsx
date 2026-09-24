@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { useFormStatus } from "react-dom";
 import { buttonClass, inputClass } from "@/components/admin/admin-ui";
-import { createManualPartner } from "@/domain/partnerships/admin-actions";
 
 type Option={id:string;label:string};
 
@@ -14,7 +13,7 @@ function CreateButton(){
 
 export function ManualPartnerForm({clients,types,managers}:{clients:Option[];types:Option[];managers:Option[]}){
   const[mode,setMode]=useState<"NEW"|"EXISTING">("NEW");
-  return <form action={createManualPartner} className="space-y-6">
+  return <form action="/api/admin/partnerships/partners/register" method="post" className="space-y-6">
     <div className="grid gap-3 sm:grid-cols-2">
       <button type="button" onClick={()=>setMode("NEW")} className={`rounded-xl border p-4 text-left transition ${mode==="NEW"?"border-blue-600 bg-blue-50 ring-2 ring-blue-100":"border-slate-200 hover:border-slate-300"}`}>
         <span className="block font-semibold">Add a new partner</span><span className="mt-1 block text-sm text-slate-600">Enter their details here. We create and invite the customer automatically.</span>
