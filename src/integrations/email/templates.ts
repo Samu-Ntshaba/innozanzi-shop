@@ -15,6 +15,17 @@ const button = (label: string, href: string) => `<p style="margin:24px 0"><a hre
 const money = (value: string | number) => `R ${Number(value).toLocaleString("en-ZA", { minimumFractionDigits: 2 })}`;
 export const newsletterToken=(email:string)=>createHmac("sha256",process.env.EMAIL_UNSUBSCRIBE_SECRET??process.env.OPENAI_ROUTE_SECRET??"local-development-only").update(email.toLowerCase()).digest("hex");
 
+export function partnerInvitationEmail(input:{to:string;name:string;company:string;token:string;expiresAt:Date}):EmailMessage {
+  const url=`${siteUrl()}/activate-account?token=${encodeURIComponent(input.token)}&email=${encodeURIComponent(input.to)}`;
+  return {
+    to:input.to,
+    subject:"Your Innozanzi sales partner account is ready",
+    text:`Hello ${input.name}, Innozanzi registered ${input.company} as a sales partner. Use this secure one-time link to choose your password before ${input.expiresAt.toLocaleString("en-ZA")}: ${url}`,
+    html:template("Welcome to the Innozanzi partner network",`Activate the sales partner workspace for ${input.company}`,`<p>Hello ${escape(input.name)},</p><p>Innozanzi has registered <strong>${escape(input.company)}</strong> as a sales partner.</p><p>Use the secure one-time link below to choose your permanent password. The link expires ${input.expiresAt.toLocaleString("en-ZA")}.</p>${button("Choose password and activate",url)}<p style="font-size:13px;color:#667085">If you were not expecting this invitation, contact Innozanzi support.</p>`),
+    idempotencyKey:`partner-invitation:${input.to}:${input.token.slice(-12)}`,
+  };
+}
+
 export function businessDocumentEmail(input:{to:string;cc?:string[];subject:string;message:string;documentLabel:string;documentNumber:string;idempotencyKey:string;attachment:{filename:string;content:Buffer;contentType:string}}):EmailMessage{
   const paragraphs=input.message.split(/\n{2,}/).map(value=>`<p>${escape(value).replaceAll("\n","<br>")}</p>`).join("");
   const attachmentCard=`<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:24px;border:1px solid #cbd5e1;border-radius:8px;background:#f8fafc"><tr><td width="48" style="padding:16px 0 16px 16px"><div style="width:38px;height:38px;line-height:38px;text-align:center;border-radius:7px;background:#071b33;color:#fff;font-size:11px;font-weight:700">PDF</div></td><td style="padding:16px"><div style="font-size:11px;font-weight:700;letter-spacing:.08em;color:#0093d7;text-transform:uppercase">${escape(input.documentLabel)}</div><div style="margin-top:4px;font-weight:700;color:#172b3a">${escape(input.documentNumber)}</div><div style="margin-top:3px;font-size:12px;color:#667085">${escape(input.attachment.filename)}</div></td></tr></table><p style="margin:18px 0 0;font-size:12px;line-height:1.6;color:#667085">For your security, confirm the document reference before acting on payment or delivery instructions.</p>`;
