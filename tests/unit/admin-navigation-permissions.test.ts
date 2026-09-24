@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { adminNavGroups, adminRoutePermissions } from "@/components/admin/admin-nav";
+import { adminNavGroups, adminRoutePermissions, partnerSalesAdminRoutes } from "@/components/admin/admin-nav";
 import { PERMISSIONS } from "@/domain/auth/permissions";
 
 describe("admin navigation permission connections", () => {
@@ -32,6 +32,15 @@ describe("admin navigation permission connections", () => {
     expect(routes).not.toContain("/admin/delivery-notes");
     expect(routes).toContain("/admin/orders");
     expect(routes).toContain("/admin/returns");
+  });
+  it("makes sales-partner registration visible without enabling the sales-channel feature", () => {
+    const business = adminNavGroups.find((group) => group.label === "Business");
+    expect(business?.sections[0].links).toEqual(expect.arrayContaining([
+      ["Sales partners", "/admin/partnerships"],
+      ["Register sales partner", "/admin/partnerships/partners/new"],
+    ]));
+    expect(partnerSalesAdminRoutes).not.toContain("/admin/partnerships/partners/new");
+    expect(adminRoutePermissions["/admin/partnerships/partners/new"]).toBe("partnership.partner.manage");
   });
   it("maps every non-super-admin route to a real permission", () => {
     const routes = adminNavGroups.flatMap((group) => group.sections.flatMap((section) => section.links.map(([, href]) => href)));

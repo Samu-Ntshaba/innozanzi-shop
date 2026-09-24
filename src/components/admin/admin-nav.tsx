@@ -16,7 +16,7 @@ export const adminNavGroups: readonly NavGroup[] = [
     { links: [["Products", "/admin/products"], ["Inventory", "/admin/inventory"], ["Reviews", "/admin/reviews"], ["Suppliers & feeds", "/admin/syntech"], ["Suppliers", "/admin/suppliers"]] },
   ] },
   { label: "Business", icon: BriefcaseBusiness, sections: [
-    { links: [["Invoices", "/admin/invoices"], ["Returns", "/admin/returns"], ["Reports", "/admin/reports"], ["Partnerships", "/admin/partnerships"]] },
+    { links: [["Invoices", "/admin/invoices"], ["Returns", "/admin/returns"], ["Reports", "/admin/reports"], ["Sales partners", "/admin/partnerships"], ["Register sales partner", "/admin/partnerships/partners/new"]] },
     { label: "Partner sales", links: [["Sales channel", "/admin/partnerships/sales-channel"], ["Sales cases", "/admin/partnerships/sales-cases"], ["Commission ledger", "/admin/partnerships/commissions"], ["Payouts", "/admin/partnerships/payouts"]] },
   ] },
   { label: "Pricing & Trading", icon: BriefcaseBusiness, sections: [
@@ -58,6 +58,7 @@ export const adminRoutePermissions: Record<string, string> = {
   "/admin/partnerships": "partnership.view",
   "/admin/partnerships/applications": "partnership.view",
   "/admin/partnerships/partners": "partnership.view",
+  "/admin/partnerships/partners/new": "partnership.partner.manage",
   "/admin/partnerships/requests": "partnership.request.view",
   "/admin/partnerships/agreements": "partnership.view",
   "/admin/partnerships/sales-channel": "partnership.report.view",

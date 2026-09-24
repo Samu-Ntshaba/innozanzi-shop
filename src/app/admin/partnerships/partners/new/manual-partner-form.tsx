@@ -16,10 +16,10 @@ export function ManualPartnerForm({clients,types,managers}:{clients:Option[];typ
   return <form action="/api/admin/partnerships/partners/register" method="post" className="space-y-6">
     <div className="grid gap-3 sm:grid-cols-2">
       <button type="button" onClick={()=>setMode("NEW")} className={`rounded-xl border p-4 text-left transition ${mode==="NEW"?"border-blue-600 bg-blue-50 ring-2 ring-blue-100":"border-slate-200 hover:border-slate-300"}`}>
-        <span className="block font-semibold">Add a new partner</span><span className="mt-1 block text-sm text-slate-600">Enter their details here. We create and invite the customer automatically.</span>
+        <span className="block font-semibold">Register a new sales partner</span><span className="mt-1 block text-sm text-slate-600">Enter their details and send a secure password-setup invitation.</span>
       </button>
       <button type="button" onClick={()=>setMode("EXISTING")} className={`rounded-xl border p-4 text-left transition ${mode==="EXISTING"?"border-blue-600 bg-blue-50 ring-2 ring-blue-100":"border-slate-200 hover:border-slate-300"}`}>
-        <span className="block font-semibold">Use an existing client</span><span className="mt-1 block text-sm text-slate-600">Select someone who already has an active customer account.</span>
+        <span className="block font-semibold">Approve an existing client</span><span className="mt-1 block text-sm text-slate-600">Add partner access without changing their current password.</span>
       </button>
     </div>
     <input type="hidden" name="sourceMode" value={mode}/>
