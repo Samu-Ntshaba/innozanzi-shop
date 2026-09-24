@@ -5,6 +5,7 @@ import type { PaymentProvider } from "@/generated/prisma/enums";
 import { paymentAmountError } from "@/domain/payments/limits";
 import { orderNumber } from "@/domain/quotations/lifecycle";
 import { prisma } from "@/lib/prisma";
+import { stagePartnerSalesEvent } from "./communications";
 
 export type PartnerPaymentProvider = "PAYFAST" | "OZOW";
 
@@ -373,5 +374,10 @@ export async function linkPaidPartnerOrder(tx: Prisma.TransactionClient, input: 
     }
   }
   await tx.auditLog.create({ data: { action: "partner-sales.payment.link", entityType: "PartnerQuoteCase", entityId: input.caseId, after: { orderId: input.orderId, quotationId: input.quotationId, quotationVersionId: input.quotationVersionId, commissionId: commission.id, provider: input.provider } } });
+  await stagePartnerSalesEvent(tx, {
+    event: "PAYMENT_CONFIRMED",
+    entityId: input.caseId,
+    internalMessage: "Verified payment linked to the partner order and commission lock.",
+  });
   return { orderId: input.orderId, caseId: input.caseId, commissionId: commission.id };
 }

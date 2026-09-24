@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { z } from "zod";
 import { consumeRateLimit } from "@/domain/auth/rate-limit";
 import { PartnerEnquiryError, resolveShowcaseRecord } from "@/domain/partner-sales/showcases";
+import { stagePartnerSalesEvent } from "@/domain/partner-sales/communications";
 import { prisma } from "@/lib/prisma";
 
 export {
@@ -175,6 +176,14 @@ export async function createPartnerEnquiry(rawInput: unknown, now = new Date()) 
         entityId: quoteCase.id,
         after: { caseNumber: numbers.caseNumber, requestNumber: numbers.requestNumber, partnershipId, itemCount: input.items.length },
       },
+    });
+    await stagePartnerSalesEvent(tx, {
+      event: "ENQUIRY_RECEIVED",
+      entityId: quoteCase.id,
+      caseNumber: quoteCase.caseNumber,
+      client: { email: client.email, name: client.contactName, company: client.companyName, communicationConsent: client.communicationConsent },
+      partner: showcase.profile.contactEmail ? { email: showcase.profile.contactEmail, displayName: showcase.profile.displayName } : undefined,
+      publicMessage: "Your quotation request has been received and is being reviewed.",
     });
     return { caseNumber: quoteCase.caseNumber, requestNumber: numbers.requestNumber, clientId: client.id };
   }, { isolationLevel: "Serializable" });

@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import Decimal from "decimal.js";
 import type { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
+import { stagePartnerSalesEvent } from "./communications";
 
 type Db = Prisma.TransactionClient;
 type BatchStatus = "DRAFT" | "PENDING_APPROVAL" | "APPROVED" | "PAID" | "CANCELLED";
@@ -136,6 +137,7 @@ export async function createPayoutBatch(input: CreatePayoutBatchInput) {
       await tx.partnerPayoutItem.create({ data: { batchId: created.id, commissionId: commission.id, amount: money(commission.currentAmount, "Commission amount"), status: "ACTIVE" } });
       await tx.partnerCommission.update({ where: { id: commission.id }, data: { status: "INCLUDED_IN_BATCH" } });
       await appendEntry(tx, commission, "BATCHED", input.preparedById, `Included in payout batch ${created.batchNumber}`, `payout:${created.id}:commission:${commission.id}:batched`);
+      await stagePartnerSalesEvent(tx, { event: "COMMISSION_INCLUDED_IN_PAYOUT", entityId: commission.id, internalMessage: `Included in payout batch ${created.batchNumber}.` });
     }
     await audit(tx, input.preparedById, "partner-sales.payout.prepared", "PartnerPayoutBatch", created.id, null, { batchNumber: created.batchNumber, total: fixed(total), commissionIds: locked.map((commission) => commission.id) });
     return result({ ...(created as unknown as BatchRow), total, items: locked.map((commission, index) => ({ id: String(index), commissionId: commission.id, amount: commission.currentAmount, status: "ACTIVE" })) });
@@ -172,6 +174,7 @@ export async function markPayoutBatchPaid(batchId: string, input: MarkPayoutBatc
       if (commission.status !== "INCLUDED_IN_BATCH") throw new Error("A payout commission is no longer included in this batch.");
       await tx.partnerCommission.update({ where: { id: commission.id }, data: { status: "PAID", paidAt: input.paymentDate } });
       await appendEntry(tx, commission, "PAYMENT", input.paidById, `EFT payment ${reference} posted for payout batch ${batch.batchNumber}`, `payout:${batch.id}:commission:${commission.id}:paid`);
+      await stagePartnerSalesEvent(tx, { event: "COMMISSION_PAID", entityId: commission.id, internalMessage: `EFT payment ${reference} posted for payout batch ${batch.batchNumber}.` });
     }
     const updated = await tx.partnerPayoutBatch.update({ where: { id: batch.id }, data: { status: "PAID", paymentReference: reference, paymentDate: input.paymentDate, proofDocumentId: input.proofDocumentId, paidAt: new Date() }, include: { items: true } });
     await audit(tx, input.paidById, "partner-sales.payout.paid", "PartnerPayoutBatch", batch.id, { status: batch.status }, { status: "PAID", paymentReference: reference, paymentDate: input.paymentDate.toISOString() });

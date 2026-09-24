@@ -2,6 +2,7 @@ import Decimal from "decimal.js";
 import type { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { commissionEligibility, type CommissionEligibilityReason } from "./commission";
+import { stagePartnerSalesEvent } from "./communications";
 
 type Db = Prisma.TransactionClient;
 
@@ -170,6 +171,7 @@ async function evaluateInTransaction(tx: Db, orderId: string, actorId?: string):
     status = "HELD";
     await tx.partnerCommission.update({ where: { id: commission.id }, data: { status: "HELD", heldAt: new Date(), adjustmentReason: exceptionReasons.join(", ") } });
     await tx.auditLog.create({ data: { actorId: actorId ?? null, action: "partner-sales.commission.eligibility-hold", entityType: "PartnerCommission", entityId: commission.id, before: { status: commission.status }, after: { status, reasons: exceptionReasons } } });
+    await stagePartnerSalesEvent(tx, { event: "COMMISSION_HELD", entityId: commission.id, internalMessage: exceptionReasons.join(", ") });
   } else if (eligibility.eligible && !["PAID", "INCLUDED_IN_BATCH", "REVERSED"].includes(commission.status)) {
     status = "PAYABLE";
     await tx.partnerCommission.update({
@@ -177,6 +179,7 @@ async function evaluateInTransaction(tx: Db, orderId: string, actorId?: string):
       data: { status: "PAYABLE", eligibilityAt: new Date(), reconciledAt: reconciliation?.createdAt ?? new Date(), payableAt: new Date() },
     });
     await tx.auditLog.create({ data: { actorId: actorId ?? null, action: "partner-sales.commission.eligible", entityType: "PartnerCommission", entityId: commission.id, before: { status: commission.status }, after: { status, reconciledAt: reconciliation?.createdAt ?? null } } });
+    await stagePartnerSalesEvent(tx, { event: "COMMISSION_PAYABLE", entityId: commission.id, internalMessage: "Completed order and financial reconciliation made the commission payable." });
   }
   return {
     commissionId: commission.id,

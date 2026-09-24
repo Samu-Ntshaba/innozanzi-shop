@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
+import { createHash } from "node:crypto";
 import { z } from "zod";
 import { acceptPartnerQuotation, PartnerQuotationError } from "@/domain/partner-sales/partner-review";
 import { createPartnerQuotePayment, PartnerQuotePaymentError } from "@/domain/partner-sales/payment";
-import { boundedFormData, browserMutationGuard } from "@/lib/security/request";
+import { boundedFormData, browserMutationGuard, clientAddress } from "@/lib/security/request";
+import { consumeRateLimit } from "@/domain/auth/rate-limit";
 import { publicSiteUrl } from "@/lib/public-site-url";
 
 export const runtime = "nodejs";
@@ -19,6 +21,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
   const guard = browserMutationGuard(request, "application/x-www-form-urlencoded");
   if (guard) return guard;
   try {
+    const limit = await consumeRateLimit(`partner-quote-accept:${createHash("sha256").update(token).digest("hex")}:${clientAddress(request.headers)}`, 12, 15 * 60_000);
+    if (!limit.allowed) throw new PartnerQuotationError("Too many acceptance attempts. Please try again later.");
     const form = await boundedFormData(request, 8_192);
     const consent = z.literal("on").parse(String(form.get("consent") ?? ""));
     const accepted = await acceptPartnerQuotation(token, { consent: consent === "on", metadata: { userAgent: request.headers.get("user-agent")?.slice(0, 512) ?? undefined, forwardedFor: request.headers.get("x-forwarded-for")?.split(",")[0]?.trim().slice(0, 128) } });

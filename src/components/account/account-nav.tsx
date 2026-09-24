@@ -15,10 +15,16 @@ const links = [
   ["Partnership", "/account/partnership", "◇"],
 ] as const;
 
-export function AccountNav({ showAdmin, showPartnership=false }: { showAdmin: boolean; showPartnership?:boolean }) {
+const partnerSalesLinks = [
+  ["Partner sales", "/account/partner/sales", "PS"],
+  ["Partner orders", "/account/partner/orders", "PO"],
+  ["Partner payouts", "/account/partner/payouts", "₽"],
+] as const;
+
+export function AccountNav({ showAdmin, showPartnership=false, showPartnerSales=false }: { showAdmin: boolean; showPartnership?:boolean; showPartnerSales?: boolean }) {
   const pathname = usePathname();
   const active = (href: string) => pathname === href || (href !== "/account" && pathname.startsWith(href + "/"));
-  const visibleLinks=links.filter(([,href])=>href!=="/account/partnership"||showPartnership);
+  const visibleLinks = [...links.filter(([,href])=>href!=="/account/partnership"||showPartnership), ...(showPartnerSales ? partnerSalesLinks : [])] as readonly (readonly [string, string, string])[];
   const current = visibleLinks.find(([, href]) => active(href))?.[0] ?? "Account menu";
   const items = <>
     {visibleLinks.map(([label, href, icon]) => (

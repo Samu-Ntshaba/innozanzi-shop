@@ -16,6 +16,7 @@ import {
   type PartnerPricingInput,
   type PartnerPricingItem,
 } from "./pricing";
+import { stagePartnerSalesEvent } from "./communications";
 
 export { PartnerPricingError } from "./pricing";
 
@@ -49,6 +50,7 @@ type QuoteCaseRecord = {
   profile: {
     publicSlug?: string | null;
     displayName?: string | null;
+    contactEmail?: string | null;
     defaultCommissionMethod: PartnerCommissionMethod;
     defaultCommissionValue: unknown;
   };
@@ -60,6 +62,7 @@ type QuoteCaseRecord = {
     vatNumber?: string | null;
     billingAddress?: unknown;
     deliveryAddress?: unknown;
+    communicationConsent?: boolean | null;
   };
   quotationRequest?: {
     id: string;
@@ -102,7 +105,7 @@ type PartnerCaseDatabase = Pick<
 >;
 
 const caseInclude = {
-  profile: { select: { publicSlug: true, displayName: true, defaultCommissionMethod: true, defaultCommissionValue: true } },
+  profile: { select: { publicSlug: true, displayName: true, contactEmail: true, defaultCommissionMethod: true, defaultCommissionValue: true } },
   partnerClient: { select: { companyName: true, contactName: true, email: true, phone: true, vatNumber: true, billingAddress: true, deliveryAddress: true } },
   quotationRequest: { include: { items: true } },
   quotations: { select: { version: true }, orderBy: { version: "desc" }, take: 20 },
@@ -326,6 +329,16 @@ export async function approvePartnerQuotation(rawInput: unknown, actor: PartnerP
     await tx.quotationRequest.update({ where: { id: quoteCase.quotationRequest!.id }, data: { status: "QUOTED" } });
     await tx.quotationStatusHistory.create({ data: { quotationId, toStatus: "FINAL_APPROVED", actorId: actor.user.id, note: `Partner quotation version ${version} approved.` } });
     await tx.auditLog.create({ data: { actorId: actor.user.id, action: "partner-sales.quotation.approve", entityType: "Quotation", entityId: quotationId, after: { caseId: quoteCase.id, quotationVersionId: quotationVersion.id, commissionId: commission.id, version, commissionOverrideReason: pricing.commissionOverrideReason ?? null } } });
+    await stagePartnerSalesEvent(tx, {
+      event: quoteCase.status === "REVISION_REQUESTED" ? "REVISION_RESOLVED" : "PRICING_QUOTATION_READY",
+      entityId: quoteCase.id,
+      caseNumber: quoteCase.caseNumber,
+      quoteNumber: quotation.quotationNumber,
+      total: pricing.grandTotal.toFixed(2),
+      client: { email: quoteCase.partnerClient.email, name: quoteCase.partnerClient.contactName, company: quoteCase.partnerClient.companyName, communicationConsent: quoteCase.partnerClient.communicationConsent },
+      partner: quoteCase.profile.contactEmail ? { email: quoteCase.profile.contactEmail, displayName: quoteCase.profile.displayName } : undefined,
+      internalMessage: "Approved partner quotation is ready for partner review.",
+    });
     return { caseId: quoteCase.id, quotationId, quotationVersionId: quotationVersion.id, commissionId: commission.id, version, grandTotal: pricing.grandTotal.toFixed(2), clientSnapshot };
   }, { isolationLevel: "Serializable" });
   revalidatePath("/admin/partnerships/sales-cases");

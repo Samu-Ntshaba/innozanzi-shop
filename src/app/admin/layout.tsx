@@ -4,13 +4,14 @@ import { AdminWorkspace } from "@/components/admin/admin-workspace";
 import { logoutAction } from "@/app/(auth)/actions";
 import { requireUser } from "@/domain/auth/session";
 import { hasPermission, PERMISSIONS } from "@/domain/auth/permissions";
+import { partnerSalesSettings } from "@/domain/partner-sales/settings";
 import Link from "next/link";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const context = await requireUser();
   const { user } = context;
   const permissions = PERMISSIONS.filter((permission) => hasPermission(context.grants, permission, context.isSuperAdministrator));
-  const navigationProps = { permissions, isSuperAdministrator: context.isSuperAdministrator };
+  const navigationProps = { permissions, isSuperAdministrator: context.isSuperAdministrator, partnerSalesEnabled: (await partnerSalesSettings()).enabled };
 
   return <div className="min-h-screen bg-[#eef1f4]">
     <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-slate-300 bg-white px-4 shadow-sm lg:px-6">

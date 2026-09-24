@@ -17,6 +17,7 @@ export const adminNavGroups: readonly NavGroup[] = [
   ] },
   { label: "Business", icon: BriefcaseBusiness, sections: [
     { links: [["Invoices", "/admin/invoices"], ["Returns", "/admin/returns"], ["Reports", "/admin/reports"], ["Partnerships", "/admin/partnerships"]] },
+    { label: "Partner sales", links: [["Sales channel", "/admin/partnerships/sales-channel"], ["Sales cases", "/admin/partnerships/sales-cases"], ["Commission ledger", "/admin/partnerships/commissions"], ["Payouts", "/admin/partnerships/payouts"]] },
   ] },
   { label: "Pricing & Trading", icon: BriefcaseBusiness, sections: [
     { links: [["Overview", "/admin/pricing-trading"], ["Recommended pricing", "/admin/pricing"], ["Trading desk", "/admin/trading"], ["Market review", "/admin/trading/market"], ["Promotions", "/admin/promotions"]] },
@@ -34,7 +35,15 @@ export const adminNavGroups: readonly NavGroup[] = [
 type AdminNavProps = {
   permissions?: readonly string[];
   isSuperAdministrator?: boolean;
+  partnerSalesEnabled?: boolean;
 };
+
+export const partnerSalesAdminRoutes = [
+  "/admin/partnerships/sales-channel",
+  "/admin/partnerships/sales-cases",
+  "/admin/partnerships/commissions",
+  "/admin/partnerships/payouts",
+] as const;
 
 export const adminRoutePermissions: Record<string, string> = {
   "/admin": "reports.view",
@@ -51,6 +60,10 @@ export const adminRoutePermissions: Record<string, string> = {
   "/admin/partnerships/partners": "partnership.view",
   "/admin/partnerships/requests": "partnership.request.view",
   "/admin/partnerships/agreements": "partnership.view",
+  "/admin/partnerships/sales-channel": "partnership.report.view",
+  "/admin/partnerships/sales-cases": "partnership.view",
+  "/admin/partnerships/commissions": "partner_sales.commission.manage",
+  "/admin/partnerships/payouts": "partner_sales.payout.prepare",
   "/admin/marketing": "marketing.dashboard.view",
   "/admin/marketing/resources": "marketing.content.view",
   "/admin/marketing/social": "marketing.content.view",
@@ -100,12 +113,13 @@ export const adminRoutePermissions: Record<string, string> = {
   "/admin/audit-log": "users.manage",
 };
 
-export function AdminNav({ permissions = [], isSuperAdministrator = false }: AdminNavProps) {
+export function AdminNav({ permissions = [], isSuperAdministrator = false, partnerSalesEnabled = false }: AdminNavProps) {
   const pathname = usePathname();
   const grants = new Set(permissions);
   const canShow = (href: string) => href === "/admin/test-mode"
     ? isSuperAdministrator
-    : isSuperAdministrator || grants.has(adminRoutePermissions[href] ?? "");
+    : (partnerSalesEnabled || !partnerSalesAdminRoutes.includes(href as typeof partnerSalesAdminRoutes[number]))
+      && (isSuperAdministrator || grants.has(adminRoutePermissions[href] ?? ""));
   const visibleHrefs = adminNavGroups.flatMap((group) => group.sections.flatMap((section) => section.links.map(([, href]) => href))).filter(canShow);
   const activeHref = visibleHrefs
     .filter((href) => href === "/admin" ? pathname === href : pathname === href || pathname.startsWith(`${href}/`))
