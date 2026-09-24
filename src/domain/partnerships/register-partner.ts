@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { invitationExpiry } from "@/domain/auth/invitation-utils";
 import { notifySupportOfNewUser } from "@/domain/auth/user-notifications";
-import { enqueueEmail } from "@/integrations/email/outbox";
+import { enqueueEmail, stageEmail } from "@/integrations/email/outbox";
 import { emailTemplates, partnerInvitationEmail } from "@/integrations/email/templates";
 import { applicationNumber, partnerNumber, reviewDate } from "./service";
 
@@ -92,14 +92,18 @@ export async function registerSalesPartner(input: RegistrationInput, actor: Acto
     ] });
     await tx.partnershipReview.create({ data: { partnershipId: partner.id, reviewType: "ANNUAL_REVIEW", dueAt: due } });
     await tx.auditLog.create({ data: { actorId: actor.id, action: "partnership.partner.register", entityType: "Partnership", entityId: partner.id, after: { partnerNumber: number, applicationNumber: appNumber, userId: client.id, sourceMode: data.sourceMode, track: type.track, status: data.status } } });
-    return { partnerId: partner.id, userId: client.id, companyName: company?.companyName ?? data.companyName ?? "Sales partner" };
+    const companyName=company?.companyName ?? data.companyName ?? "Sales partner";
+    const message=rawToken
+      ? partnerInvitationEmail({ to: email, name, company: companyName, token: rawToken, expiresAt })
+      : emailTemplates.partnershipApplication(email, name, number, data.status, data.reason);
+    await stageEmail(tx,message,client.id);
+    return { partnerId: partner.id, userId: client.id, message };
   });
 
-  if (rawToken) {
-    await enqueueEmail(partnerInvitationEmail({ to: email, name, company: result.companyName, token: rawToken, expiresAt }), result.userId);
+  try { await enqueueEmail(result.message, result.userId); }
+  catch (error) { console.error("Sales partner registered; invitation remains queued for retry.",error); }
+  if (rawToken) try {
     await notifySupportOfNewUser({ userId: result.userId, name, email, accountType: "CUSTOMER", source: "ADMIN_PARTNER_CREATION", createdBy: actor.name ?? actor.email });
-  } else {
-    await enqueueEmail(emailTemplates.partnershipApplication(email, name, number, data.status, data.reason), result.userId);
-  }
+  } catch (error) { console.error("Sales partner registered; support notification failed.",error); }
   return { partnerId: result.partnerId, invited: Boolean(rawToken) };
 }

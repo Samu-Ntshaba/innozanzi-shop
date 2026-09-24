@@ -80,4 +80,9 @@ describe("partner activation", () => {
     expect(updateMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ acceptedAt: null }) }));
     expect(mocks.createSession).toHaveBeenCalledWith("user-id");
   });
+
+  it("rejects activation when the partnership is no longer approved", async () => {
+    mocks.findUnique.mockResolvedValue(validInvitation({ user: { ...validInvitation().user, partnerships: [{ id: "partnership-id", status: "SUSPENDED" }] } }));
+    await expect(inspectPartnerActivation("raw-token", "partner@example.com")).resolves.toEqual({ valid: false });
+  });
 });

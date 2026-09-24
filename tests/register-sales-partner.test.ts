@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ enqueueEmail: vi.fn(), notify: vi.fn() }));
+const mocks = vi.hoisted(() => ({ enqueueEmail: vi.fn(), stageEmail: vi.fn(), notify: vi.fn() }));
 vi.mock("@/lib/prisma", () => ({ prisma: {} }));
-vi.mock("@/integrations/email/outbox", () => ({ enqueueEmail: mocks.enqueueEmail }));
+vi.mock("@/integrations/email/outbox", () => ({ enqueueEmail: mocks.enqueueEmail, stageEmail: mocks.stageEmail }));
 vi.mock("@/domain/auth/user-notifications", () => ({ notifySupportOfNewUser: mocks.notify }));
 
 import { registerSalesPartner } from "@/domain/partnerships/register-partner";
@@ -67,5 +67,12 @@ describe("registerSalesPartner", () => {
     const { db } = database("EXISTING");
     db.partnership.findFirst.mockResolvedValue({ id: "existing-partnership" });
     await expect(registerSalesPartner({ ...base, sourceMode: "EXISTING", userId: USER_ID }, { id: "admin-id", email: "admin@example.com" }, db as never)).rejects.toThrow("already has an active partnership");
+  });
+
+  it("keeps registration successful when immediate email delivery fails because the email was staged", async () => {
+    const { db } = database("NEW");
+    mocks.enqueueEmail.mockRejectedValueOnce(new Error("provider unavailable"));
+    await expect(registerSalesPartner({ ...base, sourceMode: "NEW" }, { id: "admin-id", email: "admin@example.com" }, db as never)).resolves.toEqual({ partnerId: "partnership-id", invited: true });
+    expect(mocks.stageEmail).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ subject: expect.stringContaining("sales partner") }), USER_ID);
   });
 });

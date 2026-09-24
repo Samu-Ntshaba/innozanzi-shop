@@ -19,7 +19,7 @@ async function invitationFor(token: string) {
           name: true,
           status: true,
           deletedAt: true,
-          partnerships: { select: { id: true, status: true }, take: 1 },
+          partnerships: { where:{status:{in:["APPROVED","CONDITIONALLY_APPROVED"]}},select: { id: true, status: true }, take: 1 },
         },
       },
     },
@@ -35,7 +35,7 @@ export async function inspectPartnerActivation(token: string, email: string) {
       invitation.user.status === "INVITED" &&
       !invitation.user.deletedAt &&
       invitation.user.email === normalEmail(email) &&
-      invitation.user.partnerships.length,
+      invitation.user.partnerships.some(partnership=>["APPROVED","CONDITIONALLY_APPROVED"].includes(partnership.status)),
   );
   return valid
     ? { valid: true as const, email: invitation!.user.email, name: invitation!.user.name ?? "Sales partner" }
@@ -58,7 +58,7 @@ export async function activatePartnerInvitation(input: {
     invitation.user.status !== "INVITED" ||
     invitation.user.deletedAt ||
     invitation.user.email !== normalEmail(input.email) ||
-    !invitation.user.partnerships.length
+    !invitation.user.partnerships.some(partnership=>["APPROVED","CONDITIONALLY_APPROVED"].includes(partnership.status))
   ) return { ok: false as const, error: "invalid" as const };
 
   const activatedAt = new Date();
