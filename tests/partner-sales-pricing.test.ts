@@ -48,6 +48,14 @@ const item = {
 };
 
 describe("partner pricing calculations", () => {
+  it("rejects combo and campaign lines before calculating a partner price", () => {
+    expect(() => calculatePartnerPricing({
+      items: [{ id: "combo", sourceType: "COMBO", sourceId: ids.case, title: "Legacy combo", quantity: 1, cost: "10", available: 1 }],
+    })).toThrow(/combo and campaign.*disabled/i);
+    expect(() => calculatePartnerPricing({
+      items: [{ id: "campaign", sourceType: "CAMPAIGN", sourceId: ids.case, title: "Legacy campaign", quantity: 1, cost: "10", available: 1 }],
+    })).toThrow(/combo and campaign.*disabled/i);
+  });
   it("keeps the client price at or above the protected floor and includes VAT, delivery, gateway, and reserve inputs", () => {
     const result = calculatePartnerPricing({
       items: [item],

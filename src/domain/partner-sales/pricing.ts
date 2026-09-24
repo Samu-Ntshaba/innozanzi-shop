@@ -10,6 +10,7 @@ import {
   type CommerceSettings,
 } from "@/domain/commerce/config";
 import { partnerQuoteExpiry } from "@/domain/quotations/lifecycle";
+import { assertPartnerCatalogueSourceSupported } from "@/domain/partner-sales/catalogue-policy";
 
 export type PartnerPricingGateway = "PAYFAST" | "OZOW" | "EFT";
 
@@ -126,6 +127,7 @@ export function calculatePartnerPricing(input: PartnerPricingInput): PartnerPric
   const lines: PartnerPricingLine[] = [];
 
   for (const item of input.items) {
+    if (item.sourceType) assertPartnerCatalogueSourceSupported(item.sourceType);
     if (!Number.isInteger(item.quantity) || item.quantity <= 0) {
       throw new PartnerPricingError(`Quantity for ${item.title} must be a positive whole number.`);
     }

@@ -7,6 +7,7 @@ import {
 } from "@/domain/partner-sales/redaction";
 import { createPublicToken, hashPublicToken } from "@/domain/partner-sales/tokens";
 import { partnerSalesSettings } from "@/domain/partner-sales/settings";
+import { assertPartnerCatalogueSourceSupported } from "@/domain/partner-sales/catalogue-policy";
 import { prisma } from "@/lib/prisma";
 
 const showcaseText = (max: number) =>
@@ -142,6 +143,14 @@ async function loadShowcase(publicId: string, accessToken?: string, now = new Da
     },
   });
   if (!showcase || !showcaseAvailable(showcase, now) || !activeProfile(showcase.profile, now)) return null;
+  if (showcase.items.some((item) => {
+    try {
+      assertPartnerCatalogueSourceSupported(item.sourceType);
+      return false;
+    } catch {
+      return true;
+    }
+  })) return null;
   if (showcase.visibility === "CLIENT_SPECIFIC" && !tokenMatches(showcase.accessTokenHash, accessToken)) return null;
   if (showcase.visibility === "PUBLIC" && accessToken && !tokenMatches(showcase.accessTokenHash, accessToken)) return null;
   return showcase;
@@ -198,6 +207,7 @@ export async function createShowcase(
     ) {
       throw new PartnerEnquiryError("One or more catalogue items are withdrawn or no longer eligible.");
     }
+    for (const assignment of assignments) assertPartnerCatalogueSourceSupported(assignment.sourceType);
 
     const token = input.visibility === "CLIENT_SPECIFIC" ? createPublicToken() : undefined;
     const publicId = `showcase-${randomUUID().replaceAll("-", "").slice(0, 24)}`;

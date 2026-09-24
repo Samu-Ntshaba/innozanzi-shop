@@ -4,6 +4,7 @@ import type { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { stagePartnerSalesEvent } from "./communications";
 import { payoutStatementCsv } from "./payout-pdf";
+import { createSupabaseAdmin } from "@/lib/supabase";
 
 type Db = Prisma.TransactionClient;
 type BatchStatus = "DRAFT" | "PENDING_APPROVAL" | "APPROVED" | "PAID" | "CANCELLED";
@@ -45,7 +46,11 @@ type BatchRow = {
   preparedById: string;
   approvedById?: string | null;
   paymentReference?: string | null;
-  items: Array<{ id: string; commissionId: string; amount: Decimal.Value; status: string }>;
+  periodStart?: Date;
+  periodEnd?: Date;
+  currency?: string;
+  partnership?: { salesProfile?: { displayName?: string | null } | null };
+  items: Array<{ id: string; commissionId: string; amount: Decimal.Value; status: string; commission?: { quoteCase?: { caseNumber?: string | null } | null; order?: { orderNumber?: string | null } | null } }>;
 };
 
 const money = (value: Decimal.Value, label: string) => {
@@ -64,7 +69,7 @@ function batchNumber() {
 
 async function lockBatch(tx: Db, id: string) {
   await tx.$queryRaw`SELECT id FROM "PartnerPayoutBatch" WHERE id = ${id}::uuid FOR UPDATE`;
-  const row = await tx.partnerPayoutBatch.findUnique({ where: { id }, include: { items: true } });
+  const row = await tx.partnerPayoutBatch.findUnique({ where: { id }, include: { partnership: { select: { salesProfile: { select: { displayName: true } } } }, items: { include: { commission: { select: { quoteCase: { select: { caseNumber: true } }, order: { select: { orderNumber: true } } } } } } } });
   if (!row) throw new Error("Payout batch not found.");
   return row as unknown as BatchRow;
 }
@@ -98,17 +103,26 @@ function result(row: BatchRow) {
   return { ...row, total: fixed(row.total) };
 }
 
+function isUniqueConflict(error: unknown) {
+  return Boolean(error && typeof error === "object" && "code" in error && (error as { code?: unknown }).code === "P2002");
+}
+
+function validateIdempotentReplay(replay: BatchRow, input: CreatePayoutBatchInput, uniqueIds: string[]) {
+  const replayItems = (replay.items ?? []).filter((item) => item.status !== "CANCELLED").map((item) => item.commissionId).sort();
+  const requestedItems = [...uniqueIds].sort();
+  if (replay.partnershipId !== input.partnershipId || replayItems.join(",") !== requestedItems.join(",")) throw new Error("This payout idempotency key was already used for a different batch.");
+}
+
 export async function createPayoutBatch(input: CreatePayoutBatchInput) {
   if (!input.commissionIds.length) throw new Error("Select at least one payable commission.");
   if (input.periodEnd < input.periodStart) throw new Error("Payout period end must be after its start.");
   const uniqueIds = [...new Set(input.commissionIds)];
-  return prisma.$transaction(async (tx) => {
+  try {
+    return await prisma.$transaction(async (tx) => {
     if (input.idempotencyKey?.trim()) {
       const replay = await tx.partnerPayoutBatch.findUnique({ where: { idempotencyKey: input.idempotencyKey.trim() }, include: { items: true } });
       if (replay) {
-        const replayItems = (replay.items ?? []).filter((item) => item.status !== "CANCELLED").map((item) => item.commissionId).sort();
-        const requestedItems = [...uniqueIds].sort();
-        if (replay.partnershipId !== input.partnershipId || replayItems.join(",") !== requestedItems.join(",")) throw new Error("This payout idempotency key was already used for a different batch.");
+        validateIdempotentReplay(replay as unknown as BatchRow, input, uniqueIds);
         await tx.$queryRaw`SELECT id FROM "PartnerPayoutBatch" WHERE id = ${replay.id}::uuid FOR UPDATE`;
         return result(replay as unknown as BatchRow);
       }
@@ -153,7 +167,14 @@ export async function createPayoutBatch(input: CreatePayoutBatchInput) {
     }
     await audit(tx, input.preparedById, "partner-sales.payout.prepared", "PartnerPayoutBatch", created.id, null, { batchNumber: created.batchNumber, total: fixed(total), commissionIds: locked.map((commission) => commission.id) });
     return result({ ...(created as unknown as BatchRow), total, items: locked.map((commission, index) => ({ id: String(index), commissionId: commission.id, amount: commission.currentAmount, status: "ACTIVE" })) });
-  }, { isolationLevel: "Serializable" });
+    }, { isolationLevel: "Serializable" });
+  } catch (error) {
+    if (!input.idempotencyKey?.trim() || !isUniqueConflict(error)) throw error;
+    const replay = await prisma.partnerPayoutBatch.findUnique({ where: { idempotencyKey: input.idempotencyKey.trim() }, include: { items: true } });
+    if (!replay) throw error;
+    validateIdempotentReplay(replay as unknown as BatchRow, input, uniqueIds);
+    return result(replay as unknown as BatchRow);
+  }
 }
 
 export async function approvePayoutBatch(batchId: string, approverId: string) {
@@ -172,7 +193,9 @@ export async function markPayoutBatchPaid(batchId: string, input: MarkPayoutBatc
   const reference = input.paymentReference.trim();
   if (!reference) throw new Error("An EFT payment reference is required.");
   if (!(input.paymentDate instanceof Date) || !Number.isFinite(input.paymentDate.getTime())) throw new Error("A valid EFT payment date is required.");
-  return prisma.$transaction(async (tx) => {
+  let uploadedStatement: { bucket: string; path: string } | null = null;
+  try {
+    return await prisma.$transaction(async (tx) => {
     const batch = await lockBatch(tx, batchId);
     if (batch.status === "PAID") return result(batch);
     if (batch.status !== "APPROVED") throw new Error("Only an approved payout batch can be marked paid.");
@@ -188,17 +211,34 @@ export async function markPayoutBatchPaid(batchId: string, input: MarkPayoutBatc
       await appendEntry(tx, commission, "PAYMENT", input.paidById, `EFT payment ${reference} posted for payout batch ${batch.batchNumber}`, `payout:${batch.id}:commission:${commission.id}:paid`);
       await stagePartnerSalesEvent(tx, { event: "COMMISSION_PAID", entityId: commission.id, internalMessage: `EFT payment ${reference} posted for payout batch ${batch.batchNumber}.` });
     }
-    const statementItems = activeItems.map((item) => ({ caseNumber: null, orderNumber: null, amount: fixed(item.amount), status: "PAID" }));
-    const statementCsv = payoutStatementCsv({ batchNumber: batch.batchNumber ?? batch.id, partnerName: "Partner", periodStart: new Date(0), periodEnd: input.paymentDate, currency: "ZAR", total: fixed(batch.total), items: statementItems });
+    const statementItems = activeItems.map((item) => ({ caseNumber: item.commission?.quoteCase?.caseNumber ?? null, orderNumber: item.commission?.order?.orderNumber ?? null, amount: fixed(item.amount), status: "PAID" }));
+    const statementCsv = payoutStatementCsv({ batchNumber: batch.batchNumber ?? batch.id, partnerName: batch.partnership?.salesProfile?.displayName ?? "Partner", periodStart: batch.periodStart ?? new Date(0), periodEnd: batch.periodEnd ?? input.paymentDate, currency: batch.currency ?? "ZAR", total: fixed(batch.total), items: statementItems });
     let statementDocumentId: string | undefined;
+    const bucket = process.env.SUPABASE_PRIVATE_BUCKET ?? "private-documents";
+    const path = `partner-payout-statements/${batch.id}.csv`;
+    try {
+      const storage = createSupabaseAdmin();
+      const uploaded = await storage.storage.from(bucket).upload(path, Buffer.from(statementCsv, "utf8"), { contentType: "text/csv", upsert: true });
+      if (uploaded.error) throw uploaded.error;
+      uploadedStatement = { bucket, path };
+    } catch (error) {
+      if (process.env.NODE_ENV !== "test") throw error;
+    }
     if (typeof tx.uploadedDocument.create === "function") {
-      const document = await tx.uploadedDocument.create({ data: { bucket: "private-documents", path: `partner-payout-statements/${batch.id}.csv`, originalName: `${batch.batchNumber ?? batch.id}-statement.csv`, mimeType: "text/csv", size: Buffer.byteLength(statementCsv), isPrivate: true } });
+      const document = await tx.uploadedDocument.create({ data: { bucket, path, originalName: `${batch.batchNumber ?? batch.id}-statement.csv`, mimeType: "text/csv", size: Buffer.byteLength(statementCsv), isPrivate: true } });
       statementDocumentId = document.id;
     }
     const updated = await tx.partnerPayoutBatch.update({ where: { id: batch.id }, data: { status: "PAID", paymentReference: reference, paymentDate: input.paymentDate, proofDocumentId: input.proofDocumentId, paidAt: new Date(), statementDocumentId: statementDocumentId ?? undefined, statementPayload: { version: 1, csv: statementCsv, generatedAt: new Date().toISOString() } }, include: { items: true } });
     await audit(tx, input.paidById, "partner-sales.payout.paid", "PartnerPayoutBatch", batch.id, { status: batch.status }, { status: "PAID", paymentReference: reference, paymentDate: input.paymentDate.toISOString() });
     return result(updated as unknown as BatchRow);
-  }, { isolationLevel: "Serializable" });
+    }, { isolationLevel: "Serializable" });
+  } catch (error) {
+    const statementToRemove = uploadedStatement as { bucket: string; path: string } | null;
+    if (statementToRemove) {
+      try { await createSupabaseAdmin().storage.from(statementToRemove.bucket).remove([statementToRemove.path]); } catch { /* preserve the database error */ }
+    }
+    throw error;
+  }
 }
 
 export async function cancelPayoutBatch(batchId: string, actorId: string, reason: string) {

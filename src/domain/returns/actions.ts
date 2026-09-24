@@ -90,7 +90,7 @@ export async function recordRefundPayment(formData:FormData){
     if(uploads[0]){const doc=await tx.uploadedDocument.create({data:{bucket:uploads[0].bucket,path:uploads[0].path,originalName:uploads[0].file.name,mimeType:uploads[0].file.type,size:uploads[0].file.size,isPrivate:true,isTestData:refund.isTestData}});documentId=doc.id}
     await tx.returnRefundPayment.create({data:{refundId:refund.id,processedById:ctx.user.id,proofDocumentId:documentId,amount:new Decimal(data.amount),method:data.method,bankReference:data.bankReference||null,transactionReference:data.transactionReference,paidAt:data.paidAt,notes:data.notes||null}});
     await tx.returnRefund.update({where:{id:refund.id},data:{status:"COMPLETED",completedAt:new Date()}});
-    await tx.returnCase.update({where:{id:refund.returnCaseId},data:{refundStatus:"COMPLETED",resolutionStatus:"COMPLETED"}});
+    await tx.returnCase.update({where:{id:refund.returnCaseId},data:{status:"CLOSED",closedAt:new Date(),refundStatus:"COMPLETED",resolutionStatus:"COMPLETED"}});
     await tx.returnCaseEvent.create({data:{returnCaseId:refund.returnCaseId,actorId:ctx.user.id,type:"REFUND_PAID",customerVisible:true,message:`Refund payment completed. Reference: ${data.transactionReference}.`,newValue:{amount:data.amount,method:data.method}}});
     await tx.auditLog.create({data:{actorId:ctx.user.id,action:"return.refund.confirm-payment",entityType:"ReturnRefund",entityId:refund.id,after:{amount:data.amount,transactionReference:data.transactionReference}}});
     const capturedPayment=await tx.payment.findFirst({where:{orderId:refund.returnCase.orderId,status:{in:["PAID","PARTIALLY_REFUNDED"]}},orderBy:{createdAt:"asc"},select:{id:true,amount:true}});

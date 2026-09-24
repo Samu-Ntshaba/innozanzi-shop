@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 
 const source = (path: string) =>
@@ -281,14 +282,31 @@ describe("partner sales persistence contract", () => {
     expect(migration).not.toMatch(/DROP\s+(TABLE|COLUMN)/i);
   });
 
-  it("keeps legacy supplier media cleanup outside the additive migration", () => {
+  it("keeps the prior migration byte-stable and makes release safeguards forward-only", () => {
     const migration = source(migrationPath);
     const tableCreation = migration.indexOf(
       'CREATE TABLE "PartnerCatalogueAssignment"',
     );
     expect(tableCreation).toBeGreaterThanOrEqual(0);
-    expect(migration).not.toMatch(/UPDATE\s+"PartnerCatalogueAssignment"/i);
-    expect(migration).not.toMatch(/DELETE\s+FROM\s+"RolePermission"/i);
+    expect(createHash("sha256").update(migration).digest("hex")).toBe(
+      "13395a0083c4554cbfc30af195a7ead009791ff9f000080db477fb550a2033ff",
+    );
+    const safeguards = source(
+      "prisma/migrations/20260924190000_partner_sales_release_safeguards/migration.sql",
+    );
+    for (const column of [
+      'ADD COLUMN "sourceSnapshot" JSONB',
+      'ADD COLUMN "clientSnapshot" JSONB',
+      'ADD COLUMN "deliveryInstructions" TEXT',
+      'ADD COLUMN "statementPayload" JSONB',
+      'ADD COLUMN "idempotencyKey" TEXT',
+    ]) {
+      expect(safeguards).toContain(column);
+    }
+    expect(safeguards).toContain(
+      'CREATE UNIQUE INDEX "PartnerPayoutBatch_idempotencyKey_key"',
+    );
+    expect(safeguards).not.toMatch(/DROP\s+(TABLE|COLUMN)|DELETE\s+FROM|UPDATE\s+"PartnerCatalogueAssignment"/i);
     expect(source("scripts/backfill-partner-sales-release.ts")).toContain("mediaSnapshot");
   });
 });

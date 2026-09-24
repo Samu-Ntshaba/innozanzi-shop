@@ -14,6 +14,7 @@ import {
   partnerAvailabilityFingerprint,
   supplierPromotionEvidence,
 } from "@/domain/partner-sales/availability";
+import { assertPartnerCatalogueSourceSupported } from "@/domain/partner-sales/catalogue-policy";
 
 const SOURCE_TYPES = [
   "PRODUCT",
@@ -386,136 +387,6 @@ async function resolveSupplierSource(
   };
 }
 
-async function resolveComboSource(
-  db: CatalogueDatabase,
-  sourceId: string,
-  now: Date,
-): Promise<ResolvedSource | null> {
-  const campaign = await db.comboCampaign.findUnique({
-    where: { id: sourceId },
-    include: {
-      items: {
-        orderBy: { id: "asc" },
-        include: {
-          product: {
-            include: {
-              images: {
-                where: { isPrimary: true },
-                orderBy: { sortOrder: "asc" },
-                take: 1,
-              },
-              inventory: { orderBy: { id: "asc" } },
-              variants: {
-                include: { inventory: true },
-                orderBy: { id: "asc" },
-              },
-              suppliers: { where: { isPreferred: true }, take: 1 },
-            },
-          },
-          supplierCatalogueProduct: {
-            include: { feed: true, supplier: true },
-          },
-        },
-      },
-    },
-  });
-  if (
-    !campaign ||
-    campaign.status !== "ACTIVE" ||
-    campaign.startsAt > now ||
-    campaign.endsAt <= now ||
-    campaign.isTestData ||
-    !campaign.approvedAt ||
-    !campaign.items.length
-  ) {
-    return null;
-  }
-  const settings = await getCommerceSettings();
-  const itemAvailability: Array<Record<string, unknown>> = [];
-  for (const item of campaign.items) {
-    if (item.product) {
-      const current = manualProductAvailability(item.product);
-      if (
-        item.product.status !== "PUBLISHED" ||
-        item.product.deletedAt ||
-        item.product.isTestData ||
-        !["IN_STOCK", "LOW_STOCK"].includes(item.product.stockStatus) ||
-        !current.cost ||
-        Number(current.cost) <= 0 ||
-        current.available < item.quantity
-      ) {
-        return null;
-      }
-      itemAvailability.push({
-        id: item.id,
-        source: "PRODUCT",
-        cost: current.cost,
-        costEvidence: current.costEvidence,
-        available: current.available,
-        quantity: item.quantity,
-      });
-      continue;
-    }
-    if (item.supplierCatalogueProduct) {
-      const current = await supplierEligibility(
-        item.supplierCatalogueProduct,
-        now,
-        settings,
-      );
-      if (
-        !current.eligible ||
-        !current.effectiveCost ||
-        item.supplierCatalogueProduct.stock < item.quantity
-      ) {
-        return null;
-      }
-      itemAvailability.push({
-        id: item.id,
-        source: "SUPPLIER_CATALOGUE_PRODUCT",
-        baseCost: current.baseCost,
-        effectiveCost: current.effectiveCost,
-        promotion: current.promotion,
-        available: item.supplierCatalogueProduct.stock,
-        quantity: item.quantity,
-      });
-      continue;
-    }
-    return null;
-  }
-  const image = campaign.imageUrl ?? campaign.mobileImageUrl;
-  const sourceSnapshot = {
-    sourceType: "COMBO",
-    sourceId: campaign.id,
-    cost: campaign.estimatedCost.toString(),
-    available: Math.min(...itemAvailability.map((item) => Number(item.available))),
-    comboPrice: campaign.comboPrice.toString(),
-    normalPrice: campaign.normalPrice.toString(),
-    items: itemAvailability,
-  };
-  return {
-    title: campaign.name,
-    description: campaign.description,
-    sku: null,
-    media: image ? [{ url: image, altText: campaign.name }] : [],
-    fingerprint: partnerAvailabilityFingerprint({
-      sourceType: "COMBO",
-      sourceId: campaign.id,
-      baseCost: campaign.estimatedCost,
-      effectiveCost: campaign.estimatedCost,
-      available: Math.min(...itemAvailability.map((item) => Number(item.available))),
-      state: campaign.status,
-      details: {
-        startsAt: campaign.startsAt.toISOString(),
-        endsAt: campaign.endsAt.toISOString(),
-        normalPrice: campaign.normalPrice.toString(),
-        comboPrice: campaign.comboPrice.toString(),
-        items: itemAvailability,
-      },
-    }),
-    sourceSnapshot,
-  };
-}
-
 async function resolveSource(
   db: CatalogueDatabase,
   sourceType: CatalogueSourceType,
@@ -528,9 +399,7 @@ async function resolveSource(
   if (sourceType === "SUPPLIER_CATALOGUE_PRODUCT") {
     return resolveSupplierSource(db, sourceId, now);
   }
-  if (sourceType === "COMBO") {
-    return resolveComboSource(db, sourceId, now);
-  }
+  assertPartnerCatalogueSourceSupported(sourceType);
   return null;
 }
 
@@ -594,6 +463,7 @@ export async function assignCatalogueItem(
 ) {
   assertCataloguePermission(actor);
   const data = assignSchema.parse(input);
+  assertPartnerCatalogueSourceSupported(data.sourceType);
   return prisma.$transaction(
     async (tx) => {
       const profile = await tx.partnerSalesProfile.findUnique({

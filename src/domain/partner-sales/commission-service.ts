@@ -31,6 +31,18 @@ export type MutationInput = {
   eventKey?: string;
 };
 
+export function returnRequiresCommissionHold(input: {
+  status: string;
+  resolutionStatus: string;
+  refundStatus: string;
+  distributorClaimStatus?: string;
+}) {
+  if (input.status === "REJECTED") return false;
+  const financialOutcomeClosed = input.refundStatus === "NOT_REQUIRED" || input.refundStatus === "COMPLETED";
+  const distributorOutcomeClosed = !input.distributorClaimStatus || input.distributorClaimStatus === "NOT_REQUIRED" || input.distributorClaimStatus === "CLOSED";
+  return !(input.status === "CLOSED" && input.resolutionStatus === "COMPLETED" && financialOutcomeClosed && distributorOutcomeClosed);
+}
+
 type CommissionRow = {
   id: string;
   orderId: string | null;
@@ -135,7 +147,7 @@ async function evaluateInTransaction(tx: Db, orderId: string, actorId?: string):
     include: {
       payments: { select: { status: true, providerMetadata: true } },
       partnerQuoteCase: { select: { status: true } },
-      items: { select: { returnCases: { select: { status: true, resolutionStatus: true } } } },
+      items: { select: { returnCases: { select: { status: true, resolutionStatus: true, refundStatus: true, distributorClaimStatus: true } } } },
     },
   });
   if (!order) throw new Error("Order not found.");
@@ -154,7 +166,7 @@ async function evaluateInTransaction(tx: Db, orderId: string, actorId?: string):
     const metadata = payment.providerMetadata;
     return Boolean(metadata && typeof metadata === "object" && !Array.isArray(metadata) && (metadata as Record<string, unknown>).chargeback === true);
   });
-  const returnHold = orderItems.some((item) => (item.returnCases ?? []).some((itemReturn) => !["RESOLVED", "CLOSED", "REJECTED"].includes(itemReturn.status) || itemReturn.resolutionStatus === "PENDING"));
+  const returnHold = orderItems.some((item) => (item.returnCases ?? []).some((itemReturn) => returnRequiresCommissionHold(itemReturn)));
   const eligibility = commissionEligibility({
     orderCompleted: order.paymentStatus === "PAID" && ["DELIVERED", "COMPLETED"].includes(order.status),
     financiallyReconciled: Boolean(reconciliation),
@@ -276,12 +288,15 @@ export async function reconcilePartnerCommissionAfterRefundInTransaction(
   const refund = money(input.refundAmount, "Refund amount");
   const captured = money(input.capturedAmount, "Captured amount");
   if (refund.isNegative() || captured.isNegative() || captured.isZero() || refund.gt(captured)) throw new Error("Refund amount is outside the captured payment.");
-  // Refunds are incremental events. Base each reversal on the original
-  // quoted commission, while capping it at the remaining balance so a later
-  // full-refund notification cannot over-reverse an earlier partial refund.
+  const entries = await tx.partnerCommissionEntry.findMany({ where: { commissionId: commission.id }, select: { type: true, amount: true } });
+  const alreadyReversed = entries
+    .filter((entry) => entry.type === "REVERSAL" || entry.type === "CORRECTION")
+    .reduce((sum, entry) => sum.plus(new Decimal(entry.amount).abs()), new Decimal(0));
+  // Gateway and return workflows pass the cumulative authoritative refund
+  // amount. Only the delta from the append-only ledger may be reversed.
   const amount = Decimal.min(
     money(commission.currentAmount, "Commission amount"),
-    money(commission.quotedAmount, "Quoted commission").mul(refund).div(captured),
+    Decimal.max(new Decimal(0), money(commission.quotedAmount, "Quoted commission").mul(refund).div(captured).minus(alreadyReversed)),
   ).toDecimalPlaces(4);
   if (amount.isZero()) return { commissionId: commission.id, amount: "0.0000", status: commission.status };
   return reverseCommissionInTransaction(tx, { commissionId: commission.id, amount, reason: input.reason, actorId: input.actorId, eventKey: input.eventKey });

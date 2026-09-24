@@ -104,11 +104,11 @@ describe("partner sales release blockers", () => {
     expect(source("prisma/schema.prisma")).toContain("deliveryInstructions");
   });
 
-  it("routes supported combos through immutable component evidence and rejects legacy campaigns", () => {
-    expect(source("src/domain/partner-sales/catalogue.ts")).toContain('sourceType: "COMBO"');
-    expect(source("src/domain/partner-sales/cases.ts")).toContain('if (sourceType === "COMBO")');
-    expect(source("src/domain/partner-sales/payment.ts")).toContain('if (item.sourceType === "COMBO")');
-    expect(source("src/domain/partner-sales/catalogue.ts")).toContain("legacy campaign identity");
+  it("disables combo and campaign sources at every new partner-sales boundary", () => {
+    expect(source("src/domain/partner-sales/catalogue-policy.ts")).toContain("PRODUCT");
+    expect(source("src/domain/partner-sales/catalogue-policy.ts")).toContain("SUPPLIER_CATALOGUE_PRODUCT");
+    expect(source("src/domain/partner-sales/catalogue-policy.ts")).toContain("Combo and campaign sources are disabled");
+    expect(source("src/app/admin/partnerships/partners/[id]/sales-channel/catalogue/page.tsx")).not.toContain('value="COMBO"');
   });
 
   it("keeps payout creation idempotent and statements authenticated", () => {

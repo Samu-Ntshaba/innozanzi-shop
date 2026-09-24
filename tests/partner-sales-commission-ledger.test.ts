@@ -27,6 +27,8 @@ import {
   evaluateCommission,
   holdCommission,
   reverseCommission,
+  reconcilePartnerCommissionAfterRefundInTransaction,
+  returnRequiresCommissionHold,
 } from "@/domain/partner-sales/commission-service";
 
 const commission = {
@@ -108,5 +110,41 @@ describe("partner commission ledger", () => {
     expect(mocks.partnerCommissionEntry.create).toHaveBeenNthCalledWith(1, expect.objectContaining({ data: expect.objectContaining({ type: "ADJUSTMENT", amount: new Decimal("12.3456"), balanceAfter: new Decimal("262.3456") }) }));
     expect(mocks.partnerCommissionEntry.create).toHaveBeenNthCalledWith(2, expect.objectContaining({ data: expect.objectContaining({ type: "CORRECTION", amount: new Decimal("-62.3456"), balanceAfter: new Decimal("200.0000") }) }));
     expect(mocks.partnerCommissionEntry.create.mock.calls[1][0].data.type).not.toBe("PAYMENT");
+  });
+
+  it("reverses only the delta when repeated refund notifications are cumulative", async () => {
+    const base = { ...commission, quotedAmount: new Decimal("250.0000") };
+    mocks.partnerCommission.findUnique.mockResolvedValue(base);
+    mocks.partnerCommissionEntry.findMany.mockImplementation(async () => mocks.partnerCommissionEntry.create.mock.calls.length
+      ? [{ type: "REVERSAL", amount: new Decimal("-62.5000") }]
+      : []);
+
+    await reconcilePartnerCommissionAfterRefundInTransaction(mocks as never, {
+      orderId: ids.order,
+      refundAmount: "250.00",
+      capturedAmount: "1000.00",
+      reason: "First partial refund",
+      eventKey: "refund:1",
+    });
+    await reconcilePartnerCommissionAfterRefundInTransaction(mocks as never, {
+      orderId: ids.order,
+      refundAmount: "500.00",
+      capturedAmount: "1000.00",
+      reason: "Cumulative refund update",
+      eventKey: "refund:2",
+    });
+
+    expect(mocks.partnerCommissionEntry.create).toHaveBeenLastCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ type: "REVERSAL", amount: new Decimal("-62.5000") }),
+    }));
+  });
+
+  it.each([
+    [{ status: "RESOLVED", resolutionStatus: "IN_PROGRESS", refundStatus: "NOT_REQUIRED" }, true],
+    [{ status: "CLOSED", resolutionStatus: "COMPLETED", refundStatus: "COMPLETED" }, false],
+    [{ status: "CLOSED", resolutionStatus: "COMPLETED", refundStatus: "AWAITING_PAYMENT" }, true],
+    [{ status: "REJECTED", resolutionStatus: "REJECTED", refundStatus: "NOT_REQUIRED" }, false],
+  ])("holds commission until a return has a closed financial outcome (%o)", (input, expected) => {
+    expect(returnRequiresCommissionHold(input)).toBe(expected);
   });
 });

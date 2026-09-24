@@ -5,12 +5,14 @@ This channel is an additive, controlled extension of Partnerships, Quotations, P
 ## Activation
 
 1. Confirm the additive migration is applied in the intended non-production environment first, then in the release environment. Run `npx prisma migrate status` and `npx prisma migrate deploy`; never point rehearsal commands at production.
-2. Run the explicit, idempotent operational backfill only after reviewing its dry-run counts: `npx tsx scripts/backfill-partner-sales-release.ts`. This clears legacy supplier media snapshots and stale broad-role partner grants; it is intentionally separate from the forward-only additive migration.
+2. Run the explicit, idempotent operational backfill only after reviewing its dry-run counts: `npx tsx scripts/backfill-partner-sales-release.ts` (dry run), then `npx tsx scripts/backfill-partner-sales-release.ts --apply`. This clears only targeted legacy supplier media snapshots and stale broad-role partner grants; it is intentionally separate from the forward-only additive migration.
 3. Run `npx tsx scripts/audit-commerce-launch.ts`. Resolve every partner blocker: orphan cases, quotation/payment/order mismatches, duplicate commissions, ineligible payable commissions, duplicate payout membership, and failed partner communications.
 4. Confirm PayFast and Ozow configuration, notification workers, Orders ownership, trusted ingress headers, and the required Admin permissions. Do not print secrets or private client/financial fields in evidence.
 5. Create one pilot profile for an approved partnership. Verify legal/display details, logo, contact details, catalogue assignments, commission default, merchant disclosure, and agreement expiry. Admin approval moves the profile to `ACTIVE`; a partner cannot self-activate it.
 6. Complete the acceptance journeys for both gateways with an explicitly authorised isolated/sandbox transaction. Record provider reference, application payment, order, invoice, communication, and reconciliation evidence in the readiness matrix. Browser success pages are not payment evidence.
 7. Obtain written approval from the selected pilot owner, then enable the setting. Roll out to one partner, monitor, and expand only after the pilot remains healthy.
+
+The release supports only PRODUCT and SUPPLIER_CATALOGUE_PRODUCT partner catalogue sources. COMBO and CAMPAIGN rows remain valid legacy data but are rejected or suppressed at assignment, showcase, enquiry, pricing, payment, and public-eligibility boundaries until live component inventory and cost checks are implemented.
 
 ## Suspension and rollback
 

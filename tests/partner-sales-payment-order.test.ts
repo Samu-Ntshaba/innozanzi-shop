@@ -164,6 +164,66 @@ describe("partner quote payment intent", () => {
     }));
   });
 
+  it("copies delivery instructions from the immutable approved client snapshot", async () => {
+    const snapshotVersion = {
+      ...version,
+      snapshot: {
+        audience: {
+          client: {
+            currency: "ZAR",
+            validUntil: "2026-09-26T08:00:00.000Z",
+            client: {
+              companyName: "Approved Client",
+              contactName: "Approved Buyer",
+              email: "buyer@example.com",
+              phone: "+27821234567",
+              deliveryAddress: { destination: "Approved address" },
+              deliveryInstructions: "Leave with security desk",
+            },
+            items: quoteItems.map((item) => ({ ...item, sourceType: item.sourceType, sourceId: item.sourceId })),
+            subtotal: "2500.00",
+            discountTotal: "0.00",
+            deliveryTotal: "0.00",
+            vatTotal: "375.00",
+            grandTotal: "2875.00",
+          },
+          internal: {
+            items: quoteItems.map((item) => ({ ...item, title: item.productName, approvedGrossUnit: item.unitPrice, lineTotal: item.lineTotal, vatTotal: item.vatTotal, cost: item.costPrice, available: item.stockSnapshot, sourceType: item.sourceType, sourceId: item.sourceId, availabilityFingerprint: item.sourceSnapshot.availabilityFingerprint })),
+            totals: { subtotal: "2500.00", discountTotal: "0.00", deliveryTotal: "0.00", vatTotal: "375.00", grandTotal: "2875.00" },
+          },
+        },
+      },
+    };
+    mocks.quotationVersion.findUnique.mockResolvedValue(snapshotVersion);
+    (snapshotVersion.quotation.partnerQuoteCase!.partnerClient as unknown as { deliveryAddress: unknown }).deliveryAddress = { destination: "Mutable address", instructions: "Mutable instructions" };
+
+    await createPartnerQuotePayment(ids.version, "PAYFAST", now);
+
+    expect(mocks.order.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        customerNotes: "Leave with security desk",
+      }),
+    }));
+  });
+
+  it("reuses a failed first payment intent when the customer retries with another provider", async () => {
+    mocks.payment.findFirst.mockResolvedValue({
+      id: ids.payment,
+      orderId: ids.order,
+      provider: "PAYFAST",
+      amount: "2875.00",
+      currency: "ZAR",
+      status: "FAILED",
+      order: { id: ids.order, orderNumber: "ORD-PS-1" },
+    });
+
+    const result = await createPartnerQuotePayment(ids.version, "OZOW", now);
+
+    expect(result).toMatchObject({ paymentId: ids.payment, orderId: ids.order, duplicate: true });
+    expect(mocks.order.create).not.toHaveBeenCalled();
+    expect(mocks.payment.create).not.toHaveBeenCalled();
+  });
+
   it("supports Ozow with the same exact accepted snapshot and converges repeated intent creation", async () => {
     mocks.payment.create.mockResolvedValueOnce({ id: ids.payment, orderId: ids.order, provider: "OZOW", amount: "2875.00", currency: "ZAR", status: "PENDING" });
     const first = await createPartnerQuotePayment(ids.version, "OZOW", now);
@@ -180,6 +240,16 @@ describe("partner quote payment intent", () => {
   it("uses the immutable approved version values even if mutable quotation items were changed later", async () => {
     const immutable = {
       audience: {
+        client: {
+          currency: "ZAR",
+          validUntil: "2026-09-26T08:00:00.000Z",
+          items: quoteItems.map((item) => ({ ...item })),
+          subtotal: "2500.00",
+          discountTotal: "0.00",
+          deliveryTotal: "0.00",
+          vatTotal: "375.00",
+          grandTotal: "2875.00",
+        },
         internal: {
           items: quoteItems.map((item) => ({ id: item.id, sourceType: item.sourceType, sourceId: item.sourceId, title: item.productName, quantity: item.quantity, cost: item.costPrice, available: item.stockSnapshot, availabilityFingerprint: (item.sourceSnapshot as { availabilityFingerprint: string }).availabilityFingerprint, approvedGrossUnit: item.unitPrice, lineTotal: item.lineTotal, vatTotal: item.vatTotal })),
           totals: { subtotal: "2500.00", discountTotal: "0.00", deliveryTotal: "0.00", vatTotal: "375.00", grandTotal: "2875.00" },

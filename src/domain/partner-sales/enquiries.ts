@@ -5,6 +5,7 @@ import { PartnerEnquiryError, resolveShowcaseRecord } from "@/domain/partner-sal
 import { stagePartnerSalesEvent } from "@/domain/partner-sales/communications";
 import { prisma } from "@/lib/prisma";
 import { partnerSalesSettings } from "@/domain/partner-sales/settings";
+import { assertPartnerCatalogueSourceSupported } from "@/domain/partner-sales/catalogue-policy";
 
 export {
   PartnerEnquiryError,
@@ -91,6 +92,7 @@ export async function createPartnerEnquiry(rawInput: unknown, now = new Date()) 
   if (input.items.some((item) => !itemById.has(item.itemId))) {
     throw new PartnerEnquiryError("One or more selected items are no longer available in this showcase.");
   }
+  for (const item of showcase.items) assertPartnerCatalogueSourceSupported(item.sourceType);
 
   return prisma.$transaction(async (tx) => {
     const existingRequest = await tx.quotationRequest.findUnique({ where: { requestNumber: numbers.requestNumber } });

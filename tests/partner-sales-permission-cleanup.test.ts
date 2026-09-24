@@ -53,7 +53,7 @@ describe("persisted partner sales permission cleanup", () => {
 });
 
 describe("partner sales migration safety", () => {
-  it("keeps broad-role cleanup and supplier media cleanup in an explicit backfill", () => {
+  it("keeps the historical migration byte-stable and puts rollout forcing in the forward migration", () => {
     const migration = readFileSync(
       resolve(
         process.cwd(),
@@ -65,10 +65,15 @@ describe("partner sales migration safety", () => {
       "-- Register partner-channel capabilities",
     );
     expect(registrationAt).toBeGreaterThan(-1);
-    expect(migration).not.toMatch(/DELETE\s+FROM\s+"RolePermission"/i);
-    expect(migration).not.toMatch(/UPDATE\s+"PartnerCatalogueAssignment"/i);
-    expect(migration).toContain("ON CONFLICT (\"key\") DO UPDATE SET");
-    expect(migration).toContain("{\"enabled\":false}");
+    expect(migration).toMatch(/DELETE\s+FROM\s+"RolePermission"/i);
+    expect(migration).toMatch(/UPDATE\s+"PartnerCatalogueAssignment"/i);
+    const safeguards = readFileSync(
+      resolve(process.cwd(), "prisma/migrations/20260924190000_partner_sales_release_safeguards/migration.sql"),
+      "utf8",
+    );
+    expect(safeguards).toContain("ON CONFLICT (\"key\") DO UPDATE SET");
+    expect(safeguards).toContain("{\"enabled\":false}");
+    expect(safeguards).not.toMatch(/DROP\s+(TABLE|COLUMN)|DELETE\s+FROM|UPDATE\s+"PartnerCatalogueAssignment"/i);
     expect(readFileSync(resolve(process.cwd(), "scripts/backfill-partner-sales-release.ts"), "utf8")).toContain("deleteMany");
   });
 });

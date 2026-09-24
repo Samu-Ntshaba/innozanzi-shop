@@ -202,7 +202,7 @@ export default async function PartnerCatalogueAdminPage({
 
           <Panel
             title="Assign a catalogue source"
-            description="Use the source UUID from the approved Products, Supplier Catalogue, or Combo Admin record."
+            description="Use the source UUID from an approved Product or Supplier Catalogue record. Combo and campaign sources are disabled for this rollout."
           >
             <form action={route} className="grid gap-4" method="post">
               <input name="operation" type="hidden" value="assign" />
@@ -212,7 +212,6 @@ export default async function PartnerCatalogueAdminPage({
                 <select className={`${inputClass} mt-1`} name="sourceType" required>
                   <option value="PRODUCT">Innozanzi product</option>
                   <option value="SUPPLIER_CATALOGUE_PRODUCT">Supplier catalogue product</option>
-                  <option value="COMBO">Combo</option>
                 </select>
               </label>
               <label className="text-sm font-semibold">

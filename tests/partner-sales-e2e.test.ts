@@ -142,7 +142,7 @@ describe("partner sales production acceptance journey", () => {
     expect(migration).toContain('CREATE TABLE "PartnerSalesProfile"');
     expect(migration).toContain('CREATE TABLE "PartnerCommission"');
     expect(migration).toContain('CREATE TABLE "PartnerPayoutBatch"');
-    expect(source("src/lib/prisma.ts")).toContain('PRISMA_SCHEMA_VERSION = "2026-09-22-partner-sales-channel"');
+    expect(source("src/lib/prisma.ts")).toContain('PRISMA_SCHEMA_VERSION = "2026-09-24-partner-sales-release-safeguards"');
   });
 
   it("makes the launch audit report partner readiness without private records", () => {

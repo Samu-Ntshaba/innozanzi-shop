@@ -45,7 +45,7 @@ const testTokenSecret = randomBytes(32).toString("hex");
 function tokenSecret() {
   const configured = process.env.PARTNER_QUOTATION_TOKEN_SECRET ?? process.env.AUTH_SECRET;
   if (configured?.trim()) return configured;
-  if (process.env.NODE_ENV === "test" || process.env.PARTNER_QUOTATION_ALLOW_INSECURE_TEST_SECRET === "true") return testTokenSecret;
+  if (process.env.NODE_ENV === "test" && process.env.PARTNER_QUOTATION_ALLOW_INSECURE_TEST_SECRET === "true") return testTokenSecret;
   throw new Error("Partner quotation token signing is unavailable: configure PARTNER_QUOTATION_TOKEN_SECRET.");
 }
 
@@ -110,7 +110,10 @@ export function clientQuotationProjection(input: unknown): PartnerQuotationClien
   const snapshot = approvedClientSnapshot(input);
   const snapshotPartner = snapshot.partner ?? {};
   const snapshotClient = snapshot.client ?? {};
-  const validUntil = new Date(snapshot.validUntil || plain(quotation.validUntil));
+  const validUntil = new Date(snapshot.validUntil);
+  if (!snapshot.validUntil || !Number.isFinite(validUntil.getTime())) {
+    throw new Error("Approved partner quotation is missing an immutable expiry.");
+  }
   return {
     quotationId: plain(quotation.id, plain(row.quotationId)),
     quotationNumber: plain(quotation.quotationNumber, "Quotation"),

@@ -8,6 +8,7 @@ import { prisma } from "@/lib/prisma";
 import { stagePartnerSalesEvent } from "./communications";
 import { localProductAvailability, partnerAvailabilityFingerprint, supplierPromotionEvidence } from "./availability";
 import { partnerSalesSettings } from "./settings";
+import { assertPartnerCatalogueSourceSupported } from "./catalogue-policy";
 
 export type PartnerPaymentProvider = "PAYFAST" | "OZOW";
 
@@ -19,6 +20,8 @@ export type PartnerQuotePaymentResult = {
   amount: string;
   currency: string;
   duplicate: boolean;
+  retryState?: "RETRY_AVAILABLE" | "FINANCE_REVIEW_REQUIRED";
+  failureReason?: string | null;
 };
 
 export type LinkPaidPartnerOrderInput = {
@@ -128,8 +131,13 @@ function immutableQuoteRow(row: QuoteVersionRow): QuoteVersionRow {
   const internal = record(audience.internal);
   const internalItems = Array.isArray(internal.items) ? internal.items : [];
   const totals = record(internal.totals);
-  const clientSnapshot = record(record(audience.client).client);
+  const clientAudience = record(audience.client);
+  const clientSnapshot = record(clientAudience.client);
   if (!internalItems.length || !Object.keys(totals).length) return row;
+  const immutableExpiry = new Date(String(clientAudience.validUntil ?? ""));
+  if (!clientAudience.validUntil || !Number.isFinite(immutableExpiry.getTime())) {
+    throw new PartnerQuotePaymentError("The approved quotation has no immutable expiry; request repricing.", "REPRICE_REQUIRED");
+  }
   const items = row.quotation.items.map((item, index) => {
     const approved = record(internalItems[index]);
     const sourceSnapshot = { ...record(item.sourceSnapshot), availabilityFingerprint: approved.availabilityFingerprint ?? record(item.sourceSnapshot).availabilityFingerprint };
@@ -157,12 +165,16 @@ function immutableQuoteRow(row: QuoteVersionRow): QuoteVersionRow {
       deliveryTotal: decimalValue(totals.deliveryTotal, row.quotation.deliveryTotal),
       vatTotal: decimalValue(totals.vatTotal, row.quotation.vatTotal),
       grandTotal: decimalValue(totals.grandTotal, row.quotation.grandTotal),
-      validUntil: clientSnapshot.validUntil ? new Date(String(clientSnapshot.validUntil)) : row.quotation.validUntil,
-      currency: typeof audience.client === "object" && typeof record(audience.client).currency === "string" ? String(record(audience.client).currency) : row.quotation.currency,
+      validUntil: immutableExpiry,
+      currency: typeof clientAudience.currency === "string" ? clientAudience.currency : row.quotation.currency,
       items,
       partnerQuoteCase: row.quotation.partnerQuoteCase ? {
         ...row.quotation.partnerQuoteCase,
-        partnerClient: { ...row.quotation.partnerQuoteCase.partnerClient, ...clientSnapshot },
+        partnerClient: {
+          ...row.quotation.partnerQuoteCase.partnerClient,
+          ...clientSnapshot,
+          deliveryAddress: clientSnapshot.deliveryAddress ?? row.quotation.partnerQuoteCase.partnerClient.deliveryAddress,
+        },
       } : row.quotation.partnerQuoteCase,
     },
   };
@@ -188,7 +200,17 @@ function orderDeliverySnapshot(quoteCase: QuoteVersionRow["quotation"]["partnerQ
   };
 }
 
+function approvedDeliveryInstructions(row: QuoteVersionRow) {
+  const audience = record(record(row.snapshot).audience);
+  const clientAudience = record(audience.client);
+  const client = record(clientAudience.client);
+  return typeof client.deliveryInstructions === "string" && client.deliveryInstructions.trim()
+    ? client.deliveryInstructions.trim()
+    : null;
+}
+
 async function currentAvailability(db: PartnerPaymentDb, item: QuoteItem, now = new Date()): Promise<Availability> {
+  assertPartnerCatalogueSourceSupported(item.sourceType);
   if (!item.sourceId) throw new PartnerQuotePaymentError(`${item.productName} has no availability source.`, "REPRICE_REQUIRED");
   if (item.sourceType === "SUPPLIER" || item.sourceType === "SUPPLIER_CATALOGUE_PRODUCT") {
     const source = await db.supplierCatalogueProduct.findUnique({ where: { id: item.sourceId }, select: { costPrice: true, promotionalPrice: true, promotionStartsAt: true, promotionEndsAt: true, stock: true, availability: true } });
@@ -196,17 +218,6 @@ async function currentAvailability(db: PartnerPaymentDb, item: QuoteItem, now = 
     const promotion = supplierPromotionEvidence({ costPrice: source.costPrice, promotionalPrice: source.promotionalPrice, promotionStartsAt: source.promotionStartsAt, promotionEndsAt: source.promotionEndsAt, now });
     if (!promotion.effectiveCost) throw new PartnerQuotePaymentError(`${item.productName} has no current cost; request repricing.`, "REPRICE_REQUIRED");
     return { cost: promotion.effectiveCost, available: source.stock, fingerprint: partnerAvailabilityFingerprint({ sourceType: "SUPPLIER_CATALOGUE_PRODUCT", sourceId: item.sourceId, baseCost: promotion.baseCost!, effectiveCost: promotion.effectiveCost, promotionalCost: promotion.promotionalCost, promotionActive: promotion.promotionActive, promotionStartsAt: promotion.promotionStartsAt, promotionEndsAt: promotion.promotionEndsAt, available: source.stock, state: source.availability }) };
-  }
-
-  if (item.sourceType === "COMBO") {
-    const snapshot = record(item.sourceSnapshot);
-    const campaign = await db.comboCampaign.findUnique({ where: { id: item.sourceId }, include: { items: true } });
-    if (!campaign || campaign.status !== "ACTIVE" || campaign.startsAt > now || campaign.endsAt <= now || !campaign.items.length) throw new PartnerQuotePaymentError(`${item.productName} is no longer available; request repricing.`, "REPRICE_REQUIRED");
-    const available = typeof snapshot.available === "number" ? snapshot.available : item.quantity;
-    const cost = String(campaign.estimatedCost);
-    const fingerprint = partnerAvailabilityFingerprint({ sourceType: "COMBO", sourceId: item.sourceId, baseCost: cost, effectiveCost: cost, available, state: campaign.status, details: { startsAt: campaign.startsAt.toISOString(), endsAt: campaign.endsAt.toISOString(), items: snapshot.items ?? campaign.items.map((comboItem) => ({ id: comboItem.id, quantity: comboItem.quantity, cost: String(comboItem.unitCost) })) } });
-    if (available < item.quantity) throw new PartnerQuotePaymentError(`${item.productName} is no longer available; request repricing.`, "REPRICE_REQUIRED");
-    return { cost, available, fingerprint };
   }
 
   if (!item.productId) throw new PartnerQuotePaymentError(`${item.productName} is not linked to inventory; request repricing.`, "REPRICE_REQUIRED");
@@ -289,8 +300,17 @@ function orderItemData(item: QuoteItem) {
   };
 }
 
-function paymentResult(payment: { id: string; orderId: string; provider: PaymentProvider; amount: Decimal.Value; currency: string }, order: { id: string; orderNumber: string }, duplicate: boolean): PartnerQuotePaymentResult {
-  return { paymentId: payment.id, orderId: order.id, orderNumber: order.orderNumber, provider: payment.provider as PartnerPaymentProvider, amount: new Decimal(payment.amount).toFixed(2), currency: payment.currency, duplicate };
+function paymentResult(payment: { id: string; orderId: string; provider: PaymentProvider; amount: Decimal.Value; currency: string; status?: string; failureReason?: string | null }, order: { id: string; orderNumber: string }, duplicate: boolean): PartnerQuotePaymentResult {
+  return {
+    paymentId: payment.id,
+    orderId: order.id,
+    orderNumber: order.orderNumber,
+    provider: payment.provider as PartnerPaymentProvider,
+    amount: new Decimal(payment.amount).toFixed(2),
+    currency: payment.currency,
+    duplicate,
+    ...(payment.status === "FAILED" || payment.status === "CANCELLED" ? { retryState: "RETRY_AVAILABLE" as const, failureReason: payment.failureReason ?? null } : {}),
+  };
 }
 
 /**
@@ -318,7 +338,7 @@ export async function createPartnerQuotePayment(acceptedVersionId: string, provi
     }
     // A client may retry with the other approved gateway. The order and
     // payment intent are business identities, not provider identities.
-    const existingPending = await db.payment.findFirst({ where: { partnerQuoteCaseId: quoteCase.id, status: { in: ["PENDING", "AWAITING_REVIEW", "PAID"] } }, include: { order: { select: { id: true, orderNumber: true } } }, orderBy: { createdAt: "asc" } });
+    const existingPending = await db.payment.findFirst({ where: { partnerQuoteCaseId: quoteCase.id, status: { in: ["PENDING", "AWAITING_REVIEW", "PAID", "FAILED", "CANCELLED"] } }, include: { order: { select: { id: true, orderNumber: true } } }, orderBy: { createdAt: "asc" } });
     if (existingPending) {
       if (!new Decimal(existingPending.amount).equals(new Decimal(quote.grandTotal)) || existingPending.currency !== quote.currency) throw new PartnerQuotePaymentError("Existing partner payment does not match the accepted amount.");
       return paymentResult(existingPending, existingPending.order ?? { id: existingPending.orderId, orderNumber: "" }, true);
@@ -350,7 +370,7 @@ export async function createPartnerQuotePayment(acceptedVersionId: string, provi
       status: "AWAITING_PAYMENT",
       paymentStatus: "PENDING",
       paymentMethod: provider,
-      customerNotes: typeof record(quoteCase.partnerClient.deliveryAddress).instructions === "string" ? String(record(quoteCase.partnerClient.deliveryAddress).instructions) : null,
+      customerNotes: approvedDeliveryInstructions(row),
       addresses: { create: orderDeliverySnapshot(quoteCase) },
       items: { create: quote.items.map(orderItemData) },
     } });

@@ -17,6 +17,7 @@ import {
 } from "./pricing";
 import { stagePartnerSalesEvent } from "./communications";
 import { localProductAvailability, partnerAvailabilityFingerprint, supplierPromotionEvidence } from "./availability";
+import { assertPartnerCatalogueSourceSupported } from "./catalogue-policy";
 
 export { PartnerPricingError } from "./pricing";
 
@@ -156,6 +157,7 @@ async function currentSource(db: PartnerCaseDatabase, item: QuoteRequestItem, sn
     return { cost: snapshot.cost, available: numberValue(snapshot.available, item.requestedQuantity), currentAvailabilityFingerprint: null };
   }
   const sourceType = stringValue(snapshot.sourceType, "");
+  assertPartnerCatalogueSourceSupported(sourceType);
   const sourceId = typeof snapshot.sourceId === "string" ? snapshot.sourceId : undefined;
   if (!sourceId) throw new PartnerPricingError(`${item.productName ?? "An item"} has no current cost or stock evidence.`);
   if (sourceType === "PRODUCT") {
@@ -171,34 +173,6 @@ async function currentSource(db: PartnerCaseDatabase, item: QuoteRequestItem, sn
     const promotion = supplierPromotionEvidence({ costPrice: product.costPrice, promotionalPrice: product.promotionalPrice, promotionStartsAt: product.promotionStartsAt, promotionEndsAt: product.promotionEndsAt, now });
     if (!promotion.effectiveCost || product.stock <= 0 || product.availability !== "IN_STOCK") throw new PartnerPricingError("A supplier item is no longer available.");
     return { cost: promotion.effectiveCost, available: product.stock, currentAvailabilityFingerprint: partnerAvailabilityFingerprint({ sourceType, sourceId, baseCost: promotion.baseCost!, effectiveCost: promotion.effectiveCost!, promotionalCost: promotion.promotionalCost, promotionActive: promotion.promotionActive, promotionStartsAt: promotion.promotionStartsAt, promotionEndsAt: promotion.promotionEndsAt, available: product.stock, state: product.availability }) };
-  }
-  if (sourceType === "COMBO") {
-    const combo = await db.comboCampaign.findUnique({
-      where: { id: sourceId },
-      include: { items: true },
-    });
-    if (!combo || combo.status !== "ACTIVE" || combo.startsAt > now || combo.endsAt <= now || combo.items.length === 0) {
-      throw new PartnerPricingError(`${item.productName ?? "This combo"} is no longer available.`);
-    }
-    const storedItems = Array.isArray(snapshot.items) ? snapshot.items : combo.items.map((comboItem) => ({
-      id: comboItem.id,
-      source: comboItem.productId ? "PRODUCT" : "SUPPLIER_CATALOGUE_PRODUCT",
-      cost: String(comboItem.unitCost),
-      available: item.requestedQuantity,
-      quantity: comboItem.quantity,
-    }));
-    const available = storedItems.reduce((minimum, value) => Math.min(minimum, numberValue(record(value).available, item.requestedQuantity)), item.requestedQuantity);
-    const cost = String(combo.estimatedCost);
-    const currentAvailabilityFingerprint = partnerAvailabilityFingerprint({
-      sourceType: "COMBO",
-      sourceId,
-      baseCost: cost,
-      effectiveCost: cost,
-      available,
-      state: combo.status,
-      details: { startsAt: combo.startsAt.toISOString(), endsAt: combo.endsAt.toISOString(), items: storedItems },
-    });
-    return { cost, available, currentAvailabilityFingerprint };
   }
   throw new PartnerPricingError(`${item.productName ?? "An item"} has no supported current availability source.`);
 }

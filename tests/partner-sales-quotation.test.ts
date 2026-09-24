@@ -64,6 +64,8 @@ const internalSnapshot = {
   sourceId: "supplier-secret",
 };
 
+beforeEach(() => vi.stubEnv("PARTNER_QUOTATION_ALLOW_INSECURE_TEST_SECRET", "true"));
+
 const versionRecord = {
   id: ids.version,
   quotationId: ids.quotation,

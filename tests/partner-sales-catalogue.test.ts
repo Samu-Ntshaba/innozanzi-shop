@@ -374,7 +374,7 @@ describe("partner catalogue assignment service", () => {
     expect(mocks.assignmentCreate).not.toHaveBeenCalled();
   });
 
-  it("does not double-assign a combo UUID already stored under the legacy CAMPAIGN identity", async () => {
+  it("rejects COMBO before any legacy assignment lookup", async () => {
     mocks.assignmentFindFirst.mockResolvedValue({
       id: ASSIGNMENT_ID,
       profileId: PROFILE_ID,
@@ -383,16 +383,8 @@ describe("partner catalogue assignment service", () => {
       status: "ACTIVE",
     });
 
-    await expect(
-      assignCatalogueItem(comboAssignInput(), actor, NOW),
-    ).rejects.toThrow(/already assigned/i);
-    expect(mocks.assignmentFindFirst).toHaveBeenCalledWith({
-      where: {
-        profileId: PROFILE_ID,
-        sourceId: COMBO_ID,
-        sourceType: { in: ["COMBO", "CAMPAIGN"] },
-      },
-    });
+    await expect(assignCatalogueItem(comboAssignInput(), actor, NOW)).rejects.toThrow(/disabled/i);
+    expect(mocks.assignmentFindFirst).not.toHaveBeenCalled();
     expect(mocks.assignmentCreate).not.toHaveBeenCalled();
   });
 
@@ -565,25 +557,9 @@ describe("partner catalogue assignment service", () => {
     expect(catalogue?.items).toEqual([]);
   });
 
-  it("invalidates a combo when a supplier component promotion changes", async () => {
-    const assignment = await assignCatalogueItem(comboAssignInput(), actor, NOW);
-    activeProfile.catalogueAssignments = [assignment];
-    mocks.comboFindUnique.mockResolvedValue({
-      ...comboCampaign,
-      items: [
-        {
-          ...comboCampaign.items[0],
-          supplierCatalogueProduct: {
-            ...supplierProduct,
-            promotionalPrice: decimal("5250.00"),
-          },
-        },
-      ],
-    });
-
-    const catalogue = await partnerCatalogue("acme-business", NOW);
-
-    expect(catalogue?.items).toEqual([]);
+  it("rejects combo assignment before component pricing is consulted", async () => {
+    await expect(assignCatalogueItem(comboAssignInput(), actor, NOW)).rejects.toThrow(/disabled/i);
+    expect(mocks.comboFindUnique).not.toHaveBeenCalled();
   });
 
   it("never snapshots or publishes a supplier-hosted media URL", async () => {
@@ -763,7 +739,7 @@ describe("partner catalogue Admin route and page", () => {
     expect(html).toContain('action="/api/admin/partner-sales/catalogue"');
     expect(html).toContain('name="sourceType"');
     expect(html).toContain('value="SUPPLIER_CATALOGUE_PRODUCT"');
-    expect(html).toContain('value="COMBO"');
+    expect(html).not.toContain('value="COMBO"');
     expect(html).not.toContain('value="CAMPAIGN"');
     expect(html).toContain("Withdraw");
     expect(html).not.toContain("SECRET COMMISSION");
@@ -886,20 +862,9 @@ describe("public partner catalogue", () => {
     });
   });
 
-  it("preserves approved PRODUCT and COMBO media", async () => {
+  it("preserves approved PRODUCT media", async () => {
     const productAssignment = activeProfile.catalogueAssignments[0];
-    const comboAssignment = await assignCatalogueItem(
-      comboAssignInput(),
-      actor,
-      NOW,
-    );
-    activeProfile.catalogueAssignments = [
-      productAssignment,
-      {
-        ...comboAssignment,
-        id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
-      },
-    ];
+    activeProfile.catalogueAssignments = [productAssignment];
 
     const catalogue = await partnerCatalogue("acme-business", NOW);
 
@@ -907,10 +872,6 @@ describe("public partner catalogue", () => {
       {
         url: "https://assets.example/notebook.webp",
         altText: "Business Notebook 14",
-      },
-      {
-        url: "https://assets.example/business-desk-bundle.webp",
-        altText: "Business Desk Bundle",
       },
     ]);
   });
