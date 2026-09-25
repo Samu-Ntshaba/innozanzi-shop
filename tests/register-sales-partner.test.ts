@@ -16,11 +16,12 @@ function database(mode: "NEW" | "EXISTING") {
   });
   const userUpdate = vi.fn();
   const tx = {
-    user: { create: userCreate, update: userUpdate },
+    $queryRaw: vi.fn(),
+    user: { create: userCreate, update: userUpdate, findUnique: vi.fn().mockResolvedValue(null) },
     userRole: { create: vi.fn() },
     userInvitation: { create: vi.fn() },
     partnershipApplication: { create: vi.fn().mockResolvedValue({ id: "application-id" }) },
-    partnership: { create: vi.fn().mockResolvedValue({ id: "partnership-id", userId: USER_ID }) },
+    partnership: { create: vi.fn().mockResolvedValue({ id: "partnership-id", userId: USER_ID }), findFirst: vi.fn().mockResolvedValue(null) },
     partnershipStatusHistory: { createMany: vi.fn() },
     partnershipReview: { create: vi.fn() },
     auditLog: { create: vi.fn() },
@@ -74,5 +75,12 @@ describe("registerSalesPartner", () => {
     mocks.enqueueEmail.mockRejectedValueOnce(new Error("provider unavailable"));
     await expect(registerSalesPartner({ ...base, sourceMode: "NEW" }, { id: "admin-id", email: "admin@example.com" }, db as never)).resolves.toEqual({ partnerId: "partnership-id", invited: true });
     expect(mocks.stageEmail).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ subject: expect.stringContaining("sales partner") }), USER_ID);
+  });
+
+  it("rechecks for an active partnership after acquiring the transaction lock", async () => {
+    const { db, tx } = database("EXISTING");
+    tx.partnership.findFirst.mockResolvedValue({ id: "concurrent-partnership" });
+    await expect(registerSalesPartner({ ...base, sourceMode: "EXISTING", userId: USER_ID }, { id: "admin-id", email: "admin@example.com" }, db as never)).rejects.toThrow("already has an active partnership");
+    expect(tx.partnership.create).not.toHaveBeenCalled();
   });
 });

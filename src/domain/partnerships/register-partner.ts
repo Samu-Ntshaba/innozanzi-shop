@@ -55,6 +55,9 @@ export async function registerSalesPartner(input: RegistrationInput, actor: Acto
   const expiresAt = invitationExpiry();
 
   const result = await database.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`partner-register:${email}`},0))::text AS locked`;
+    if (data.sourceMode === "NEW" && await tx.user.findUnique({ where: { email }, select: { id: true } })) throw new Error("An account already exists for this email. Choose Existing client instead.");
+    if (data.sourceMode === "EXISTING" && await tx.partnership.findFirst({ where: { userId: existingClient!.id, status: { in: ["APPROVED", "CONDITIONALLY_APPROVED", "SUSPENDED"] } }, select: { id: true } })) throw new Error("This client already has an active partnership.");
     let client = existingClient;
     if (data.sourceMode === "NEW") {
       client = await tx.user.create({
