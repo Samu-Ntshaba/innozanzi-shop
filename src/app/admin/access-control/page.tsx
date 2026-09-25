@@ -165,7 +165,7 @@ export default async function AccessControlPage({ searchParams }: AccessControlP
                             <ConfirmActionButton
                               className="font-semibold text-amber-700 underline"
                               label="Resend invitation"
-                              message={`Send ${user.email} a new temporary password and invalidate the previous invitation?`}
+                              message={`Send ${user.email} a new secure invitation and invalidate the previous invitation?`}
                             />
                           </form>
                         ) : null}

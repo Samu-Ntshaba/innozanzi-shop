@@ -8,9 +8,9 @@ import { prisma } from "@/lib/prisma";
 import { hashPassword, verifyPassword } from "./password";
 import { requireActivationUser, requirePermission } from "./session";
 import { passwordSchema } from "@/schemas/auth";
-import { enqueueEmail } from "@/integrations/email/outbox";
-import { emailTemplates } from "@/integrations/email/templates";
-import { generateTemporaryPassword, invitationExpiry } from "./invitation-utils";
+import { enqueueEmail, stageEmail } from "@/integrations/email/outbox";
+import { emailTemplates, partnerInvitationEmail } from "@/integrations/email/templates";
+import { generateTemporaryPassword, invitationExpiry, invitationRenewalMode, retireStalePartnerInvitationEmails } from "./invitation-utils";
 import { notifySupportOfNewUser } from "./user-notifications";
 import { sendStaffEmail } from "@/domain/notifications/role-email";
 import { employeeOnboardingPdf } from "./employee-onboarding-pdf";
@@ -134,16 +134,34 @@ export async function resendUserInvitation(formData: FormData) {
         orderBy: { createdAt: "desc" },
         take: 1,
       },
+      partnerships:{select:{status:true}},
     },
   });
   const previous = user?.invitationsReceived[0];
   if (!user || !previous) throw new Error("This user does not have a renewable invitation.");
 
-  const temporaryPassword = generateTemporaryPassword();
-  const passwordHash = await hashPassword(temporaryPassword);
   const rawToken = randomBytes(32).toString("base64url");
   const activationTokenHash = createHash("sha256").update(rawToken).digest("hex");
   const expiresAt = invitationExpiry();
+  const renewalMode=invitationRenewalMode(user.partnerships);
+  if(renewalMode==="PARTNER_INACTIVE")throw new Error("This sales partnership is not active. Reinstate it before resending access.");
+  if(renewalMode==="LINK_ONLY"){
+    const invitationEmail=partnerInvitationEmail({to:user.email,name:user.name??"Sales partner",company:previous.company?.companyName??"Sales partner",token:rawToken,expiresAt});
+    await prisma.$transaction(async tx=>{
+      await tx.session.deleteMany({where:{userId}});
+      await retireStalePartnerInvitationEmails(tx,userId);
+      await tx.userInvitation.deleteMany({where:{userId,acceptedAt:null}});
+      await tx.user.update({where:{id:userId},data:{passwordHash:null,temporaryPasswordExpiresAt:expiresAt,mustChangePassword:true}});
+      await tx.userInvitation.create({data:{userId,invitedById:actor.user.id,roleId:previous.roleId,companyId:previous.companyId,departmentId:previous.departmentId,accountType:previous.accountType,activationTokenHash,expiresAt}});
+      await stageEmail(tx,invitationEmail,userId);
+      await tx.auditLog.create({data:{actorId:actor.user.id,action:"partner.invitation.resend",entityType:"User",entityId:userId,after:{expiresAt,passwordless:true}}});
+    });
+    try{await enqueueEmail(invitationEmail,userId);}catch(error){console.error("Partner invitation remains queued for retry.",error);}
+    revalidatePath("/admin/access-control");
+    return;
+  }
+  const temporaryPassword = generateTemporaryPassword();
+  const passwordHash = await hashPassword(temporaryPassword);
   const invitationEmail = emailTemplates.userInvitation(
     user.email, user.name ?? "Invited user", temporaryPassword, previous.role.name,
     previous.accountType, previous.company?.companyName ?? "Innozanzi", rawToken, expiresAt,

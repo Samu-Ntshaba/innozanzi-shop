@@ -1,10 +1,15 @@
 import { NextResponse } from "next/server";
 import { requirePermission } from "@/domain/auth/session";
 import { registerSalesPartner, registerSalesPartnerSchema } from "@/domain/partnerships/register-partner";
+import { boundedFormData, browserMutationGuard } from "@/lib/security/request";
 
 export async function POST(request: Request) {
+  const guard=browserMutationGuard(request,"application/x-www-form-urlencoded");
+  if(guard)return guard;
   const context = await requirePermission("partnership.partner.manage");
-  const parsed = registerSalesPartnerSchema.safeParse(Object.fromEntries(await request.formData()));
+  let form:FormData;
+  try{form=await boundedFormData(request,32_768);}catch{return new Response("Request body too large.",{status:413});}
+  const parsed = registerSalesPartnerSchema.safeParse(Object.fromEntries(form));
   if (!parsed.success) return NextResponse.redirect(new URL("/admin/partnerships/partners/new?error=invalid", request.url), 303);
   try {
     const result = await registerSalesPartner(parsed.data, { id: context.user.id, name: context.user.name, email: context.user.email });
