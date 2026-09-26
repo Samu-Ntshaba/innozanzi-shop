@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { activatePartnerInvitation } from "@/domain/auth/partner-activation";
 import { boundedFormData, browserMutationGuard } from "@/lib/security/request";
+import { publicSiteUrl } from "@/lib/public-site-url";
 
 const field = (form: FormData, name: string) => {
   const value = form.get(name);
@@ -19,13 +20,13 @@ export async function POST(request: Request) {
     confirmPassword: field(form, "confirmPassword"),
   };
   const result = await activatePartnerInvitation(input);
-  if (result.ok) return NextResponse.redirect(new URL("/account/partner", request.url), 303);
+  if (result.ok) return NextResponse.redirect(new URL("/account/partner", publicSiteUrl()), 303);
   if (result.error === "password") {
-    const target = new URL("/activate-account", request.url);
+    const target = new URL("/activate-account", publicSiteUrl());
     target.searchParams.set("token", input.token);
     target.searchParams.set("email", input.email);
     target.searchParams.set("error", "password");
     return NextResponse.redirect(target, 303);
   }
-  return NextResponse.redirect(new URL("/activate-account?partner=1&error=invalid", request.url), 303);
+  return NextResponse.redirect(new URL("/activate-account?partner=1&error=invalid", publicSiteUrl()), 303);
 }
