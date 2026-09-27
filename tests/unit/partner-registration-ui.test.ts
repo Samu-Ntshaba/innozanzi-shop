@@ -21,4 +21,10 @@ describe("sales partner Admin entry points", () => {
     expect(html).not.toContain('name="password"');
     expect(html.toLowerCase()).not.toContain("temporary password");
   });
+  it("enforces the same minimum lengths in the browser that registration requires on the server", () => {
+    const html=renderToStaticMarkup(createElement(ManualPartnerForm,{clients:[],types:[{id:"type-id",label:"Sales partner"}],managers:[]}));
+    expect(html).toMatch(/<input[^>]*minLength="2"[^>]*name="name"/);
+    expect(html).toMatch(/<input[^>]*minLength="2"[^>]*name="companyName"/);
+    expect(html).toMatch(/<textarea[^>]*name="reason"[^>]*minLength="5"/);
+  });
 });

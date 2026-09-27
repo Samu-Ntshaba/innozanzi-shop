@@ -41,7 +41,7 @@ import {
 } from "@/domain/partner-sales/documents";
 
 const approvedAt = new Date("2026-09-24T08:00:00.000Z");
-const validUntil = new Date("2026-09-26T08:00:00.000Z");
+const validUntil = new Date("2030-09-26T08:00:00.000Z");
 
 const clientSnapshot = {
   currency: "ZAR",

@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { requirePermission } from "@/domain/auth/session";
 import { registerSalesPartner, registerSalesPartnerSchema } from "@/domain/partnerships/register-partner";
@@ -11,12 +12,19 @@ export async function POST(request: Request) {
   let form:FormData;
   try{form=await boundedFormData(request,32_768);}catch{return new Response("Request body too large.",{status:413});}
   const parsed = registerSalesPartnerSchema.safeParse(Object.fromEntries(form));
-  if (!parsed.success) return NextResponse.redirect(new URL("/admin/partnerships/partners/new?error=invalid", publicSiteUrl()), 303);
+  if (!parsed.success) {
+    const field=parsed.error.issues[0]?.path[0];
+    const code=field==="reason"?"invalid_reason":field==="name"?"invalid_name":field==="companyName"?"invalid_company":field==="email"?"invalid_email":"invalid";
+    return NextResponse.redirect(new URL(`/admin/partnerships/partners/new?error=${code}`, publicSiteUrl()), 303);
+  }
   try {
     const result = await registerSalesPartner(parsed.data, { id: context.user.id, name: context.user.name, email: context.user.email });
     return NextResponse.redirect(new URL(`/admin/partnerships/partners/${result.partnerId}?registered=1`, publicSiteUrl()), 303);
   } catch (error) {
     const code = error instanceof Error && error.message.includes("already") ? "duplicate" : "failed";
-    return NextResponse.redirect(new URL(`/admin/partnerships/partners/new?error=${code}`, publicSiteUrl()), 303);
+    const reference=code==="failed"?randomUUID():null;
+    if(reference)console.error("Sales partner registration failed",{reference,error});
+    const suffix=reference?`&ref=${encodeURIComponent(reference)}`:"";
+    return NextResponse.redirect(new URL(`/admin/partnerships/partners/new?error=${code}${suffix}`, publicSiteUrl()), 303);
   }
 }

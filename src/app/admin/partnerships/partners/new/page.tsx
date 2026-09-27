@@ -3,9 +3,18 @@ import { requirePermission } from "@/domain/auth/session";
 import { prisma } from "@/lib/prisma";
 import { ManualPartnerForm } from "./manual-partner-form";
 
-export default async function NewPartnerPage({searchParams}:{searchParams:Promise<{error?:string}>}) {
+const errorMessages:Record<string,string>={
+  duplicate:"This person already has an account or active partnership. Choose the existing-client option or open their partner record.",
+  invalid_reason:"Enter a decision and onboarding note of at least 5 characters.",
+  invalid_name:"Enter the partner's full contact name (at least 2 characters).",
+  invalid_company:"Enter the business or trading name (at least 2 characters).",
+  invalid_email:"Enter a valid partner email address.",
+  invalid:"Check the highlighted registration details and try again.",
+};
+
+export default async function NewPartnerPage({searchParams}:{searchParams:Promise<{error?:string;ref?:string}>}) {
   await requirePermission("partnership.partner.manage");
-  const {error}=await searchParams;
+  const {error,ref}=await searchParams;
   const [clients, types, managers] = await Promise.all([
     prisma.user.findMany({
       where: {
@@ -24,7 +33,7 @@ export default async function NewPartnerPage({searchParams}:{searchParams:Promis
   ]);
 
   return <AdminPage title="Register sales partner" description="Approve a partner directly, or connect an existing Innozanzi customer to the sales-partner programme.">
-    {error?<div className="mb-5 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800">{error==="duplicate"?"This person already has an account or active partnership. Choose the existing-client option or open their partner record.":"The partner could not be registered. Check the details and try again."}</div>:null}
+    {error?<div className="mb-5 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800">{errorMessages[error]??"The partner could not be registered. Check the details and try again."}{error==="failed"&&ref?<span className="mt-1 block">Support reference: <code>{ref}</code></span>:null}</div>:null}
     <Panel title="Partner and invitation details" description="A new partner receives a secure, single-use link to choose their password. Innozanzi never emails a password.">
       <ManualPartnerForm
         clients={clients.map(client=>({id:client.id,label:`${client.customerProfile?.company?.companyName??client.name??client.email} · ${client.email}`}))}

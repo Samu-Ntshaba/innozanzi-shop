@@ -24,4 +24,26 @@ describe("sales partner registration route",()=>{
     expect(response.status).toBe(303);
     expect(response.headers.get("location")).toBe("https://shop.innozanzi.co.za/admin/partnerships/partners/new?error=duplicate");
   });
+  it("identifies a short decision note instead of reporting a generic registration failure",async()=>{
+    process.env.NEXT_PUBLIC_SITE_URL="https://shop.innozanzi.co.za";
+    mocks.permission.mockResolvedValue({user:{id:"admin-id",name:"Admin",email:"admin@example.com"}});
+    mocks.bounded.mockResolvedValue(new FormData());
+    mocks.parse.mockReturnValue({success:false,error:{issues:[{path:["reason"],code:"too_small"}]}});
+    const response=await POST(new Request("https://shop.innozanzi.co.za/api/admin/partnerships/partners/register",{method:"POST"}));
+    expect(response.headers.get("location")).toBe("https://shop.innozanzi.co.za/admin/partnerships/partners/new?error=invalid_reason");
+  });
+  it("logs an incident reference and returns it for an unexpected backend failure",async()=>{
+    process.env.NEXT_PUBLIC_SITE_URL="https://shop.innozanzi.co.za";
+    mocks.permission.mockResolvedValue({user:{id:"admin-id",name:"Admin",email:"admin@example.com"}});
+    mocks.bounded.mockResolvedValue(new FormData());
+    mocks.parse.mockReturnValue({success:true,data:{}});
+    mocks.register.mockRejectedValue(new Error("database constraint failed"));
+    const log=vi.spyOn(console,"error").mockImplementation(()=>undefined);
+    const response=await POST(new Request("https://shop.innozanzi.co.za/api/admin/partnerships/partners/register",{method:"POST"}));
+    const location=new URL(response.headers.get("location")!);
+    expect(location.searchParams.get("error")).toBe("failed");
+    expect(location.searchParams.get("ref")).toMatch(/^[a-f0-9-]{8,}$/);
+    expect(log).toHaveBeenCalledWith("Sales partner registration failed",expect.objectContaining({reference:location.searchParams.get("ref"),error:expect.any(Error)}));
+    log.mockRestore();
+  });
 });
